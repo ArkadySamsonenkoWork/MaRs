@@ -49,6 +49,7 @@ autodoc_mock_imports = [
     "optuna_dashboard",
     "torchdiffeq",
     "safetensors",
+    "pywt",
     
     # Visualization
     "seaborn",
