@@ -35,8 +35,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-opt = ["optuna>=4.3", "nevergrad>=1.0.12", "optuna_dashboard"]
-plot = ["seaborn", "plotly"]
+opt = ["optuna>=4.3", "nevergrad>=1.0.12", "optuna_dashboard", "safetensors"]
+plot = ["seaborn", "plotly", "matplotlib"]
 
 [project.urls]
 "Homepage" = "https://github.com/ArkadySamsonenkoWork/MaRs"
