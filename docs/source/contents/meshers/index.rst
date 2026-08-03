@@ -4,7 +4,7 @@
 Meshing Strategies
 ==================
 
-MarS provides several mesh classes to handle orientation sampling in EPR simulations,
+MaRs provides several mesh classes to handle orientation sampling in EPR simulations,
 ranging from isotropic powder averages to single-crystal and axially symmetric cases.
 
 Available Mesh Types

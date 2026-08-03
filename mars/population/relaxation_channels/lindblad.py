@@ -71,7 +71,7 @@ class LindbladRelaxationChannel(BaseRelaxationChannel):
             )
         self.liouvilleator = transform.Liouvilleator
 
-    def transition_probabilities(
+    def transition_rates(
             self, transformation_unitary: tp.Optional[torch.Tensor],
             fields: tp.Optional[torch.Tensor], energies: torch.Tensor,
             temperature: torch.Tensor) -> torch.Tensor:
@@ -89,10 +89,10 @@ class LindbladRelaxationChannel(BaseRelaxationChannel):
         """Compute population transfer rates W_{a<-c} = Σ_k |(L_k)_{ac}|²."""
         jump_ops = self.get_coupling_operators(transformation_unitary, fields)
         return self.thermal_corrector_partial(energies).apply_matrix_transform(
-            temperature, self._compute_transition_probs(jump_ops)
+            temperature, self._compute_transition_rates(jump_ops)
         )
 
-    def _compute_transition_probs(self, operators: tp.List[torch.Tensor]) -> torch.Tensor:
+    def _compute_transition_rates(self, operators: tp.List[torch.Tensor]) -> torch.Tensor:
         """
        Compute secular population transfer rates W_a<-c.
 
@@ -156,7 +156,7 @@ class LindbladRelaxationChannel(BaseRelaxationChannel):
         :param operators: List of coupling operators. Each Shape: (..., N, N).
         :return: Dephasing rate matrix. Shape: (..., N, N).
         """
-        W = self._compute_transition_probs(operators)
+        W = self._compute_transition_rates(operators)
         rate_out = W.sum(dim=-2, keepdim=True)
         gamma_pop = 0.5 * (rate_out + rate_out.transpose(-1, -2))
 
@@ -202,7 +202,6 @@ class LindbladRelaxationChannel(BaseRelaxationChannel):
             return transform.apply_secular_mask(R_raw)
         else:
             return R_raw
-
 
     def __repr__(self):
         return (

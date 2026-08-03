@@ -1065,14 +1065,26 @@ def reconstruct_positions(min_val: torch.Tensor, max_val: torch.Tensor, num_poin
     This function supports batched inputs. If `min_val` and `max_val` have shape `(B,)` or `(B, 1)`,
     the output will have shape `(B, num_points)`.
 
+    If `min_val` and `max_val` have shape `()`, then the output will have shape `(num_points,)`.
+
     :param min_val: The starting position(s) tensor.
     :param max_val: The ending position(s) tensor. Must match the shape, device, and dtype of `min_val`.
     :param num_points: The number of points to generate between min and max.
     :return: Interpolated positions tensor.
     :rtype: torch.Tensor
     """
-    min_v = min_val.unsqueeze(-1)
-    max_v = max_val.unsqueeze(-1)
+    if min_val.dim() == 0:
+        weights = torch.linspace(
+            0.0,
+            1.0,
+            num_points,
+            device=min_val.device,
+            dtype=min_val.dtype
+        )
+        return torch.lerp(min_val, max_val, weights)
+
+    min_v = min_val.reshape(-1, 1)
+    max_v = max_val.reshape(-1, 1)
 
     weights = torch.linspace(
         0.0,
@@ -1378,10 +1390,10 @@ class CWSpectralData:
 
 @dataclass
 class SerializedMarsSession:
-    """Dataclass representing a serialized MarS experiment.
+    """Dataclass representing a serialized MaRs experiment.
 
     Contains serialized components that can be easily saved to disk
-    and later deserialized into a full MarSExperiment.
+    and later deserialized into a full MaRsExperiment.
     """
     sample: SerializedSample
     experimental_parameters: tp.Optional[ExperimentalParameters] = None
@@ -1408,11 +1420,11 @@ class SerializedMarsSession:
 
     def to_experiment(self, device: torch.device = torch.device("cpu"),
                       dtype: torch.dtype = torch.float32) -> MarsSession:
-        """Convert the serialized experiment into a non-serialized MarSExperiment.
+        """Convert the serialized experiment into a non-serialized MaRsExperiment.
 
         :param device: Torch device to place the tensors on.
         :param dtype: Torch data type for the tensors.
-        :return: A fully instantiated MarSExperiment.
+        :return: A fully instantiated MaRsExperiment.
         """
         sample = self.sample.to_mars_sample()
         field = None
@@ -1470,7 +1482,7 @@ class SerializedMarsSession:
         Supports folder-based loading only folder-based loading.
 
         :param filepath: Path to the file or folder.
-        :return: The loaded MarSExperimentData.
+        :return: The loaded MaRsExperimentData.
         """
         path = pathlib.Path(filepath)
         if path.is_dir():
@@ -1494,7 +1506,7 @@ class SerializedMarsSession:
 
 @dataclass
 class MarsSession:
-    """Dataclass representing a non-serialized (fully instantiated) MarS experiment.
+    """Dataclass representing a non-serialized (fully instantiated) MaRs experiment.
 
     Contains actual sample objects, spectra creators, and field tensors.
     """
@@ -1553,7 +1565,7 @@ class MarsSession:
         :param filepath: Path to the file or folder.
         :param device: Torch device to place the tensors on.
         :param dtype: Torch data type for the tensors.
-        :return: The loaded MarSExperiment.
+        :return: The loaded MaRsExperiment.
         """
         serialized = SerializedMarsSession.from_file(filepath, device=device, dtype=dtype)
         return serialized.to_experiment(device=device, dtype=dtype)

@@ -28,7 +28,7 @@ where :math:`\vec{\rho}` is the vectorized density matrix and :math:`\hat{\mathc
 
    \hat{\mathcal{H}} = H \otimes I - I \otimes H^T
 
-where :math:`H` is the spin Hamiltonian in Hilbert space (in frequency units, Hz) and :math:`I` is the identity matrix. The factor of :math:`2\pi` is implicitly included in the definition of :math:`H` within MarS to match angular frequency conventions in the exponent.
+where :math:`H` is the spin Hamiltonian in Hilbert space (in frequency units, Hz) and :math:`I` is the identity matrix. The factor of :math:`2\pi` is implicitly included in the definition of :math:`H` within MaRs to match angular frequency conventions in the exponent.
 
 To solve this equation, we introduce the **propagator** :math:`\hat{U}(t, 0)`, which maps the initial state to the state at time :math:`t`:
 

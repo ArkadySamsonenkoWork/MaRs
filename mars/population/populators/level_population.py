@@ -16,7 +16,7 @@ class LevelBasedPopulator(core.BaseTimeDepPopulator):
 
     This class uses only the diagonal elements of the density matrix (populations of energy levels)
     Transitions between levels are governed by a kinetic matrix K derived from the provided Context, which may include:
-      - Spontaneous (free) transitions respecting detailed balance,
+      - Spontaneous (thermal) transitions respecting detailed balance,
       - Driven (induced) transitions,
       - Loss terms (e.g., phosphorescence decay from triplet states).
 
@@ -36,7 +36,7 @@ class LevelBasedPopulator(core.BaseTimeDepPopulator):
         :param context: context is a dataclass / Dict with any objects that are used to compute relaxation matrix.
 
         :param tr_matrix_generator_cls: class of Matrix Generator
-            that will be used to compute probabilities of transitions
+            that will be used to compute rates of transitions
         :param solver: It solves the general equation dn/dt = A(n,t) @ n.
 
             The following solvers are available:
@@ -84,7 +84,7 @@ class LevelBasedPopulator(core.BaseTimeDepPopulator):
                                   full_system_vectors: tp.Optional[torch.Tensor],
                                   *args, **kwargs) -> matrix_generators.BaseGenerator:
         """
-        Function creates TransitionMatrixGenerator - it is object that can compute probabilities of transitions.
+        Function creates TransitionMatrixGenerator - it is object that can compute rates of transitions.
         ----------
 
         :param time:

@@ -413,7 +413,7 @@ class CouplingChannelManager:
         for channel in self.relaxation_channels:
             channel.expand_kronecker(left_dim, right_dim)
 
-    def compute_transition_probabilities(
+    def compute_transition_rates(
             self, transformation_unitary: tp.Optional[torch.Tensor],
             fields: tp.Optional[torch.Tensor], energies: torch.Tensor,
             temperature: torch.Tensor) -> torch.Tensor:
@@ -429,7 +429,7 @@ class CouplingChannelManager:
         :return: Rate matrix W.
         """
         return sum(
-            channel.transition_probabilities(
+            channel.transition_rates(
                 transformation_unitary, fields, energies, temperature
             ) for channel in self.relaxation_channels
         )

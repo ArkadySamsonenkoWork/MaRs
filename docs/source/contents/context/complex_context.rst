@@ -4,12 +4,12 @@ Complex Context Construction
 ============================
 
 Real spin systems often involve multiple simultaneous relaxation mechanisms or coupled subsystems.
-MarS provides powerful algebraic operations to construct complex Context objects from simpler building blocks: addition (``+``), multiplication (``@``), and concationation (via :func:`mars.concatination.concat`).
+MaRs provides powerful algebraic operations to construct complex Context objects from simpler building blocks: addition (``+``), multiplication (``@``), and concationation (via :func:`mars.concatination.concat`).
 
 Context Algebra Overview
 ------------------------
 
-MarS supports three fundamental operations:
+MaRs supports three fundamental operations:
 
 1. **Addition** (``context_1 + context_2``): Combines independent relaxation processes acting on the same spin system
 
@@ -109,7 +109,7 @@ A triplet state formed by intersystem crossing typically exhibits:
        sample=sample,
        basis="zfs",
        init_populations=initial_pops,
-       out_probs=phosphorescence
+       decay_rates=phosphorescence
    )
    
    # Context 2: Spin-lattice relaxation (eigen basis)
@@ -124,7 +124,7 @@ A triplet state formed by intersystem crossing typically exhibits:
    context_zeeman = population.Context(
        sample=sample,
        basis="eigen",
-       free_probs=spin_lattice,
+       thermal_rates=spin_lattice,
        temperature=140.0  # K
    )
    
@@ -166,8 +166,8 @@ Therefore, even if the dephasing is unknown, it is best to specify it to avoid u
        sample=sample,
        basis="zfs",
        init_populations=[0.68, 0.12, 0.20],
-       out_probs=torch.tensor([92.0, 45.0, 75.0]),  # s^-1
-       free_probs=torch.tensor([
+       decay_rates=torch.tensor([92.0, 45.0, 75.0]),  # s^-1
+       thermal_rates=torch.tensor([
            [0.0,    950.0,   70.0],
            [950.0,  0.0,     950.0],
            [70.0,   950.0,   0.0]
@@ -216,7 +216,7 @@ Radical pair systems may have multiple competing decay channels:
    context_st = population.Context(
        sample=radical_pair_sample,
        basis="multiplet",
-       free_probs=st_mixing
+       thermal_rates=st_mixing
    )
    
    # Context 2: Radical recombination (singlet channel)
@@ -225,7 +225,7 @@ Radical pair systems may have multiple competing decay channels:
    context_recomb = population.Context(
        sample=radical_pair_sample,
        basis="multiplet",
-       out_probs=recombination
+       decay_rates=recombination
    )
    
    # Context 3: Spin relaxation in product basis
@@ -239,7 +239,7 @@ Radical pair systems may have multiple competing decay channels:
    context_relax = population.Context(
        sample=radical_pair_sample,
        basis="product",
-       free_probs=relaxation
+       thermal_rates=relaxation
    )
    
    # Combine all three mechanisms
@@ -320,13 +320,13 @@ where :math:`\mathbb{I}` and :math:`\hat{\mathbb{I}}` are identity operators in 
 Implementation Strategy
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-MarS uses Clebsch-Gordan coefficients to construct the :class:`mars.population.contexts.KroneckerContext`
+MaRs uses Clebsch-Gordan coefficients to construct the :class:`mars.population.contexts.KroneckerContext`
 object, which handles all basis transformations consistently. For relaxation, superoperators are first generated for each subsystem in its native intra-basis ("zfs", "xyz", "zeeman", ...),
 and only then are these superoperators composed in the multiplied Hilbert space.
 
 While populations, initial states,
-outgoing probabilities, and density matrices admit unambiguous Kronecker-product transformations between bases,
-transition probability matrices (``free_probs``, ``driven_probs``) require special considiration due to their
+decay rates, and density matrices admit unambiguous Kronecker-product transformations between bases,
+transition rate matrices (``thermal_rates``, ``driven_rates``) require special considiration due to their
 dependence on both initial and final state overlaps. The exploration for these transformations is shown in the :ref:`basis_transformation`. 
 
 Key functions:
@@ -380,9 +380,9 @@ Transformation Rules
 
 **Density matrices** (init_density): Kronecker product :math:`\rho_1 \otimes \rho_2 \otimes \cdots`
 
-**Diagonal operators** (out_probs, dephasing): Sum of local terms :math:`v_1 \otimes I + I \otimes v_2 + \cdots`
+**Diagonal operators** (decay_rates, dephasing): Sum of local terms :math:`v_1 \otimes I + I \otimes v_2 + \cdots`
 
-**Matrices** (free_probs, driven_probs, supeoperators): Sum of local operators :math:`K_1 \otimes I + I \otimes K_2 + \cdots`
+**Matrices** (thermal_rates, driven_rates, supeoperators): Sum of local operators :math:`K_1 \otimes I + I \otimes K_2 + \cdots`
 
 .. note::
 
@@ -404,7 +404,7 @@ Examples
        sample=sample,
        basis="zeeman",
        init_populations=torch.tensor([0.6, 0.4]),
-       free_probs=torch.tensor([[0.0, 0.1], [0.1, 0.0]]),
+       thermal_rates=torch.tensor([[0.0, 0.1], [0.1, 0.0]]),
        dtype=torch.float64
    )
    
@@ -412,7 +412,7 @@ Examples
        sample=sample,
        basis="zeeman",
        init_populations=torch.tensor([0.5, 0.5]),
-       free_probs=torch.tensor([[0.0, 0.05], [0.05, 0.0]]),
+       thermal_rates=torch.tensor([[0.0, 0.05], [0.05, 0.0]]),
        dtype=torch.float64
    )
    
@@ -435,7 +435,7 @@ Examples
 
       E_i - E_j = E_k - E_l.
 
-   Such contributions are preserved in MarS.
+   Such contributions are preserved in MaRs.
 
 Combining Multiplication and Addition
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -448,14 +448,14 @@ For complex systems, both operations can be combined:
        sample=single_sample,
        basis="zfs",
        init_populations=[0.68, 0.12, 0.20],
-       out_probs=torch.tensor([95.0, 50.0, 75.0])
+       decay_rates=torch.tensor([95.0, 50.0, 75.0])
    )
    
    context_triplet_2 = population.Context(
        sample=single_sample,
        basis="zfs",
        init_populations=[0.22, 0.65, 0.13],
-       out_probs=torch.tensor([95.0, 50.0, 75.0])
+       decay_rates=torch.tensor([95.0, 50.0, 75.0])
    )
    
    # Composite initial state and decay
@@ -474,7 +474,7 @@ For complex systems, both operations can be combined:
    context_collective = population.Context(
        sample=double_sample,
        basis="eigen",
-       free_probs=collective_relax,
+       thermal_rates=collective_relax,
        temperature=100.0
    )
    
@@ -503,7 +503,7 @@ Consider:
 - Kinetic matrices (or superoperators) combine as:  
   :math:`(K_1 + K_2) \otimes \mathbb{I} + \mathbb{I} \otimes K_3 = (K_1 \otimes \mathbb{I} + \mathbb{I} \otimes K_3) + (K_2 \otimes \mathbb{I}) + (\mathbb{I} \otimes 0)`
 
-In this case, MarS rewrites the result as a sum of two elements:
+In this case, MaRs rewrites the result as a sum of two elements:
 
 1. :math:`(\mathbf{n_1}, K_1) \otimes (\mathbf{n_3}, K_3)`
 2. :math:`(\mathbf{n_2}, K_2) \otimes (\mathbf{n_3}, 0)`
@@ -552,7 +552,7 @@ For density matrix:
    \end{pmatrix}
 
 
-Under vectorization (row-major in MarS), :math:`\mathrm{vec}(\rho_1 \oplus \rho_2) \neq \mathrm{vec}(\rho_1) \oplus \mathrm{vec}(\rho_2)` due to non-contiguous
+Under vectorization (row-major in MaRs), :math:`\mathrm{vec}(\rho_1 \oplus \rho_2) \neq \mathrm{vec}(\rho_1) \oplus \mathrm{vec}(\rho_2)` due to non-contiguous
 index mapping. The composite relaxation superoperator requires explicit embedding into the correct
 Liouville subspaces:
 
@@ -614,14 +614,14 @@ We model each conformer independently, then concatenate their contexts:
    )
    
    init_populations = [0.7, 0.2, 0.1]  # [TZ, TX, TY]
-   out_probs = torch.tensor([100.0, 50.0, 80.0], device=device, dtype=dtype)
+   decay_rates = torch.tensor([100.0, 50.0, 80.0], device=device, dtype=dtype)
    
    # Context for first conformer (low-energy triplet)
    context_zfs_1 = population.Context(
        sample=triplet_sample_1,
        basis="zfs",
        init_populations=init_populations,
-       out_probs=out_probs,
+       decay_rates=decay_rates,
        device=device,
        dtype=dtype
    )
@@ -631,7 +631,7 @@ We model each conformer independently, then concatenate their contexts:
        sample=triplet_sample_2,
        basis="zfs",
        init_populations=init_populations,
-       out_probs=out_probs,
+       decay_rates=decay_rates,
        device=device,
        dtype=dtype
    )
@@ -658,7 +658,7 @@ We add this as a separate context defined in the eigenbasis of the combined syst
    context_exchange = population.Context(
        sample=triplet_combined,
        basis="eigen",
-       free_probs=probs_exchange,
+       thermal_rates=probs_exchange,
        temperature=300.0,
        device=device,
        dtype=dtype
@@ -716,25 +716,25 @@ The following example demonstrates this difference.
        sample=sample_1,
        basis="eigen",
        dephasing=dephasing_1,
-       free_probs=torch.zeros(2, 2, dtype=torch.float64)
+       thermal_rates=torch.zeros(2, 2, dtype=torch.float64)
     )
 
     context_2 = population.Context(
        sample=sample_2,
        basis="eigen",
        dephasing=dephasing_2,
-       free_probs=torch.zeros(2, 2, dtype=torch.float64)
+       thermal_rates=torch.zeros(2, 2, dtype=torch.float64)
     )
 
     # Context Concatenation
     # The superoperator is generated from the combined rate structure
     context_combined = concat([context_1, context_2])
-    sup_combined = context_combined.get_transformed_free_superop(None)
+    sup_combined = context_combined.get_transformed_thermal_superop(None)
 
     # Superoperator Combination
     # Compute superoperators for each subsystem independently
-    sup_1 = context_1.get_transformed_free_superop(None)
-    sup_2 = context_2.get_transformed_free_superop(None)
+    sup_1 = context_1.get_transformed_thermal_superop(None)
+    sup_2 = context_2.get_transformed_thermal_superop(None)
 
     # Manually construct block-diagonal superoperator
     # This lacks the cross-terms required for inter-system coherence decay
@@ -746,6 +746,4 @@ The following example demonstrates this difference.
     assert not torch.allclose(sup_combined, sup_manual)
 
     print(f"Combined superoperator includes inter-system dephasing: {not torch.allclose(sup_combined, sup_manual)}")
-
-
 

@@ -7,7 +7,7 @@ def multiply(
         mars_items: tp.Sequence[tp.Union[population.Context, population.SummedContext, population.KroneckerContext]]
 ) -> tp.Union[population.Context, population.SummedContext]:
     """
-    Multiply a sequence of homogeneous MarS items into a single combined item.
+    Multiply a sequence of homogeneous MaRs items into a single combined item.
 
     This function dispatches to the appropriate multiplication routine based on the type
     of the first element in the input sequence. It supports three types of inputs:

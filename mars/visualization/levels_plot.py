@@ -12,7 +12,7 @@ from .. import constants
 class EnergyUnits(Enum):
     Hz = "Hz"
     CM_1 = "cm-1"
-    GHz = "Ghz"
+    GHz = "GHz"
     MHz = "MHz"
     K = "K"
     T_e = "Tesla"
@@ -44,6 +44,7 @@ def plot_energy_system(sample: MultiOrientedSample,
                        B_range: tuple[float, float],
                        levels: tp.Optional[list[int]] = None,
                        saved_order: bool = False,
+                       orientation_idx: int = 0,
                        energy_units: tp.Union[str, EnergyUnits] = EnergyUnits.Hz,
                        ) -> None:
     """
@@ -60,6 +61,7 @@ def plot_energy_system(sample: MultiOrientedSample,
     :param saved_order: If True, eigenvector overlap tracking is used to preserve the physical identity
                         of energy levels across field values (prevents color swapping at crossings).
                         If False, levels are plotted in ascending energy order at each field point.
+    :param orientation_idx: The index of orientation which energy system should be plotted
     :param energy_units: Unit for energy axis. Must be a member of EnergyUnits.
     :return: None
     """
@@ -69,7 +71,7 @@ def plot_energy_system(sample: MultiOrientedSample,
     num_field_points = 200
     F, _, _, Gz = sample.get_hamiltonian_terms()
     B = torch.linspace(B_range[0], B_range[1], num_field_points, device=sample.device, dtype=sample.dtype)
-    H = F[0] + B.unsqueeze(-1).unsqueeze(-1) * Gz[0]
+    H = F[orientation_idx] + B.unsqueeze(-1).unsqueeze(-1) * Gz[orientation_idx]
     energies, vecs = torch.linalg.eigh(H)
 
     energies = unit_converter(energies, energy_units)

@@ -50,7 +50,7 @@ def concat(
         dim: int = -1,
 ) -> mars_item_type:
     """
-    Concatenate a sequence of homogeneous MarS items into a single combined item.
+    Concatenate a sequence of homogeneous MaRs items into a single combined item.
 
     This function dispatches to the appropriate concatenation routine based on the type
     of the first element in the input sequence. It supports three types of inputs:

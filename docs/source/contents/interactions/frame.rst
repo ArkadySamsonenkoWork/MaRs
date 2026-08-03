@@ -1,12 +1,12 @@
 Frame, Rotations and Euler Angles
 =================================
 
-In MarS, the orientation of any interaction tensor relative to the laboratory frame is defined by a rotation, which can be specified either as Euler angles or as a full 3×3 rotation matrix.
+In MaRs, the orientation of any interaction tensor relative to the laboratory frame is defined by a rotation, which can be specified either as Euler angles or as a full 3×3 rotation matrix.
 
 Euler Angle Convention
 ----------------------
 
-MarS uses the ZYZ' (proper Euler) convention with angles :math:`(\alpha, \beta, \gamma)` in radians, applied in the following order:
+MaRs uses the ZYZ' (proper Euler) convention with angles :math:`(\alpha, \beta, \gamma)` in radians, applied in the following order:
 
 1. Rotation by :math:`\alpha` around the lab Z-axis,
 2. Rotation by :math:`\beta` around the new Y'-axis,

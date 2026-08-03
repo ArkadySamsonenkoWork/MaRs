@@ -124,7 +124,7 @@ def concat(
         dim: int = -1,
 ) -> serialized_item_type:
     """
-    Concatenate a sequence of homogeneous serialized or graph MarS items along an existing batch dimension.
+    Concatenate a sequence of homogeneous serialized or graph MaRs items along an existing batch dimension.
 
     :param items: A non-empty sequence of identical-type serialized or graph MARS objects.
     :param mode: The concatenation mode. Only ``"batch"`` is supported for serialized/graph items.
@@ -182,7 +182,7 @@ def stack(
         dim: int = -1,
 ) -> serialized_item_type:
     """
-    Stack a sequence of homogeneous serialized or graph MarS items along a new dimension.
+    Stack a sequence of homogeneous serialized or graph MaRs items along a new dimension.
 
     :param items: A non-empty sequence of identical-type serialized or graph MARS objects.
     :param dim: The dimension along which to stack. Default is -1.
@@ -233,7 +233,7 @@ def flatten(
         end_dim: int = -1,
 ) -> serialized_item_type:
     """
-    Flatten batch dimensions of a serialized or graph MarS item.
+    Flatten batch dimensions of a serialized or graph MaRs item.
 
     :param item: A single serialized or graph MARS object.
     :param start_dim: The first dimension to flatten. Default is 0.
@@ -278,7 +278,7 @@ def expand(
         sizes: tp.Union[torch.Size, tp.List[int]],
 ) -> serialized_item_type:
     """
-    Expand batch dimensions of a serialized or graph MarS item.
+    Expand batch dimensions of a serialized or graph MaRs item.
 
     :param item: A single serialized or graph MARS object.
     :param sizes: The desired expanded sizes.
@@ -322,7 +322,7 @@ def repeat(
         repeats: tp.Union[torch.Size, tp.List[int]],
 ) -> serialized_item_type:
     """
-    Repeat batch dimensions of a serialized or graph MarS item.
+    Repeat batch dimensions of a serialized or graph MaRs item.
 
     :param item: A single serialized or graph MARS object.
     :param repeats: The number of times to repeat each dimension.
@@ -357,7 +357,7 @@ def unsqueeze(
         dim: int,
 ) -> serialized_item_type:
     """
-    Insert a dimension of size one at the specified position in a serialized or graph MarS item.
+    Insert a dimension of size one at the specified position in a serialized or graph MaRs item.
 
     :param item: A single serialized or graph MARS object.
     :param dim: The index at which to insert the new dimension.
@@ -406,7 +406,7 @@ def squeeze(
         dim: tp.Optional[int] = None,
 ) -> serialized_item_type:
     """
-    Squeeze batch dimensions of a serialized or graph MarS item.
+    Squeeze batch dimensions of a serialized or graph MaRs item.
 
     :param item: A single serialized or graph MARS object.
     :param dim: If given, only the specified dimension will be squeezed.
@@ -463,7 +463,7 @@ def transpose(
         dim0: int, dim1: int,
 ) -> serialized_item_type:
     """
-    Squeeze batch dimensions of a serialized or graph MarS item.
+    Squeeze batch dimensions of a serialized or graph MaRs item.
 
     :param item: A single serialized or graph MARS object.
     :param dim0:
@@ -496,7 +496,7 @@ def mask(item: serialization.SerializedSampleWidth, mask: torch.Tensor) -> seria
 
 def mask(item: serialized_item_type, mask: torch.Tensor) -> serialized_item_type:
     """
-    Apply a boolean mask to the batch dimensions of a serialized or graph MarS item.
+    Apply a boolean mask to the batch dimensions of a serialized or graph MaRs item.
 
     The mask's shape must exactly match the batch dimensions of the item
     (i.e. all dimensions except the protected system tail). All batch

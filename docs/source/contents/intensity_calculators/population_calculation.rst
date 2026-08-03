@@ -1,12 +1,12 @@
 .. _population_calculation:
 
-Population Models in MarS
+Population Models in MaRs
 =========================
 
 Overview
 --------
 
-MarS supports three physically distinct population models for simulating EPR spectra:
+MaRs supports three physically distinct population models for simulating EPR spectra:
 
 1. **Thermal equilibrium** - populations follow the Boltzmann distribution.
 2. **Kinetic non-equilibrium** - populations evolve according to rate (kinetic) equations.
@@ -63,7 +63,7 @@ where:
 Density Matrix Formalism
 -----------------------------------------------------
 
-For systems where quantum coherences matter, MarS solves the Liouville–von Neumann equation for the density matrix :math:`\hat{\rho}(t)`:
+For systems where quantum coherences matter, MaRs solves the Liouville–von Neumann equation for the density matrix :math:`\hat{\rho}(t)`:
 
 .. math::
    \frac{d\hat{\rho}}{dt} = -\frac{i}{\hbar} [\hat{H}, \hat{\rho}] + \hat{\mathcal{R}}[\hat{\rho}],
@@ -72,7 +72,7 @@ where:
 - :math:`\hat{H}` is the spin Hamiltonian,
 - :math:`\hat{\mathcal{R}}` is the relaxation superoperator.
 
-In MarS, :math:`\hat{\mathcal{R}}` can include:
+In MaRs, :math:`\hat{\mathcal{R}}` can include:
 
 The observable EPR signal is then computed as:
 

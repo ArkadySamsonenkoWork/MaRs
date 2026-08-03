@@ -41,7 +41,7 @@ def mask(
         mask: torch.Tensor,
 ) -> mars_item_type:
     """
-    Remove dimensions of size one from a MarS item.
+    Remove dimensions of size one from a MaRs item.
 
     :param item: A single MARS object.
     :param mask: Boolean tensor whose shape equals the batch shape of ``item``.

@@ -1752,7 +1752,7 @@ class SpinSystem(nn.Module):
         return torch.eye(self.spin_system_dim, device=self.device, dtype=self.dtype)
 
     def _get_xyz_basis_two_half_spins(self) -> torch.Tensor:
-        """Get basis vectors Tx, Ty, Tz for a spin-1 system.
+        """Get basis vectors S, Tx, Ty, Tz for a spin-1 system.
 
         The vectors are derived by expressing the coupled triplet and singlet
         states in this uncoupled basis via Clebsch-Gordan coefficients:
@@ -1770,19 +1770,19 @@ class SpinSystem(nn.Module):
             Transition basis matrix of shape ``(4, 4)``.
             The columns represent:
 
-            - Column 0 (Tx): x-vector, proportional to
+            - Column 0 (S):  singlet state ``|S0⟩``
+            - Column 1 (Tx): x-vector, proportional to
               ``(-|T+⟩ + |T-⟩) / sqrt(2)``
-            - Column 1 (Ty): y-vector, proportional to
+            - Column 2 (Ty): y-vector, proportional to
               ``i(|T+⟩ + |T-⟩) / sqrt(2)``
-            - Column 2 (Tz): z-vector, equal to ``|T0⟩``
-            - Column 3 (S):  singlet state ``|S0⟩``
+            - Column 3 (Tz): z-vector, equal to ``|T0⟩``
 
             In numerical form, the matrix is::
 
-                [[-0.707+0.j,  0.000+0.707j,  0.000+0.j,  0.000+0.j],
-                 [ 0.000+0.j,  0.000+0.000j,  0.707+0.j,  0.707+0.j],
-                 [ 0.000+0.j,  0.000+0.000j,  0.707+0.j, -0.707+0.j],
-                 [ 0.707+0.j,  0.000+0.707j,  0.000+0.j,  0.000+0.j]]
+                [[ 0.000+0.j, -0.707+0.j,  0.000+0.707j,  0.000+0.j],
+                 [ 0.707+0.j,  0.000+0.j,  0.000+0.000j,  0.707+0.j],
+                 [-0.707+0.j,  0.000+0.j,  0.000+0.000j,  0.707+0.j],
+                 [ 0.000+0.j,  0.707+0.j,  0.000+0.707j,  0.000+0.j]]
 
         :raises ValueError:
             If the system does not have exactly two electrons each with spin=1/2.
@@ -1791,10 +1791,10 @@ class SpinSystem(nn.Module):
         --------
         For a two-spin-1/2 system::
             T = system._get_xyz_basis_two_half_spins()  # shape (4, 4)
-            Tx = T[:, 0]  # x-component vector, shape (4,)
-            Ty = T[:, 1]  # y-component vector, shape (4,)
-            Tz = T[:, 2]  # z-component vector, shape (4,)
-            S  = T[:, 3]  # singlet vector,     shape (4,)
+            S  = T[:, 0]  # singlet vector,     shape (4,)
+            Tx = T[:, 1]  # x-component vector, shape (4,)
+            Ty = T[:, 2]  # y-component vector, shape (4,)
+            Tz = T[:, 3]  # z-component vector, shape (4,)
         """
         if len(self.electrons) != 2:
             raise ValueError("Two-spin-1/2 basis requires exactly two electrons")
@@ -1805,6 +1805,7 @@ class SpinSystem(nn.Module):
                     f"Two-spin-1/2 basis requires spin=1/2 electrons, "
                     f"got spin={electron.spin} for electron {i}"
                 )
+
         sqrt2 = math.sqrt(2)
         Tx = torch.tensor([-1.0 / sqrt2, 0.0, 0.0, 1.0 / sqrt2],
                           dtype=self.complex_dtype, device=self.device)
@@ -1814,7 +1815,8 @@ class SpinSystem(nn.Module):
                           dtype=self.complex_dtype, device=self.device)
         S = torch.tensor([0.0, 1.0 / sqrt2, -1.0 / sqrt2, 0.0],
                          dtype=self.complex_dtype, device=self.device)
-        return torch.stack([Tx, Ty, Tz, S], dim=1)
+
+        return torch.stack([S, Tx, Ty, Tz], dim=1)
 
     def _get_xyz_basis_triplet(self) -> torch.Tensor:
         """Get basis vectors Tx, Ty, Tz for a spin-1 system.
@@ -1856,7 +1858,7 @@ class SpinSystem(nn.Module):
         return torch.stack([Tx, Ty, Tz], dim=1)
 
     def get_xyz_basis(self) -> torch.Tensor:
-        """Get vectors Tx, Ty, Tz, (S) for a spin system.
+        """Get vectors  (S), Tx, Ty, Tz, for a spin system.
 
         Dispatches to the appropriate basis constructor depending on the system:
 
@@ -1869,7 +1871,7 @@ class SpinSystem(nn.Module):
             Transition basis matrix.
             - For spin-1: shape ``(3, 3)``, columns are ``[Tx, Ty, Tz]``.
             - For two spin-1/2: shape ``(4, 4)``, columns are
-              ``[Tx, Ty, Tz, S]``.
+              ``[S, Tx, Ty, Tz]``.
 
         :raises ValueError:
             If the system does not match a supported spin configuration.
@@ -1884,7 +1886,7 @@ class SpinSystem(nn.Module):
         For two spin-1/2 electrons::
 
             T = system.get_xyz_basis()  # shape (4, 4)
-            Tx, Ty, Tz, S = T[:, 0], T[:, 1], T[:, 2], T[:, 3]
+            S, Tx, Ty, Tz = T[:, 0], T[:, 1], T[:, 2], T[:, 3]
         """
         n = len(self.electrons)
         if n == 1 and self.electrons[0].spin == 1.0:
@@ -2793,7 +2795,7 @@ class BaseSample(nn.Module):
         return self.base_spin_system.get_product_state_basis()
 
     def get_xyz_basis(self) -> torch.Tensor:
-        """Get vectors Tx, Ty, Tz, (S) for a spin system.
+        """Get vectors (S), Tx, Ty, Tz for a spin system.
 
         Dispatches to the appropriate basis constructor depending on the system:
 
@@ -2806,7 +2808,7 @@ class BaseSample(nn.Module):
             Transition basis matrix.
             - For spin-1: shape ``(3, 3)``, columns are ``[Tx, Ty, Tz]``.
             - For two spin-1/2: shape ``(4, 4)``, columns are
-              ``[Tx, Ty, Tz, S]``.
+              ``[S, Tx, Ty, Tz]``.
 
         :raises ValueError:
             If the system does not match a supported spin configuration.
@@ -2821,7 +2823,7 @@ class BaseSample(nn.Module):
         For two spin-1/2 electrons::
 
             T = system.get_xyz_basis()  # shape (4, 4)
-            Tx, Ty, Tz, S = T[:, 0], T[:, 1], T[:, 2], T[:, 3]
+            S, Tx, Ty, Tz = T[:, 0], T[:, 1], T[:, 2], T[:, 3]
         """
         return self.base_spin_system.get_xyz_basis()
 
@@ -3167,12 +3169,12 @@ class MultiOrientedSample(BaseSample):
         return torch.matmul(triplet_basis, molecule_rotation_matrices)
 
     def _get_xyz_basis_two_half_spins(self) -> torch.Tensor:
-        """Get basis vectors Tx, Ty, Tz, S for two spin-1/2
+        """Get basis vectors S, Tx, Ty, Tz for two spin-1/2
         electrons in the frame of the molecule.
 
         The full basis is obtained from
         :meth:`base_spin_system.get_xyz_basis`, which returns a ``(4, 4)``
-        matrix with columns ``[Tx, Ty, Tz, S]`` in the uncoupled
+        matrix with columns ``[S, Tx, Ty, Tz]`` in the uncoupled
         ``|ms1, ms2⟩`` basis.
 
         Only the triplet columns ``[Tx, Ty, Tz]`` (indices 0–2) transform
@@ -3183,29 +3185,30 @@ class MultiOrientedSample(BaseSample):
 
         :return: torch.Tensor
             Transition basis matrix of shape ``[..., orientations, 4, 4]``,
-            with columns ``[Tx, Ty, Tz, S]`` where:
+            with columns ``[S, Tx, Ty, Tz]`` where:
 
-            - Columns 0–2: triplet vectors rotated into the molecular frame.
-            - Column 3: singlet vector, unchanged under rotation.
+            - Column 0: singlet vector, unchanged under rotation
+            - Columns 1–3: triplet vectors rotated into the molecular frame.
 
         Examples
         --------
         For a two spin-1/2 system::
 
             T = system._get_xyz_basis_two_half_spins()  # shape ``[..., orientations, 4, 4]``
-            Tx = T[..., 0]  # shape ``[..., orientations, 4]``
-            Ty = T[..., 1]  # shape ``[..., orientations, 4]``
-            Tz = T[..., 2]  # shape ``[..., orientations, 4]``
-            S  = T[..., 3]  # shape ``[..., orientations, 4]``, invariant under rotation
+            S  = T[..., 0]  # shape ``[..., orientations, 4]``, invariant under rotation
+            Tx = T[..., 1]  # shape ``[..., orientations, 4]``
+            Ty = T[..., 2]  # shape ``[..., orientations, 4]``
+            Tz = T[..., 3]  # shape ``[..., orientations, 4]``
         """
         full_basis = self.base_spin_system.get_xyz_basis()
-        triplet_basis = full_basis[:, :3]
-        singlet_basis = full_basis[:, 3:]
+        triplet_basis = full_basis[:, 1:]
+        singlet_basis = full_basis[:, :1]
 
         molecule_rotation_matrices = self._get_effective_rotation_matrices().to(triplet_basis.dtype)
         rotated_triplet = torch.matmul(triplet_basis, molecule_rotation_matrices)
+
         singlet_expanded = singlet_basis.expand(*rotated_triplet.shape[:-1], 1)
-        return torch.cat([rotated_triplet, singlet_expanded], dim=-1)
+        return torch.cat([singlet_expanded, rotated_triplet], dim=-1)
 
     def get_xyz_basis(self) -> torch.Tensor:
         """Get basis vectors Tx, Ty, Tz (and S) for a spin
@@ -3239,10 +3242,10 @@ class MultiOrientedSample(BaseSample):
         For a two spin-1/2 system::
 
             T = system.get_xyz_basis()  # shape ``[..., orientations, 4, 4]``
-            Tx = T[..., 0]  # shape ``[..., orientations, 4]``
-            Ty = T[..., 1]  # shape ``[..., orientations, 4]``
-            Tz = T[..., 2]  # shape ``[..., orientations, 4]``
-            S  = T[..., 3]  # shape ``[..., orientations, 4]``
+            S  = T[..., 0]  # shape ``[..., orientations, 4]``
+            Tx = T[..., 1]  # shape ``[..., orientations, 4]``
+            Ty = T[..., 2]  # shape ``[..., orientations, 4]``
+            Tz = T[..., 3]  # shape ``[..., orientations, 4]``
         """
         electrons = self.base_spin_system.electrons
         n = len(electrons)
@@ -3427,7 +3430,7 @@ class MultiOrientedSample(BaseSample):
 
         :param interaction: interaction of shape ``[..., 3, 3]`` in the interaction tensor frame
         :param el_idx: Index of the electron spin operator in the operator cache.
-        :return: Zeeman operator of shape ``[..., orientations, dim, dim, 3]`` in
+        :return: Zeeman operator of shape ``[..., orientations, 3, dim, dim]`` in
                  complex dtype. The last dimension corresponds to the magnetic field
                  components (Bx, By, Bz). Multiply by the field vector to get the
                  final Hamiltonian term.
@@ -3470,9 +3473,7 @@ class MultiOrientedSample(BaseSample):
                    ``[..., orientations, dim, dim]`` from zero-field terms
                    (ZFS, hyperfine, dipolar). Not multiplied by external field.
                  - ``O_dependent``: Field-dependent operator of shape
-                   ``[..., orientations, dim, dim, 3]`` from Zeeman terms.
-                   Must be multiplied by the magnetic field vector
-                   ``(Bx, By, Bz)`` to get the full contribution.
+                   ``[..., orientations, dim, dim]`` from Zeeman terms.
                  Both operators are in complex dtype.
         The total Hamiltonian derivative for a field B is:
         ``dH/dθ = O_static + O_dependent @ B``

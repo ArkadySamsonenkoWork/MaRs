@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: mars-epr
-Version: 0.0.4
+Version: 0.0.5
 Summary: A library for computation CW and time resolved spectra
 Author-email: Arkady Samsonenko <a.samsonenko@tomo.nsc.ru>, Ivan Kurganskii <kurgansky@tomo.nsc.ru>
 License-Expression: MIT
-Project-URL: Homepage, https://github.com/ArkadySamsonenkoWork/MarS
+Project-URL: Homepage, https://github.com/ArkadySamsonenkoWork/MaRs
 Project-URL: Telegram, https://t.me/Arkady_Samsonenko
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
@@ -29,7 +29,7 @@ Provides-Extra: plot
 Requires-Dist: seaborn; extra == "plot"
 Requires-Dist: plotly; extra == "plot"
 
-# MarS
+# MaRs
 
 **A toolkit for researchers to simulate, analyze, and explore EPR systems efficiently.**
 
@@ -37,14 +37,14 @@ Requires-Dist: plotly; extra == "plot"
 
 ## 🚀 Overview
 
-**MarS** is a Python library for constructing spin systems (electrons and nuclei), defining their magnetic interactions, and simulating Electron Paramagnetic Resonance (EPR) spectra.
+**MaRs** is a Python library for constructing spin systems (electrons and nuclei), defining their magnetic interactions, and simulating Electron Paramagnetic Resonance (EPR) spectra.
 It supports a wide range of interaction models, efficient batched computations on CPU and GPU, flexible numerical precision (`float32` / `float64`), and tools for both stationary and time-resolved EPR experiments.
 
 
 ## 🔑 Core Capabilities
 
 ### Interaction Support
-MarS allows users to construct spin systems with the most widely used magnetic interactions:
+MaRs allows users to construct spin systems with the most widely used magnetic interactions:
 - Zeeman interaction  
 - Exchange interaction  
 - Dipolar interaction  
@@ -61,7 +61,7 @@ Both **isotropic** and **anisotropic** parameters are supported.
 ---
 
 ### Broadening Support
-MarS provides several mechanisms to model experimental linewidths:
+MaRs provides several mechanisms to model experimental linewidths:
 - Gaussian and Lorentzian line broadening  
 - Hamiltonian broadening  
 - Broadening due to distributions of Hamiltonian parameters  (so-called strains)
@@ -102,7 +102,7 @@ MarS provides several mechanisms to model experimental linewidths:
 
 # ⏱️ Time-Resolved Capabilities
 
-MarS is a comprehensive framework for modeling **time-resolved EPR experiments** with two complementary computational paradigms.
+MaRs is a comprehensive framework for modeling **time-resolved EPR experiments** with two complementary computational paradigms.
 
 ### Relaxation Paradigms
 - **Population relaxation (Kinetic approach)**: Evolution of diagonal density matrix elements (population vectors)
@@ -113,9 +113,9 @@ MarS is a comprehensive framework for modeling **time-resolved EPR experiments**
 ---
 
 ### Flexible Relaxation Factrors Definition
-MarS provides powerful tools for defining complex relaxation processes:
+MaRs provides powerful tools for defining complex relaxation processes:
 - **Population losses** (e.g., phosphorescence from triplet states)
-- **Spontaneous transitions** (free transitions satisfying detailed balance)
+- **Spontaneous transitions** (thermal transitions satisfying detailed balance)
 - **Induced transitions** (driven transitions not satisfying detailed balance)
 - **Dephasing** (for density matrix formalism)
 
@@ -168,7 +168,7 @@ Multiple solution strategies optimized for different scenarios:
 ### Installation
 
 ```bash
-git clone https://github.com/ArkadySamsonenkoWork/MarS.git
+git clone https://github.com/ArkadySamsonenkoWork/MaRs.git
 cd mars
 pip install -e <folder
 ```

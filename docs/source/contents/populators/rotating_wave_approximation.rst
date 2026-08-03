@@ -23,7 +23,7 @@ The density matrix ρ(t) evolves according to:
 
 where:
 
-* **H**: Spin Hamiltonian. Note that throughout MarS, the Hamiltonian is defined in frequency units (Hz).
+* **H**: Spin Hamiltonian. Note that throughout MaRs, the Hamiltonian is defined in frequency units (Hz).
 Consequently, the physical commutator term implicitly includes a factor of $2\pi$ (i.e., $-i 2\pi [H, \rho]$)
 to convert from Hz to angular frequency, as the standard equation assumes energy units where $\hbar=1$.
 * **R**: Relaxation superoperator describing decoherence and population transfer
@@ -65,7 +65,7 @@ where:
 Constraints and Limitations
 ----------------------------
 
-In MarS, the RWA imposes strict requirements on the spin system:
+In MaRs, the RWA imposes strict requirements on the spin system:
 
 Close to Isotropic g-Tensor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -76,7 +76,7 @@ The Zeeman operators must be proportional to the spin operators:
 
    G_x = g_x\mu_B S_x, \quad G_y = g_y\mu_B S_y, \quad G_z = g_z\mu_B S_z.
 
-To compute RWA, by default, MarS modifies the Zeeman operators :math:`G_x`, :math:`G_y`, and :math:`G_z` so that they approximately commute with the total spin projection operators :math:`S_x`, :math:`S_y`, and :math:`S_z`, respectively:
+To compute RWA, by default, MaRs modifies the Zeeman operators :math:`G_x`, :math:`G_y`, and :math:`G_z` so that they approximately commute with the total spin projection operators :math:`S_x`, :math:`S_y`, and :math:`S_z`, respectively:
 
 .. math::
 

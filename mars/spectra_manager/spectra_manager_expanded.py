@@ -668,15 +668,44 @@ class StationarySpectraExpanded(StationarySpectra):
         else:
             return intensity_calculator
 
+    def _get_intensity_mask(self,
+                            intensities: torch.Tensor,
+                            res_fields: torch.Tensor,
+                            lvl_down: torch.Tensor,
+                            lvl_up: torch.Tensor,
+                            energies: torch.Tensor,
+                            vector_down, vector_up,
+                            full_system_vectors: tp.Optional[torch.Tensor]
+                            ) -> torch.Tensor:
+        """
+        Generate a boolean mask to filter out transitions with intensities below a threshold.
+
+        The mask is created by comparing the absolute intensities, normalized by the
+        global maximum absolute intensity, against `self.threshold`. It evaluates to
+        True if any value along all dimensions (except the last one) exceeds the threshold.
+
+        :param intensities: Tensor of transition intensities.
+        :param res_fields: Resonance fields (passed for signature consistency).
+        :param lvl_down: Energy levels of the lower states.
+        :param lvl_up: Energy levels of the upper states.
+        :param energies: Resonance energies (passed for signature consistency).
+        :param full_system_vectors: Eigenvectors of the full spin system.
+        :return: A boolean tensor indicating which transitions have sufficient
+                 intensity to be kept.
+        """
+        lines_dimension = tuple(range(intensities.ndim - 1))
+        intensities_mask = (intensities.abs() / intensities.abs().max() > self.threshold).any(dim=lines_dimension)
+        return intensities_mask
+
     def compute_parameters(self, sample: spin_model.MultiOrientedSample,
                            F: torch.Tensor,
                            Gx: torch.Tensor,
                            Gy: torch.Tensor,
                            Gz: torch.Tensor,
-                           vector_down: torch.Tensor, vector_up: torch.Tensor,
-                           lvl_down: torch.Tensor, lvl_up: torch.Tensor,
                            res_fields: torch.Tensor,
+                           lvl_down: torch.Tensor, lvl_up: torch.Tensor,
                            resonance_energies: torch.Tensor,
+                           vector_down: torch.Tensor, vector_up: torch.Tensor,
                            full_system_vectors: tp.Optional[torch.Tensor]) ->\
             tuple[torch.Tensor, torch.Tensor, torch.Tensor, tp.Optional[torch.Tensor], tuple[tp.Any]]:
         """
@@ -687,13 +716,7 @@ class StationarySpectraExpanded(StationarySpectra):
         :param Gy: y-part of Hamiltonian Zeeman Term
         :param Gz: z-part of Hamiltonian Zeeman Term
 
-        :param vector_down:
-            Eigenvectors of the lower energy states. The shape is [...., M, N],
-            where M is number of transitions, N is number of levels
-
-        :param vector_up:
-            Eigenvectors of the upper energy states.The shape is [...., M, N],
-            where M is number of transitions, N is number of levels
+        :param res_fields: Resonance fields. The shape os [..., N]
 
         :param lvl_down:
             Energy levels of lower states from which transitions occur.
@@ -708,7 +731,13 @@ class StationarySpectraExpanded(StationarySpectra):
         :param resonance_energies:
             Energies of spin states. The shape is [..., N]
 
-        :param res_fields: Resonance fields. The shape os [..., N]
+        :param vector_down:
+            Eigenvectors of the lower energy states. The shape is [...., M, N],
+            where M is number of transitions, N is number of levels
+
+        :param vector_up:
+            Eigenvectors of the upper energy states.The shape is [...., M, N],
+            where M is number of transitions, N is number of levels
 
         :param full_system_vectors: Eigen vector of each level of a spin system. The shape os [..., N, N]. If
         output_eigen_vectors == False, then it will be None
@@ -721,10 +750,13 @@ class StationarySpectraExpanded(StationarySpectra):
          - extras parameters computed in _compute_additional
         """
         intensities = self.intensity_calculator.compute_intensity(
-            Gx, Gy, Gz, vector_down, vector_up, lvl_down, lvl_up, resonance_energies, res_fields, full_system_vectors
+            Gx, Gy, Gz, res_fields, lvl_down, lvl_up, resonance_energies, vector_down, vector_up, full_system_vectors
         )
-        lines_dimension = tuple(range(intensities.ndim - 1))
-        intensities_mask = (intensities.abs() / intensities.abs().max() > self.threshold).any(dim=lines_dimension)
+        intensities = torch.nan_to_num(intensities, nan=0.0, out=intensities)
+
+        intensities_mask = self._get_intensity_mask(
+            intensities, res_fields, lvl_down, lvl_up, resonance_energies, vector_down, vector_up, full_system_vectors
+        )
 
         intensities = intensities[..., intensities_mask]
         res_fields = res_fields[..., intensities_mask]
@@ -800,10 +832,10 @@ class StationarySpectraExpanded(StationarySpectra):
 
         res_fields, intensities, width, full_system_vectors, *extras =\
             self.compute_parameters(sample, F, Gx, Gy, Gz,
-                                    vector_down, vector_up,
-                                    lvl_down, lvl_up,
                                     res_fields,
+                                    lvl_down, lvl_up,
                                     resonance_energies,
+                                    vector_down, vector_up,
                                     full_system_vectors)
 
         res_fields, intensities, width = self._postcompute_batch_data(

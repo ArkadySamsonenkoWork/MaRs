@@ -150,6 +150,7 @@ class BaseDirectProcessing(BaseProcessing):
         spectrum = self._integrate(intensities, areas, fields)
         return self._get_output(spectrum)
 
+
 class PowderDirectProcessing(BaseDirectProcessing):
     """Integrate fixed-field EPR spectra over spherical powder orientation mesh.
 
@@ -346,7 +347,7 @@ class BaseDirectIntensityCalculator(BaseIntensityCalculator):
         """
         raise NotImplementedError
 
-    def calculate_population(self, time: torch.Tensor,
+    def compute_population(self, time: torch.Tensor,
                                     fields: torch.Tensor,
                                     energies: torch.Tensor,
                                     full_system_vectors: tp.Optional[torch.Tensor],
@@ -703,7 +704,7 @@ class BaseDirectSpectra(BaseSpectra):
 
         energies, *extras = extras
         Sz = sample.base_spin_system.get_electron_z_operator()
-        population = self.intensity_calculator.calculate_population(
+        population = self.intensity_calculator.compute_population(
             time, fields, energies,
             full_system_vectors,
             F, Gx, Gy, Gz, Sz,

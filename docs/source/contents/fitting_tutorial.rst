@@ -3,7 +3,7 @@
 Fitting Spectroscopic Data
 ==========================
 
-MarS provides a flexible framework for fitting experimental spectroscopic data using modern optimization libraries such as Optuna and Nevergrad.
+MaRs provides a flexible framework for fitting experimental spectroscopic data using modern optimization libraries such as Optuna and Nevergrad.
 
 Defining the Parameter Space
 ----------------------------
@@ -70,7 +70,7 @@ For cases where only context-dependent quantities (e.g., populations or kinetic 
 Objective Functions
 -------------------
 
-MarS supports multiple objective functions for comparing simulated and experimental spectra.
+MaRs supports multiple objective functions for comparing simulated and experimental spectra.
 All objectives inherit from :class:`mars.optimization.objectives.BaseObjectiveFunction` and return a scalar loss.
 
 .. code-block:: python
@@ -89,7 +89,7 @@ All objectives inherit from :class:`mars.optimization.objectives.BaseObjectiveFu
 Fitting with Optuna Samplers
 ----------------------------
 
-MarS supports two optimization libraries for parameter fitting: *Optuna* and *Nevergrad*. While both are powerful, they differ in design philosophy and ease of use:
+MaRs supports two optimization libraries for parameter fitting: *Optuna* and *Nevergrad*. While both are powerful, they differ in design philosophy and ease of use:
 
 - **Optuna** provides a smaller but well curated set of samplers that are easy to configure and highly effective for most spectroscopic fitting tasks.
 
@@ -159,12 +159,12 @@ Optuna samplers (e.g., ``TPESampler``, ``CmaEsSampler``, ``NSGAIISampler``) offe
         study_name="botorch_fit"
     )
 
-In general, MarS can accept any additional arguments and pass them to ``optuna.create_study()``. For more possibilities, see the `Optuna documentation <https://optuna.readthedocs.io/en/stable/>`_.
+In general, MaRs can accept any additional arguments and pass them to ``optuna.create_study()``. For more possibilities, see the `Optuna documentation <https://optuna.readthedocs.io/en/stable/>`_.
 
 Optuna Dashboard
 ----------------
 
-MarS supports launching the Optuna dashboard during fitting for real-time monitoring. Set ``run_dashboard=True`` in the ``fit()`` call:
+MaRs supports launching the Optuna dashboard during fitting for real-time monitoring. Set ``run_dashboard=True`` in the ``fit()`` call:
 
 .. code-block:: python
 
@@ -187,7 +187,7 @@ Example: using the COBYLA optimizer (a constrained optimization algorithm based 
         optimizer="Cobyla"
     )
 
-The full list of optimizers available through Nevergrad in MarS can be inspected at runtime:
+The full list of optimizers available through Nevergrad in MaRs can be inspected at runtime:
 
 .. code-block:: python
 
@@ -325,7 +325,6 @@ The :class:`mars.optimization.fitter.SpaceSearcher` class identifies such altern
 
     searcher = SpaceSearcher(
         loss_rel_tol=0.2,      # accept trials with loss ≤ 1.2 × best_loss
-        top_k=5,               # return up to 5 alternatives
         distance_fraction=0.2  # require minimum scaled Euclidean distance
     )
 
@@ -341,6 +340,40 @@ For convenience, use :func:`mars.optimization.fitter.print_trial_results` to dis
     from mars.optimization import print_trial_results
     print_trial_results(alternatives, max_params=6, precision=5)
 
+
+Plotting Capabilities
+*********************
+
+In addition to manually simulating spectra, :class:`SpaceSearcher` provides several built-in plotting methods
+for analysing the distribution of good parameters:
+
+- :meth:`~mars.optimization.fitter.SpaceSearcher.plot_1d_marginals`:
+  Weighted 1D histograms (marginal distributions) for each parameter, with the best-fit value marked.
+
+- :meth:`~mars.optimization.fitter.SpaceSearcher.plot_2d_pairs`:
+  Weighted 2D scatter plots for selected parameter pairs
+
+- :meth:`~mars.optimization.fitter.SpaceSearcher.plot_clusters`:
+  PCA projection of the parameter space coloured by HDBSCAN clusters.
+
+- :meth:`~mars.optimization.fitter.SpaceSearcher.plot_loss_distribution`:
+  Histogram of the loss values among the "good" trials.
+
+- :meth:`~mars.optimization.fitter.SpaceSearcher.plot_correlation_matrix`:
+  Correlation matrix of the parameters for the good trials.
+
+- :meth:`~mars.optimization.fitter.SpaceSearcher.plot_parallel_coordinates`:
+  Parallel-coordinates plot for the top-K trials.
+
+- :meth:`~mars.optimization.fitter.SpaceSearcher.plot_rescaled_loss_scatter`:
+  Scatter plots of each parameter versus a rescaled loss (min→0, avg→0.5, max→1), helping to identify parameter ranges that produce low losses.
+
+- :meth:`~mars.optimization.fitter.SpaceSearcher.plot_loss_boxplots_by_bin`:
+  Box-plots of the loss distribution across quantile-based bins of each parameter, highlighting regions of consistently good fits.
+
+All these methods accept a ``show`` parameter (default ``True``) to display the figures immediately, and return the figure objects for further customisation.
+
+
 Uncertainty Analysis
 --------------------
 
@@ -352,7 +385,7 @@ After fitting, :class:`mars.optimization.fitter.UncertaintyAnalyzer` computes co
 - ``"trials"`` — bounding-box from existing optimiser trial history; no additional evaluations.
 - ``"bootstrap"`` — distribution-free intervals via residual resampling; valid for any smooth loss.
 
-The first three methods have correct statistical meaning only when the loss is proportional to SSE or MSE (the default in MarS).
+The first three methods have correct statistical meaning only when the loss is proportional to SSE or MSE (the default in MaRs).
 For custom or composite losses, use ``"bootstrap"``.
 
 .. code-block:: python

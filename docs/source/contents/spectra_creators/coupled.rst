@@ -7,7 +7,7 @@ The :class:`mars.spectra_manager.CoupledTimeSpectra` class computes time-resolve
 
    \frac{d\mathbf{n}}{dt} = \mathbf{K} \mathbf{n}(t)
 
-where :math:`\mathbf{n}` is the vector of level populations and :math:`\mathbf{K}` is a kinetic matrix constructed from user-defined relaxation pathways (free, out, driven transitions).
+where :math:`\mathbf{n}` is the vector of level populations and :math:`\mathbf{K}` is a kinetic matrix constructed from user-defined relaxation pathways (thermal, out, driven transitions).
 
 This approach captures spin polarization buildup and decay but **neglects quantum coherences** and off-diagonal density matrix elements.
 
@@ -37,8 +37,8 @@ Examples
    ctx = population.Context(
        sample=sample, basis="eigen",
        init_populations=[0.5, 0.3, 0.2],
-       out_probs=torch.tensor([100., 100., 100.]),      # 10 ms depopulation
-       free_probs=torch.tensor([[0, 1e3, 0], [1e3, 0, 1e3], [0, 1e3, 0]])  # 1 ms equilibration
+       decay_rates=torch.tensor([100., 100., 100.]),      # 10 ms depopulation
+       thermal_rates=torch.tensor([[0, 1e3, 0], [1e3, 0, 1e3], [0, 1e3, 0]])  # 1 ms equilibration
    )
 
    tr_creator = spectra_manager.CoupledTimeSpectra(freq=9.8e9, sample=sample, context=ctx)

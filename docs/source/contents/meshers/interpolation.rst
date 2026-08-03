@@ -1,7 +1,7 @@
 Interpolation on Spherical Meshes
 =================================
 
-MarS supports interpolation of the three resonance data: **resonance fields**, **intensities**, and **linewidths** — from a coarse initial orientation grid to a finer evaluation grid.
+MaRs supports interpolation of the three resonance data: **resonance fields**, **intensities**, and **linewidths** — from a coarse initial orientation grid to a finer evaluation grid.
 This decouples the expensive Hamiltonian diagonalization (performed on the coarse grid) from the high-resolution spherical integration required for smooth spectra.
 
 Two interpolation strategies are provided:

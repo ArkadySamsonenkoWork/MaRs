@@ -49,7 +49,7 @@ def expand(
         sizes: tp.Union[torch.Size, tp.List[int]],
 ) -> mars_item_type:
     """
-    Expand batch dimensions of a MarS item.
+    Expand batch dimensions of a MaRs item.
 
     :param item: A single MARS object.
     :param sizes: The desired expanded sizes.

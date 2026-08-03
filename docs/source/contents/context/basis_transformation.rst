@@ -3,13 +3,13 @@
 Basis Transformations
 ======================
 
-The Context class in MarS supports defining relaxation parameters in multiple bases. All parameters are automatically transformed to the eigenbasis of the full Hamiltonian in the magnetic field before computation.
+The Context class in MaRs supports defining relaxation parameters in multiple bases. All parameters are automatically transformed to the eigenbasis of the full Hamiltonian in the magnetic field before computation.
 This flexibility allows users to specify relaxation mechanisms in the most physically intuitive representation.
 
 Supported Bases
 ---------------
 
-MarS provides four predefined bases:
+MaRs provides four predefined bases:
 
 1. **"eigen"** (default)
    
@@ -179,8 +179,8 @@ and :func:`mars.population.transform.transform_state_weights_to_new_basis`:
    populations_new = transform_state_weights_to_new_basis(populations_old, probabilities)
    
    # Transform out probabilities
-   out_probs_old = torch.tensor([100.0, 50.0, 75.0])
-   out_probs_new = transform_state_weights_to_new_basis(out_probs_old, probabilities)
+   decay_rates_old = torch.tensor([100.0, 50.0, 75.0])
+   decay_rates_new = transform_state_weights_to_new_basis(decay_rates_old, probabilities)
 
 **Physical interpretation:** If state :math:`|i'\rangle` in the new basis is a superposition :math:`|i'\rangle = \sum_k U^{*}_{ik} |k\rangle`,
 then its population is the sum of populations with :math:`|U^{*}_{ik}|^2` which is equal to :math:`|U_{ik}|^2`.
@@ -194,9 +194,9 @@ then its population is the sum of populations with :math:`|U^{*}_{ik}|^2` which 
 Transition Probabilities (Free and Driven)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The library supports two types of transitions: **free** (spontaneous) and **driven** (induced), represented by matrices :math:`W` and :math:`D`, respectively.
+The library supports two types of transitions: **thermal** (spontaneous) and **driven** (induced), represented by matrices :math:`W` and :math:`D`, respectively.
 
-Analogously to populations which transform as :math:`n'_i = \sum_k |U_{ik}|^2 n_k` - transition probabilities are transformed by weighting both the initial and final states with their respective overlap probabilities.
+Analogously to populations which transform as :math:`n'_i = \sum_k |U_{ik}|^2 n_k` - transition rates are transformed by weighting both the initial and final states with their respective overlap probabilities.
 Specifically, the probability of transition from state :math:`j'` to :math:`i'` in the new basis is:
 
 .. math::
@@ -218,8 +218,8 @@ and identically for driven transitions:
    D' = |U|^2 \, D \, (|U|^2)^\top.
 
 
-- **Free transition probabilities** describe spontaneous relaxation processes (e.g., spin-lattice relaxation).
-- **Driven transition probabilities** model field-induced transitions (e.g., microwave-driven mixing).
+- **Free transition rates** describe spontaneous relaxation processes (e.g., spin-lattice relaxation).
+- **Driven transition rates** model field-induced transitions (e.g., microwave-driven mixing).
 
 **Implementation:** Uses :func:`mars.population.transform.transform_rate_matrix_to_new_basis`:
 
@@ -317,7 +317,7 @@ Compute the Liouville-space transformation between eigenbases of two spin Hamilt
 
 .. note::
 
-   - For the transformation of operators from Hilbert space to Liouville space, MarS uses **row-major** (C-order) vectorization.
+   - For the transformation of operators from Hilbert space to Liouville space, MaRs uses **row-major** (C-order) vectorization.
      This corresponds to flattening the density matrix by stacking its rows sequentially—the default behavior in NumPy and PyTorch.
      For example, in a 2×2 system, the vectorized density matrix appears as:
      ``[ρ₀₀, ρ₀₁, ρ₁₀, ρ₁₁]``.
@@ -361,9 +361,9 @@ The relaxation superoperator transforms in Liouville space:
 Derivation of Transition Probabilities from the Lindblad Master Equation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The transformation rules for kinetic coefficients (loss probabilities and transition probabilities) 
+The transformation rules for kinetic coefficients (loss (outgoing) rates and transition rates)
 are rigorously derived from the Lindblad master equation formalism. This section connects the 
-basis transformation rules used in MarS to the transformation of Lindblad operators, ensuring 
+basis transformation rules used in MaRs to the transformation of Lindblad operators, ensuring
 physical consistency across different representations.
 
 The Lindblad Master Equation
@@ -429,7 +429,7 @@ matrix, consistent with probability conservation.
 Transition Probabilities: Formal Lindblad Derivation
 """"""""""""""""""""""""""""""""""""""""""""""""""""
 
-This section provides a rigorous derivation of the transition probability transformation rule
+This section provides a rigorous derivation of the transition rate transformation rule
 using the Lindblad master equation formalism. We explicitly show how the secular approximation
 leads to the bilinear probability rule :math:`W' = |U|^2 W (|U|^2)^\top`.
 
@@ -518,7 +518,7 @@ In matrix notation, letting :math:`P = |U|^2` be the element-wise squared transf
 
    W' = P \, W \, P^\top
 
-This confirms that transition probabilities transform via the bilinear probability rule, 
+This confirms that transition rates transform via the bilinear probability rule,
 consistent with the interpretation of :math:`W_{ij}` as incoherent transition rates between states.
 
 Basis Transformation in Multiplied Contexts
@@ -605,7 +605,7 @@ For relaxation superoperators in Liouville space, two sequential operations are 
 Population Composition
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Populations and transition probabilities transform differently.
+Populations and transition rates transform differently.
 They follow probability rules rather than amplitude rules. For a population vector :math:`\mathbf{n}`:
 
 .. math::
@@ -626,7 +626,7 @@ Furthermore, for any unitary matrix :math:`U`, the probability matrix :math:`|U|
 
 where :math:`\mathbf{1}` is the vector of ones. This holds because unitary matrices have orthonormal rows (:math:`\sum_j |U_{ij}|^2 = 1` for all :math:`i`), so each row of :math:`|U|^2` sums to unity.
 
-Therefore populations and outgoing probabilities can be transformed separately in each subsystem and then combined via Kronecker product. The transformation is separable:
+Therefore populations and decay rates can be transformed separately in each subsystem and then combined via Kronecker product. The transformation is separable:
 
 .. math::
 
@@ -640,7 +640,7 @@ Therefore populations and outgoing probabilities can be transformed separately i
 Transition Probabilities Compositions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-However, for transition probability matrices the situation is more subtle.
+However, for transition rate matrices the situation is more subtle.
 The full transformation of the Kronecker-sum structure does not factorize cleanly:
 
 .. math::
@@ -657,10 +657,10 @@ Since :math:`|U|^2` is a doubly probability matrix (not unitary), we generally h
 
    (|U_1|^2 K_1 |U_1|^2{}^\top) \otimes (|U_2|^2 |U_2|^2{}^\top) \neq (|U_1|^2 K_1 |U_1|^2{}^\top) \otimes \mathbb{I}_2
 
-This non-factorization means that transforming transition probabilities separately and then forming the Kronecker sum does not generally yield the same result
+This non-factorization means that transforming transition rates separately and then forming the Kronecker sum does not generally yield the same result
 as forming the Kronecker sum first and then transforming the composite operator.
 
-Nevertheless, MarS consistently interprets transition probabilities as probabilities for "state-to-state processes" via the deriviation from Lindblad master equation. 
+Nevertheless, MaRs consistently interprets transition rates as probabilities for "state-to-state processes" via the deriviation from Lindblad master equation.
 
 Lindblad Formulation for Subsystem Relaxation
 """""""""""""""""""""""""""""""""""""""""""""
@@ -725,7 +725,7 @@ The interference terms account for phase relationships between different product
 This formulation does not rely on the factorization :math:`|U_1 \otimes U_2|^2 (K_1 \otimes \mathbb{I} + \mathbb{I} \otimes K_2) |U_1 \otimes U_2|^2{}^\top`.
 Instead, each subsystems rate matrix is independently mapped to the composite eigenbasis using the marginalized coefficient tensor, preserving the physical independence of local relaxation channels.
 
-For composite systems, MarS implements the dedicated :class:`mars.population.contexts.KroneckerContext`. This class automatically computes these coefficients from the composite contexts.
+For composite systems, MaRs implements the dedicated :class:`mars.population.contexts.KroneckerContext`. This class automatically computes these coefficients from the composite contexts.
 
 Context Transformation Interface
 ----------------------------------
@@ -747,11 +747,11 @@ Consider the following setup for a triplet spin system:
         dtype=torch.complex128
     )
 
-    out_probs = torch.tensor([1.0, 1.0, 1.0], device=device, dtype=dtype) * 100
-    free_probs = torch.tensor([[0.0, 1.0, 0.0],
+    decay_rates = torch.tensor([1.0, 1.0, 1.0], device=device, dtype=dtype) * 100
+    thermal_rates = torch.tensor([[0.0, 1.0, 0.0],
                                [1.0, 0.0, 1.0],
                                [0.0, 1.0, 0.0]], device=device, dtype=dtype) * 1000
-    driven_probs = torch.tensor([[0.0, 1.0, 0.0],
+    driven_rates = torch.tensor([[0.0, 1.0, 0.0],
                                  [1.0, 0.0, 1.0],
                                  [0.0, 1.0, 0.0]], device=device, dtype=dtype) * 1000
 
@@ -759,9 +759,9 @@ Consider the following setup for a triplet spin system:
         sample=triplet,
         basis="zfs",
         init_density=init_density,
-        free_probs=free_probs,
-        out_probs=out_probs,
-        driven_probs=driven_probs,
+        thermal_rates=thermal_rates,
+        decay_rates=decay_rates,
+        driven_rates=driven_rates,
         device=device,
         dtype=dtype
     )
@@ -793,28 +793,28 @@ The ``vectors`` tensor now represents the target basis (columns are eigenvectors
       rho = context.get_transformed_init_density(full_system_vectors=vectors)
       # Returns: tensor of shape [..., N, N]
 
-- **Outgoing probabilities (scalar rates per state):**  
-  See :meth:`mars.population.contexts.Context.get_transformed_out_probs`.
+- **Outgoing (decay) rates (scalar rates per state):**
+  See :meth:`mars.population.contexts.Context.get_transformed_decay_rates`.
 
   .. code-block:: python
 
-      out = context.get_transformed_out_probs(full_system_vectors=vectors)
+      out = context.get_transformed_decay_rates(full_system_vectors=vectors)
       # Returns: tensor of shape [..., N]
 
-- **Free transition probabilities (between states):**  
-  See :meth:`mars.population.contexts.Context.get_transformed_free_probs`.
+- **Thermal (spontaneous) transition rates (between states):**
+  See :meth:`mars.population.contexts.Context.get_transformed_thermal_rates`.
 
   .. code-block:: python
 
-      W = context.get_transformed_free_probs(full_system_vectors=vectors)
+      W = context.get_transformed_thermal_rates(full_system_vectors=vectors)
       # Returns: tensor of shape [..., N, N]
 
-- **Free relaxation superoperator (in Liouville space):**  
-  See :meth:`mars.population.contexts.Context.get_transformed_free_superop`.
+- **Thermal (spontaneous) relaxation superoperator (in Liouville space):**
+  See :meth:`mars.population.contexts.Context.get_transformed_thermal_superop`.
 
   .. code-block:: python
 
-      R_free = context.get_transformed_free_superop(full_system_vectors=vectors)
+      R_thermal = context.get_transformed_thermal_superop(full_system_vectors=vectors)
       # Returns: tensor of shape [..., N², N²]
 
 - **Driven relaxation superoperator (in Liouville space):**  

@@ -1,11 +1,11 @@
 .. _strain-management-mars:
 
-Strain in MarS
+Strain in MaRs
 =======================
 
-"Strain" in MarS refers to the *distribution of spin Hamiltonian parameters* due to structural disorder (e.g., in frozen solutions, powders, or amorphous matrices). This leads to inhomogeneous broadening of EPR lines.
+"Strain" in MaRs refers to the *distribution of spin Hamiltonian parameters* due to structural disorder (e.g., in frozen solutions, powders, or amorphous matrices). This leads to inhomogeneous broadening of EPR lines.
 
-Strain is specified in MarS as the full width at half maximum (FWHM) of the parameter distribution and is expressed in the natural units of the corresponding Hamiltonian parameter (dimensionless for the g-tensor, Hz for zero-field splitting).
+Strain is specified in MaRs as the full width at half maximum (FWHM) of the parameter distribution and is expressed in the natural units of the corresponding Hamiltonian parameter (dimensionless for the g-tensor, Hz for zero-field splitting).
 
 Strain vs. Explicit Modeling
 -----------------------------
@@ -39,7 +39,7 @@ In explicit modeling, you would generate many spin systems with different parame
 
 **Strain Modeling (Analytical)**
 
-Strain modeling achieves the same result analytically using first-order perturbation theory. Instead of sampling, MarS calculates how parameter variations shift the energy levels directly.
+Strain modeling achieves the same result analytically using first-order perturbation theory. Instead of sampling, MaRs calculates how parameter variations shift the energy levels directly.
 
 .. code-block:: python
 
@@ -55,7 +55,7 @@ Strain modeling achieves the same result analytically using first-order perturba
    # Compute broadening analytically
 
 For a transition between states :math:`|u\rangle` and :math:`|v\rangle`, the linewidth contribution depends on the variance of the energy difference.
-MarS computes this via the derivatives of the diagonal Hamiltonian elements (eigenenergies):
+MaRs computes this via the derivatives of the diagonal Hamiltonian elements (eigenenergies):
 
 .. math::
 
@@ -73,7 +73,7 @@ How Strain Works
 
 For any interaction, strain is modeled as a Gaussian distribution of the principal values. In the case of :class:`mars.spin_model.Interaction`, strain is applied independently to :math:`T_x, T_y, T_z`. For :class:`mars.spin_model.DEInteraction`, strain is applied to the underlying :math:`D` and :math:`E` parameters.
 
-During simulation, MarS integrates over this distribution analytically (via first-order perturbation theory) when computing the spectrum, avoiding costly Monte Carlo sampling. The result is a broadened lineshape consistent with Gaussian disorder in the Hamiltonian parameters.
+During simulation, MaRs integrates over this distribution analytically (via first-order perturbation theory) when computing the spectrum, avoiding costly Monte Carlo sampling. The result is a broadened lineshape consistent with Gaussian disorder in the Hamiltonian parameters.
 
 Specifying Strain
 -----------------
@@ -96,14 +96,14 @@ Units must match those of the components (e.g., Hz for couplings, dimensionless 
 Important Notes
 ---------------
 
-- Strain in MarS is **uncorrelated by default** for :class:`mars.spin_model.Interaction` (diagonal covariance).
+- Strain in MaRs is **uncorrelated by default** for :class:`mars.spin_model.Interaction` (diagonal covariance).
 - Strain distributions are assumed Gaussian and static.
-- MarS allows you to set any type of correlation within a single interaction using the :meth:`set_strain` method: ``interaction.set_strain(new_strain, new_correlation_matrix)``
+- MaRs allows you to set any type of correlation within a single interaction using the :meth:`set_strain` method: ``interaction.set_strain(new_strain, new_correlation_matrix)``
 
 Custom Strain Correlations
 --------------------------
 
-MarS allows you to define arbitrary linear correlations between the underlying physical parameters and the tensor components via the ``strain_correlation`` attribute.
+MaRs allows you to define arbitrary linear correlations between the underlying physical parameters and the tensor components via the ``strain_correlation`` attribute.
 
 Physical Motivation
 ~~~~~~~~~~~~~~~~~~~
@@ -145,7 +145,7 @@ Consequently, the sensitivity of the transition to a physical parameter :math:`p
 
    \frac{d \nu_{uv}}{dp} = \frac{\partial H_{vv}}{\partial p} - \frac{\partial H_{uu}}{\partial p}
 
-In MarS, strain broadening is calculated by propagating the uncertainty of underlying physical parameters :math:`p_\alpha` (such as structural modes) through this relation. The variance of the transition frequency is:
+In MaRs, strain broadening is calculated by propagating the uncertainty of underlying physical parameters :math:`p_\alpha` (such as structural modes) through this relation. The variance of the transition frequency is:
 
 .. math::
 
@@ -159,10 +159,10 @@ Using the chain rule, we connect physical parameters :math:`p_\alpha` to the Ham
 
 Here, :math:`\frac{\partial g_i}{\partial p_\alpha}` corresponds to the user-defined ``strain_correlation`` matrix.
 
-Implementation in MarS
+Implementation in MaRs
 ~~~~~~~~~~~~~~~~~~~~~~
 
-In MarS, this is implemented as follows:
+In MaRs, this is implemented as follows:
 
 .. code-block:: python
 

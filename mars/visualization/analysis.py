@@ -54,7 +54,7 @@ class RalaxatioParmaetersPopulator(population.BaseTimeDepPopulator):
 
         :param device: device to compute (cpu / gpu)
         """
-        super().__init__(context, tr_matrix_generator_cls, solver, init_temperature, difference_out, device, dtype)
+        super().__init__(context, tr_matrix_generator_cls, solver, init_temperature, None, difference_out, device, dtype)
         self.levels_pair = levels_pair
         self.comp_method = comp_method
 

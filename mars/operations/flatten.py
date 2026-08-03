@@ -49,7 +49,7 @@ def flatten(
         end_dim: int = -1,
 ) -> mars_item_type:
     """
-    Flatten batch dimensions of a MarS item.
+    Flatten batch dimensions of a MaRs item.
 
     :param item: A single MARS object.
     :param start_dim: The first dimension to flatten. Default is 0.

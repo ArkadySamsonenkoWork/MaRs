@@ -1,4 +1,4 @@
-# MarS
+# MaRs
 
 **A toolkit for researchers to simulate, analyze, and explore EPR systems efficiently.**
 
@@ -6,14 +6,14 @@
 
 ## 🚀 Overview
 
-**MarS** is a Python library for constructing spin systems (electrons and nuclei), defining their magnetic interactions, and simulating Electron Paramagnetic Resonance (EPR) spectra.
+**MaRs** is a Python library for constructing spin systems (electrons and nuclei), defining their magnetic interactions, and simulating Electron Paramagnetic Resonance (EPR) spectra.
 It supports a wide range of interaction models, efficient batched computations on CPU and GPU, flexible numerical precision (`float32` / `float64`), and tools for both stationary and time-resolved EPR experiments.
 
 
 ## 🔑 Core Capabilities
 
 ### Interaction Support
-MarS allows users to construct spin systems with the most widely used magnetic interactions:
+MaRs allows users to construct spin systems with the most widely used magnetic interactions:
 - Zeeman interaction  
 - Exchange interaction  
 - Dipolar interaction  
@@ -30,7 +30,7 @@ Both **isotropic** and **anisotropic** parameters are supported.
 ---
 
 ### Broadening Support
-MarS provides several mechanisms to model experimental linewidths:
+MaRs provides several mechanisms to model experimental linewidths:
 - Gaussian and Lorentzian line broadening  
 - Hamiltonian broadening  
 - Broadening due to distributions of Hamiltonian parameters  (so-called strains)
@@ -44,11 +44,19 @@ MarS provides several mechanisms to model experimental linewidths:
 
 ---
 
-### Radiation Polarization Support
-- Simulation of spectra under **polarized microwave radiation**
-- Polarization-dependent transition probabilities
+### Spin-Polarized Spectra Support
+- Simulation of stationary EPR spectra with arbitrary **non-equilibrium (spin-polarized) initial populations**, in addition to standard thermal (Boltzmann) populations
+- Polarization can be specified directly in any of the supported bases (e.g. eigenbasis, ZFS basis, multiplet basis, product basis, triplet xyz basis, Zeeman basis, or a custom basis), with automatic transformation into the working basis
 
 ---
+
+### Radiation Polarization Support
+- Simulation of spectra under polarized microwave radiation
+- Polarization-dependent transition probabilities
+- Supports crystalline and powder samples under linear, circular, and unpolarized excitation
+
+---
+
 
 ### Numerical Precision Control
 - Support for `float64` and `float32` precision
@@ -71,9 +79,9 @@ MarS provides several mechanisms to model experimental linewidths:
 
 # ⏱️ Time-Resolved Capabilities
 
-MarS is a comprehensive framework for modeling **time-resolved EPR experiments** with two complementary computational paradigms.
+MaRs is a comprehensive framework for modeling time-resolved EPR experiments with two complementary computational approaches.
 
-### Relaxation Paradigms
+### Relaxation Approaches
 - **Population relaxation (Kinetic approach)**: Evolution of diagonal density matrix elements (population vectors)
 - **Density matrix relaxation**: Full evolution of all density matrix elements. It includes two methods of computations:
   - Rotating frame approximation method
@@ -81,14 +89,25 @@ MarS is a comprehensive framework for modeling **time-resolved EPR experiments**
 
 ---
 
-### Flexible Relaxation Factrors Definition
-MarS provides powerful tools for defining complex relaxation processes:
+### Flexible Relaxation Parameters Definition
+MaRs provides powerful tools for defining complex relaxation processes:
 - **Population losses** (e.g., phosphorescence from triplet states)
-- **Spontaneous transitions** (free transitions satisfying detailed balance)
+- **Spontaneous transitions** (thermal transitions satisfying detailed balance)
 - **Induced transitions** (driven transitions not satisfying detailed balance)
 - **Dephasing** (for density matrix formalism)
 
 All mechanisms can be specified in any of several predefined bases or custom transformation matrices.
+
+---
+
+### Relaxation Formalisms: Lindblad and Bloch-Redfield
+MaRs provides three complementary ways to define relaxation, which can be freely combined within a single simulation:
+
+- **Lindblad formalism**: relaxation is defined phenomenologically from Lindblad jump-operator form.
+- **Bloch-Redfield formalism**: relaxation rates are derived microscopically from system-bath coupling operators and a spectral density function. Users define the coupling operator as a matrix together with the spectral density function (as an explicit function of frequency).
+- **Custom relaxation superoperators**: for relaxation processes that fall outside both formalisms, users can supply a fully custom relaxation superoperator directly.
+
+Thermal balance (detailed balance) is automatically enforced for the thermal parts of all three formalisms, and the Lindblad, Bloch-Redfield, and custom contributions can be summed together into a single total relaxation superoperator (or kinetic matrix).
 
 ---
 
@@ -137,9 +156,9 @@ Multiple solution strategies optimized for different scenarios:
 ### Installation
 
 ```bash
-git clone https://github.com/ArkadySamsonenkoWork/MarS.git
+git clone https://github.com/ArkadySamsonenkoWork/MaRs.git
 cd mars
-pip install -e <folder
+pip install -e <folder>
 ```
 or just
 ```bash

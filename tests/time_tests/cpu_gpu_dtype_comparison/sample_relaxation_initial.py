@@ -51,7 +51,7 @@ def set_relaxation_and_initial_channels(sample, num_contexts: int = 0, disable_r
             sample=sample,
             basis=basis,
             init_populations=pops,
-            free_probs=rates,
+            thermal_rates=rates,
             device=device,
             dtype=dtype
         )
@@ -82,7 +82,7 @@ def set_relaxation_and_initial_channels_batches(sample, num_contexts: int = 0, d
             sample=sample,
             basis=basis,
             init_populations=pops,
-            free_probs=rates,
+            thermal_rates=rates,
             device=device,
             dtype=dtype
         )

@@ -1,11 +1,11 @@
-.. MarS documentation master file, created by
+.. MaRs documentation master file, created by
    sphinx-quickstart on Sun Jan 11 12:18:45 2026.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to MarS!
+Welcome to MaRs!
 =================
-**MarS** is a Python library for simulating Electron Paramagnetic Resonance (EPR) spectra, optimizing spin Hamiltonian and kinetic parameters against experimental data,
+**MaRs** is a Python library for simulating Electron Paramagnetic Resonance (EPR) spectra, optimizing spin Hamiltonian and kinetic parameters against experimental data,
 and computing both continuous-wave (CW) and time-resolved EPR signals. Built on PyTorch, it supports efficient batched computations on CPU and GPU with flexible numerical precision.
 
 Key features include:
@@ -59,10 +59,15 @@ Key features include:
    examples/example_5
    examples/example_6
    examples/example_7
+   examples/example_8
+   examples/example_9
+   examples/example_article_1
+   examples/example_article_2
+
 
 
 .. toctree::
    :maxdepth: 1
    :caption: Project Info
 
-    GitHub Repository <https://github.com/ArkadySamsonenkoWork/MarS.git>
+    GitHub Repository <https://github.com/ArkadySamsonenkoWork/MaRs.git>

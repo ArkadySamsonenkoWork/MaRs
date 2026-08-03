@@ -23,7 +23,7 @@ class EvolutionBase(ABC):
     """
     def __init__(self, res_energies: torch.Tensor,
                  thermal_balance_mode: tp.Optional[
-                     tp.Union[str, ThermalBalanceMode]] = ThermalBalanceMode.SYMMETRIC):
+                 tp.Union[str, ThermalBalanceMode]] = ThermalBalanceMode.SYMMETRIC):
         """
         :param res_energies: Energy eigenvalues of the spin Hamiltonian.
                          Expected shape: [..., N] where N is the dimension of the spin system.
@@ -80,7 +80,7 @@ class EvolutionMatrix(EvolutionBase):
     due to relaxation processes.
 
     The matrix combines three types of contributions:
-      - **Free (spontaneous) transitions**: bidirectional probabilities
+      - **Free (spontaneous) transitions**: bidirectional rates (thermal rates)
         between pairs of levels that obey thermal equilibrium
         at a given temperature. These are adjusted using the Boltzmann factor based on energy differences.
       - **Driven transitions**: external or non-equilibrium transitions that are
@@ -123,29 +123,29 @@ class EvolutionMatrix(EvolutionBase):
         return self.thermal_corrector.apply_matrix_transform(temperature, matrix)
 
     def __call__(self, temperature: torch.tensor,
-                 free_probs: tp.Optional[torch.Tensor] = None,
-                 driven_probs: tp.Optional[torch.Tensor] = None,
-                 out_probs: tp.Optional[torch.Tensor] = None) -> torch.Tensor:
+                 thermal_rates: tp.Optional[torch.Tensor] = None,
+                 driven_rates: tp.Optional[torch.Tensor] = None,
+                 decay_rates: tp.Optional[torch.Tensor] = None) -> torch.Tensor:
         """Build full transition matrix.
 
         :param temperature: Temperature(s).
-        :param free_probs: Optional Free relaxation probabilities [..., N, N].
-        :param driven_probs: Optional induced transitions [..., N, N].
-        :param out_probs: Optional outgoing transition rates [..., N].
+        :param thermal_rates: Optional Thermal relaxation rates [..., N, N].
+        :param driven_rates: Optional induced transitions [..., N, N].
+        :param decay_rates: Optional outgoing transition rates [..., N].
         :return: Transition matrix [..., N, N].
 
         Example (2-level system):
 
         Free relaxation (symmetric form):
-            base_probs = [[0,  k'],
-                          [k', 0]]
+            thermal_rates = [[0,  k'],
+                             [k', 0]]
 
         Driven transitions:
-            induced_probs = [[0,  dr1'],
+            driven_rates = [[0,  dr1'],
                              [dr2', 0]]
 
         Outgoing transitions:
-            out_probs = [o, o]
+            decay_rates = [o, o]
 
         Resulting matrix:
             [[-2k' * exp(-(E2 - E1)/kT),   2k'],
@@ -159,18 +159,18 @@ class EvolutionMatrix(EvolutionBase):
         """
         indices = torch.arange(self.spin_system_dim, device=self.device)
         mask = 1.0 - torch.eye(self.spin_system_dim, dtype=self.dtype, device=self.device)
-        if free_probs is not None:
-            probs_matrix = self.apply_thermal_correction(temperature, free_probs)
+        if thermal_rates is not None:
+            probs_matrix = self.apply_thermal_correction(temperature, thermal_rates)
             probs_matrix[..., indices, indices] -= (probs_matrix * mask).sum(dim=-2)
             transition_matrix = probs_matrix
         else:
             transition_matrix = 0
 
-        if driven_probs is not None:
-            driven_probs[..., indices, indices] -= (driven_probs * mask).sum(dim=-2)
-            transition_matrix += driven_probs
-        if out_probs is not None:
-            transition_matrix -= torch.diag_embed(out_probs)
+        if driven_rates is not None:
+            driven_rates[..., indices, indices] -= (driven_rates * mask).sum(dim=-2)
+            transition_matrix += driven_rates
+        if decay_rates is not None:
+            transition_matrix -= torch.diag_embed(decay_rates)
         return transition_matrix
 
 
@@ -222,7 +222,7 @@ class EvolutionSuper(EvolutionBase):
     def __call__(self,
                  temp: torch.tensor,
                  H: torch.Tensor,
-                 free_superop: tp.Optional[torch.Tensor] = None,
+                 thermal_superop: tp.Optional[torch.Tensor] = None,
                  driven_superop: tp.Optional[torch.Tensor] = None,
                  ) -> torch.Tensor:
         """
@@ -233,12 +233,12 @@ class EvolutionSuper(EvolutionBase):
 
         where:
           - ℒ_H[ρ] = -i[H, ρ] (coherent evolution)
-          - 𝓡_thermal: thermal relaxation with detailed balance (from free_superop)
+          - 𝓡_thermal: thermal relaxation with detailed balance (from thermal_superop)
           - 𝓡_driven: user-provided relaxation (unchanged)
 
         :param temp: Temperature(s).
         :param H: Hamiltonian operator. The shape is [..., N, N].
-        :param free_superop: The part of the superoperator that will be transformed to satisfy the detailed balance.
+        :param thermal_superop: The part of the superoperator that will be transformed to satisfy the detailed balance.
             The shape is '[..., N**2, N**2]'.
         :param driven_superop: The part of the superoperator that will be saved without transformation.
             The shape is '[..., N**2, N**2]'.
@@ -246,8 +246,8 @@ class EvolutionSuper(EvolutionBase):
         """
         super_op = transform.Liouvilleator.hamiltonian_superop(H)
 
-        if free_superop is not None:
-            super_op = self.apply_thermal_correction(temp, free_superop) + super_op
+        if thermal_superop is not None:
+            super_op = self.apply_thermal_correction(temp, thermal_superop) + super_op
         if driven_superop is not None:
             super_op = driven_superop + super_op
         return super_op

@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+import warnings
+
 import torch
 from torch import nn
 
@@ -9,6 +11,15 @@ import typing as tp
 from .. import tr_utils
 from .. import matrix_generators
 from .. import contexts
+
+
+def transform_to_complex(vector):
+    if vector.dtype == torch.float32:
+        return vector.to(torch.complex64)
+    elif vector.dtype == torch.float64:
+        return vector.to(torch.complex128)
+    else:
+        return vector
 
 
 class BasePopulator(nn.Module):
@@ -100,6 +111,14 @@ class BasePopulator(nn.Module):
 
         self._context = context
         if context is not None:
+            if context.is_opened():
+                warnings.warn(
+                    "Changing the sample without creating a new context may invalidate "
+                    "the cached basis transformation data. Consider calling close_context() first."
+                    "Or create a new context",
+                    UserWarning,
+                    stacklevel=2
+                )
             self.add_module("_context", context)
 
         self._init_context_meta()
@@ -140,6 +159,45 @@ class BasePopulator(nn.Module):
         return nn.functional.softmax(
             -constants.unit_converter(energies, "Hz_to_K") / self.init_temperature, dim=-1
         )
+
+    def _temp_dependant_init_density(self,
+                energies: torch.Tensor,
+                lvl_down: torch.Tensor,
+                lvl_up: torch.Tensor,
+                full_system_vectors: tp.Optional[torch.Tensor],
+                *args, **kwargs):
+        """Nitializes the density matrix from thermal equilibrium at
+        `self.init_temperature`.
+
+        Populations follow the Boltzmann distribution: p_i ∝ exp(−E_i / k_B T),
+        where energies are converted from Hz to Kelvin using physical constants.
+        The resulting density matrix is diagonal in the Hamiltonian eigenbasis.
+        :return:
+            Diagonal complex-valued density matrix, shape [..., N, N].
+        """
+        populations = torch.nn.functional.softmax(
+            -constants.unit_converter(energies, "Hz_to_K") / self.init_temperature, dim=-1
+        )
+        return transform_to_complex(torch.diag_embed(populations, dim1=-1, dim2=-2))
+
+    def _context_dependant_init_density(self,
+                energies: torch.Tensor,
+                lvl_down: torch.Tensor,
+                lvl_up: torch.Tensor,
+                full_system_vectors: tp.Optional[torch.Tensor],
+                *args, **kwargs):
+
+        """Initializes the density matrix from the Context, which may define it
+        in an arbitrary basis.
+
+        The Context returns a density matrix or population vector in its native basis
+        (e.g., zero-field splitting basis for triplet states).
+        This method uses `full_system_vectors` to transform it into the field-dependent eigenbasis.
+
+        :return:
+            Transformed initial density matrix in the eigenbasis of the full Hamiltonian.
+        """
+        return self.context.get_transformed_init_density(full_system_vectors)
 
     def _context_dependant_init_population(self,
                 energies: torch.Tensor,
@@ -244,6 +302,7 @@ class BaseTimeDepPopulator(BasePopulator):
         self.difference_out = difference_out
         self.to(device)
 
+
     @abstractmethod
     def init_solver(self, solver: tp.Optional[tp.Callable]) -> tp.Callable:
         if solver is not None:
@@ -269,7 +328,7 @@ class BaseTimeDepPopulator(BasePopulator):
     def _init_tr_matrix_generator(self,
                                   *args, **kwargs) -> matrix_generators.BaseGenerator:
         """
-        Function creates TransitionMatrixGenerator - it is object that can compute probabilities of transitions.
+        Function creates TransitionMatrixGenerator - it is object that can compute rates of transitions.
 
         :param args: tuple, optional.
         :param kwargs : dict, optional
@@ -279,3 +338,45 @@ class BaseTimeDepPopulator(BasePopulator):
         """
         tr_matrix_generator = self.tr_matrix_generator_cls(*args, **kwargs)
         return tr_matrix_generator
+
+    def compute_stationary_polarization(self,
+                res_fields: torch.Tensor,
+                lvl_down: torch.Tensor,
+                lvl_up: torch.Tensor,
+                energies: torch.Tensor,
+                vector_down: torch.Tensor, vector_up: torch.Tensor,
+                full_system_vectors: tp.Optional[torch.Tensor],
+                *args, **kwargs) -> torch.Tensor:
+        """Computes the population difference for each resonant EPR transition. at zero time moment
+
+        :param res_fields:
+            Resonance magnetic field for each transition, shape [..., M],
+            where M is the number of resonance conditions, (e.g. the number of resonance for each orientation)
+
+        :param lvl_down:
+            Indices of lower energy levels involved in transitions, shape [M].
+
+        :param lvl_up:
+            Indices of upper energy levels involved in transitions, shape [M].
+
+        :param energies:
+            Eigenenergies of all spin states in Hz, shape [..., M, N],
+            where M is the number of resonance conditions, (e.g. the number of resonance for each orientation)
+            and N is the number of energy levels.
+
+        :param vector_down: Eigenvectors of the lower energy states, shape [..., M, N].
+        :param vector_up: Eigenvectors of the upper energy states, shape [..., M, N].
+
+        :param full_system_vectors:
+            Eigenvectors of the full spin Hamiltonian, shape [..., N, N].
+            Required only if initial populations are defined in a non-eigenbasis (e.g., ZFS basis)
+            and Context provides them. Used to transform populations into the field-dependent eigenbasis.
+
+        :return:
+            Population differences Δp = p_upper − p_lower for each transition,
+            shape [..., R], ready to be multiplied by transition matrix elements.
+        """
+        populations = self._initial_populations(energies, lvl_down, lvl_up, full_system_vectors)
+        if self.context is not None:
+            self.context.close_context()
+        return self._out_population_difference(populations, lvl_down, lvl_up)

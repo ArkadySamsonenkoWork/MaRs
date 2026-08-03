@@ -1,9 +1,9 @@
 .. _interaction_in_mars:	
 
-Interactions in MarS
+Interactions in MaRs
 ====================
 
-MarS represents physical couplings between spins through interaction objects. These are central to defining any coupling in Spin Hamiltonian
+MaRs represents physical couplings between spins through interaction objects. These are central to defining any coupling in Spin Hamiltonian
 
 .. toctree::
    :maxdepth: 2

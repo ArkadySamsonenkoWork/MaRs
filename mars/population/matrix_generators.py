@@ -63,7 +63,7 @@ class BaseGenerator(ABC):
 
 
 class LevelBasedGenerator(BaseGenerator):
-    """Abstract base class for generating transition probability matrices in a
+    """Abstract base class for generating transition rates matrices in a
     multi-level.
 
     system with populations and energy differences.
@@ -83,7 +83,7 @@ class LevelBasedGenerator(BaseGenerator):
     K itself can be rewritten via K' and driven transition DR
     K = K' + DR, where
         K'   – equilibrium relaxation (thermal),
-        DR  – driven_probs transitions,
+        DR  – driven_rates transitions,
 
     At thermal equilibrium, transition rates satisfy detailed balance:
         k'1 / k'2 = n'2 / n'1 = exp(-(E2 - E1) / kT)
@@ -95,12 +95,12 @@ class LevelBasedGenerator(BaseGenerator):
         k'2 = 2k' / (1 + exp(-(E2 - E1) / kT))
         k'1 = 2k' * exp(-(E2 - E1) / kT) / (1 + exp(-(E2 - E1) / kT))
 
-    In symmetric form, the "free probabilities" matrix (i.e. mean equilibrium transition probabilities) is:
+    In symmetric form, the "theraml rates" matrix (i.e. mean equilibrium transition rates) is:
 
-        base_probs= [[0,  k'],
-                    [k', 0]]
+        thermal_rates = [[0,  k'],
+                      [k', 0]]
 
-    DR matrix is matrix which probabilities are not connected by thermal equilibrium:
+    DR matrix is matrix which rates are not connected by thermal equilibrium:
                      [[0,  dr_1],
                      [dr_2, 0]]
     """
@@ -111,29 +111,29 @@ class LevelBasedGenerator(BaseGenerator):
         tp.Optional[torch.Tensor],
         tp.Optional[torch.Tensor]
     ]:
-        """Evaluate transition probabilities at given measurement times.
+        """Evaluate transition rates at given measurement times.
 
         Parameters
         :param time: torch.Tensor
         :return: tuple
-            (temperature, base_probs, induced_probs, outgoing_probs)
+            (temperature, thermal_rates, driven_rates, decay_rates)
             - temperature : torch.Tensor or None
                 System temperature(s) at the given time(s).
-            - free_probs : torch.Tensor [..., N, N]
-                Thermal equilibrium (Boltzmann-weighted) transition probabilities.
+            - thermal_rates : torch.Tensor [..., N, N]
+                Thermal equilibrium (Boltzmann-weighted) transition rates.
 
             Example in symmetry form:
-                free_probs = [[0,  k'],
+                thermal_rates = [[0,  k'],
                             [k', 0]]
 
-            - induced_probs : torch.Tensor [..., N, N] or None
+            - driven_rates : torch.Tensor [..., N, N] or None
                 Probabilities of driven transitions (e.g. due to external driving).
 
                 Ind matrix is always symmetry: [[0,  i],
                                                 [i, 0]]
 
-            - out_probs : torch.Tensor [..., N]  or None
-                Out-of-system transition probabilities (loss terms).
+            - decay_rates : torch.Tensor [..., N]  or None
+                Out-of-system transition rates (loss terms).
         """
         if self.context.time_dependant:
             time_dep_values = self.context.get_time_dependent_values(time)
@@ -141,18 +141,18 @@ class LevelBasedGenerator(BaseGenerator):
             time_dep_values = None
 
         temperature = self._temperature(time_dep_values)
-        free_probs = self._base_transition_probs(time_dep_values, temperature)
-        driven_probs = self._driven_transition_probs(time_dep_values, temperature)
-        out_probs = self._outgoing_transition_probs(time_dep_values, temperature)
-        return temperature, free_probs, driven_probs, out_probs
+        thermal_rates = self._thermal_transition_rates(time_dep_values, temperature)
+        driven_rates = self._driven_transition_rates(time_dep_values, temperature)
+        decay_rates = self._decay_transition_rates(time_dep_values, temperature)
+        return temperature, thermal_rates, driven_rates, decay_rates
 
     def _temperature(self, time_dep_values: torch.Tensor) -> tp.Optional[torch.Tensor]:
         """Return temperature(s) at times t."""
         return self.init_temperature.unsqueeze(-1).unsqueeze(-1)
 
-    def _base_transition_probs(self, time_dep_values: tp.Optional[torch.Tensor], temperature: torch.Tensor) ->\
+    def _thermal_transition_rates(self, time_dep_values: tp.Optional[torch.Tensor], temperature: torch.Tensor) ->\
             tp.Optional[torch.Tensor]:
-        """Retrieve spontaneous (free) transition probabilities transformed
+        """Retrieve spontaneous (thermal) transition rates transformed
         into the eigenbasis.
 
         These rates are subject to Boltzmann detailed balance.
@@ -161,14 +161,14 @@ class LevelBasedGenerator(BaseGenerator):
         The shape is [] or [t], where t is number of time-steps
         :return: Tensor of shape [..., N, N] representing equilibrium transition rates.
         """
-        return self.context.get_transformed_free_probs(
+        return self.context.get_transformed_thermal_rates(
             self.full_system_vectors, time_dep_values, self.res_fields,
             self.energies, temperature
         )
 
-    def _driven_transition_probs(self, time_dep_values: tp.Optional[torch.Tensor], temperature: torch.Tensor) ->\
+    def _driven_transition_rates(self, time_dep_values: tp.Optional[torch.Tensor], temperature: torch.Tensor) ->\
             tp.Optional[torch.Tensor]:
-        """Retrieve non-thermal (driven) transition probabilities in the
+        """Retrieve non-thermal (driven) transition rates in the
         eigenbasis.
 
         These rates are not modified by thermal constraints and represent external perturbations.
@@ -177,11 +177,11 @@ class LevelBasedGenerator(BaseGenerator):
         The shape is [] or [t], where t is number of time-steps
         :return: Tensor of shape [..., N, N] or None if no driven processes are defined.
         """
-        return self.context.get_transformed_driven_probs(
+        return self.context.get_transformed_driven_rates(
             self.full_system_vectors, time_dep_values, self.res_fields, self.energies, temperature
         )
 
-    def _outgoing_transition_probs(self, time_dep_values: tp.Optional[torch.Tensor], temperature: torch.Tensor) ->\
+    def _decay_transition_rates(self, time_dep_values: tp.Optional[torch.Tensor], temperature: torch.Tensor) ->\
             tp.Optional[torch.Tensor]:
         """Retrieve irreversible loss rates from each energy level in the
         eigenbasis.
@@ -192,7 +192,7 @@ class LevelBasedGenerator(BaseGenerator):
         The shape is [] or [t], where t is number of time-steps
         :return: Vector of shape [..., N] or None if no loss processes are defined.
         """
-        return self.context.get_transformed_out_probs(
+        return self.context.get_transformed_decay_rates(
             self.full_system_vectors, time_dep_values, self.res_fields, self.energies, temperature
         )
 
@@ -220,10 +220,10 @@ class DensityRWAGenerator(BaseGenerator):
     approximation (RWA).
 
     Returns the Hamiltonian H and two superoperators:
-      - free_superop: spontaneous processes (thermal relaxation, losses, dephsing),
+      - thermal_superop: spontaneous processes (thermal relaxation, losses, dephsing),
       - driven_superop: external non-equilibrium driving.
 
-    The full Liouvillian is L = -i[H, ·] + R_free + R_driven, where [·,·] is the commutator,
+    The full Liouvillian is L = -i[H, ·] + R_thermal + R_driven, where [·,·] is the commutator,
     and R terms are relaxation superoperators.
     H is defined in rotating frame and equel to H =
 
@@ -306,7 +306,7 @@ class DensityRWAGenerator(BaseGenerator):
                 H = H0 + Sz + Ht(r), where H0 is stationary Hamiltonian, Sz is z-projection of total spin,
                 Ht(r) is oscillating Hamiltonian in rotating frame (in this frame it doesn't depend on time)
 
-            - free_superop: Liouville-space superoperator of shape [..., N^2, N^2] for thermal relaxation.
+            - thermal_superop: Liouville-space superoperator of shape [..., N^2, N^2] for thermal relaxation.
             - driven_superop: Liouville-space superoperator of shape [..., N^2, N^2] for non-thermal driving.
         """
         if self.context.time_dependant:
@@ -315,9 +315,9 @@ class DensityRWAGenerator(BaseGenerator):
             time_dep_values = None
 
         temperature = self._temperature(time_dep_values)
-        free_superop = self._base_superop(time_dep_values, temperature)
+        thermal_superop = self._base_superop(time_dep_values, temperature)
         driven_superop = self._driven_superop(time_dep_values, temperature)
-        return temperature, self.stationary_hamiltonian, free_superop, driven_superop
+        return temperature, self.stationary_hamiltonian, thermal_superop, driven_superop
 
     def _temperature(self, time_dep_values: tp.Optional[torch.Tensor]) -> tp.Optional[torch.Tensor]:
         """Return temperature(s) at times t."""
@@ -332,7 +332,7 @@ class DensityRWAGenerator(BaseGenerator):
         The shape is [] or [t], where t is number of time-steps
         :return: Superoperator tensor of shape [..., N^2, N^2].
         """
-        return self.context.get_transformed_free_superop(
+        return self.context.get_transformed_thermal_superop(
             self.full_system_vectors, time_dep_values, self.res_fields, self.energies, temperature)
 
     def _driven_superop(self, time_dep_values: tp.Optional[torch.Tensor], temperature) -> tp.Optional[torch.Tensor]:
@@ -388,7 +388,7 @@ class DensityPropagatorGenerator(DensityRWAGenerator):
             - stationary_hamiltonian: Hermitian stationary Hamiltonian H0
              of shape [..., N, N]. In dimensionless units,
 
-            - free_superop: Liouville-space superoperator of shape [..., N^2, N^2] for thermal relaxation.
+            - thermal_superop: Liouville-space superoperator of shape [..., N^2, N^2] for thermal relaxation.
             - driven_superop: Liouville-space superoperator of shape [..., N^2, N^2] for non-thermal driving.
         """
         if self.context.time_dependant:
@@ -397,6 +397,6 @@ class DensityPropagatorGenerator(DensityRWAGenerator):
             )
         time_dep_values = None
         temperature = self._temperature(time_dep_values)
-        free_superop = self._base_superop(time_dep_values, temperature)
+        thermal_superop = self._base_superop(time_dep_values, temperature)
         driven_superop = self._driven_superop(time_dep_values, temperature)
-        return temperature, self.stationary_hamiltonian, free_superop, driven_superop
+        return temperature, self.stationary_hamiltonian, thermal_superop, driven_superop

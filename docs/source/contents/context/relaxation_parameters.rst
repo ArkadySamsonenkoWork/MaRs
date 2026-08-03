@@ -3,7 +3,7 @@
 Relaxation Parameters and Initial States
 ========================================
 
-The Context class in MarS supports four types of relaxation parameters that define how spin populations and coherences evolve over time. All probabilities are expressed in **s⁻¹** (inverse seconds).
+The Context class in MaRs supports four types of relaxation parameters that define how spin populations and coherences evolve over time. All probabilities are expressed in **s⁻¹** (inverse seconds).
 
 Initial States
 --------------
@@ -25,19 +25,24 @@ If both of these parameters are missing, then the equilibrium initial state at t
 Relaxation Overview
 -------------------
 
-MarS defines relaxation through four distinct mechanisms:
+MaRs defines relaxation through four distinct mechanisms:
 
-1. **out_probs** (Outgoing probabilities) - Population loss rates
-2. **free_probs** (Free probabilities) - Spontaneous transition probabilities  
-3. **driven_probs** (Driven probabilities) - Stimulated transition probabilities
+1. **decay_rates** (Outgoing probabilities) - Population loss rates
+2. **thermal_rates** (Free probabilities) - Spontaneous transition rates
+3. **driven_rates** (Driven probabilities) - Stimulated transition rates
 4. **dephasing** (Dephasing) - Pure dephasing rates used only for density-based relaxation
 
 Each mechanism serves a specific physical purpose and transforms differently under basis changes.
 
-Out Probabilities (out_probs)
+In addition to these rate‑matrix descriptions, MaRs supports first‑principles relaxation models via **Bloch‑Redfield** and **Lindblad relaxation channels**.
+These channels define the system‑bath coupling at the operator level and, for Redfield theory, include an explicit spectral density :math:`J(\omega)`.
+They are specified using the ``relaxation_coupling_channels`` argument of :class:`~mars.population.contexts.Context` and are thoroughly described in :ref:`relaxation_channels`.
+
+
+Decay Rates (decay_rates)
 ------------------------------
 
-.. image:: /_static/context/out_probs.png
+.. image:: /_static/context/decay_rates.png
    :width: 70%
    :alt: Out probabilities diagram
    :align: center
@@ -50,6 +55,7 @@ Out probabilities describe irreversible population loss from energy levels.
 
 A diagonal vector where element :math:`o_i` represents the loss rate from level :math:`|i\rangle`.
 
+
 **Example: Triplet State Phosphorescence**
 
 .. code-block:: python
@@ -58,7 +64,7 @@ A diagonal vector where element :math:`o_i` represents the loss rate from level 
    from mars import population
    
    # Define different phosphorescence rates for each sublevel
-   out_probs = torch.tensor([120.0, 50.0, 80.0])  # s^-1
+   decay_rates = torch.tensor([120.0, 50.0, 80.0])  # s^-1
    
    # In XYZ basis: [TX, TY, TZ]
    # TX: 120 s^-1 → lifetime ~8.3 ms
@@ -69,7 +75,7 @@ A diagonal vector where element :math:`o_i` represents the loss rate from level 
        sample=triplet_sample,
        basis="xyz",
        init_populations=[0.4, 0.2, 0.4],
-       out_probs=out_probs
+       decay_rates=decay_rates
    )
 
 **Transformation Rule**
@@ -82,17 +88,17 @@ then under basis transformation with matrix :math:`U`:
 
 where :math:`|U|^2` denotes element-wise squaring of the transformation matrix.
 
-Free Probabilities (free_probs)
+Thermal rates (thermal_rates)
 --------------------------------
 
-.. image:: /_static/context/free_probs.png
+.. image:: /_static/context/thermal_rates.png
    :width: 70%
    :alt: Free probabilities diagram
    :align: center
 
 **Physical Meaning**
 
-Free probabilities represent spontaneous transitions between energy levels that obey detailed balance.
+Thermal rates represent spontaneous transitions between energy levels that obey detailed balance.
 
 **Mathematical Form**
 
@@ -110,7 +116,7 @@ Diagonal elements are zero (no self-transitions).
    # Define transition matrix in eigen basis
    # Strong relaxation between adjacent levels
    # Weak direct relaxation between extreme levels
-   free_probs = torch.tensor([
+   thermal_rates = torch.tensor([
        [0.0,    800.0,   50.0],   # to level 0
        [800.0,  0.0,     800.0],  # to level 1
        [50.0,   800.0,   0.0]     # to level 2
@@ -123,13 +129,13 @@ Diagonal elements are zero (no self-transitions).
        sample=triplet_sample,
        basis="eigen",
        init_populations=[0.35, 0.35, 0.30],
-       free_probs=free_probs,
+       thermal_rates=thermal_rates,
        temperature=80.0
    )
 
 **Detailed Balance Enforcement** (see also :ref:`detailed_balance`)
 
-MarS automatically enforces detailed balance at temperature :math:`T`:
+MaRs automatically enforces detailed balance at temperature :math:`T`:
 
 .. math::
 
@@ -141,7 +147,7 @@ MarS automatically enforces detailed balance at temperature :math:`T`:
 
 where :math:`w_{ij}^*` are the modified rates ensuring :math:`\frac{w_{ij}^*}{w_{ji}^*} = e^{-(E_i - E_j)/k_B T}`.
 
-We additionally note, that in MarS notation, the matrix element :math:`w_{ij}` corresponds to the physical transition rate :math:`w_{j \to i}`,
+We additionally note, that in MaRs notation, the matrix element :math:`w_{ij}` corresponds to the physical transition rate :math:`w_{j \to i}`,
 and after thermal correction it satisfies the detailed balance condition:
 
 .. math::
@@ -156,10 +162,10 @@ Under basis transformation:
 
    W' = |U|^2 \cdot W \cdot (|U|^2)^T
 
-Driven Probabilities (driven_probs)
+Driven Probabilities (driven_rates)
 ------------------------------------
 
-.. image:: /_static/context/driven_probs.png
+.. image:: /_static/context/driven_rates.png
    :width: 70%
    :alt: Driven probabilities diagram
    :align: center
@@ -182,7 +188,7 @@ A matrix :math:`D` where :math:`d_{ij}` is the stimulated rate from :math:`|j\ra
    # Simulate selective excitation of specific transition
    # Strong driving of 0→1 transition
    # Moderate driving of 1→2 transition
-   driven_probs = torch.tensor([
+   driven_rates = torch.tensor([
        [0.0,    2000.0,  0.0],      # to level 0
        [2000.0, 0.0,     500.0],    # to level 1  
        [0.0,    500.0,   0.0]       # to level 2
@@ -195,12 +201,12 @@ A matrix :math:`D` where :math:`d_{ij}` is the stimulated rate from :math:`|j\ra
        sample=triplet_sample,
        basis="eigen",
        init_populations=None, # Then the initial condition is thermal equilibrium
-       driven_probs=driven_probs
+       driven_rates=driven_rates
    )
 
 **Transformation Rule**
 
-Same as free probabilities:
+Same as thermal rates matrix:
 
 .. math::
 
@@ -242,7 +248,7 @@ A vector :math:`\boldsymbol{\gamma}` where :math:`\gamma_i` is the dephasing rat
        basis="eigen",
        init_populations=[0.35, 0.30, 0.35],
        dephasing=dephasing,
-       out_probs=torch.tensor([60.0, 60.0, 60.0])
+       decay_rates=torch.tensor([60.0, 60.0, 60.0])
    )
 
 **Effect on Coherences**
@@ -284,10 +290,10 @@ Let's consider a triplet state with several realxation mechanisms:
    init_populations = [0.7, 0.05, 0.25]  # Strong population of one of the states
    
    # Outgoing probabilities in ZFS basis
-   out_probs = torch.tensor([100.0, 45.0, 70.0])  # s^-1
+   decay_rates = torch.tensor([100.0, 45.0, 70.0])  # s^-1
    
    # Spin-lattice relaxation in eigen basis  
-   free_probs = torch.tensor([
+   thermal_rates = torch.tensor([
        [0.0,    900.0,   80.0],
        [900.0,  0.0,     900.0],
        [80.0,   900.0,   0.0]
@@ -301,13 +307,13 @@ Let's consider a triplet state with several realxation mechanisms:
        sample=sample,
        basis="zfs",
        init_populations=init_populations,
-       out_probs=out_probs
+       decay_rates=decay_rates
    )
    
    context_eigen = population.Context(
        sample=sample, 
        basis="eigen",
-       free_probs=free_probs,
+       thermal_rates=thermal_rates,
        dephasing=dephasing
    )
    

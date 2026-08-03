@@ -168,7 +168,6 @@ class EasySpinSaverSampleDict:
                     zfs_flag = True
                     interaction = zero_field[(el_idx_1, el_idx_2)]
 
-
                     tensor = self._convert_tensor(interaction.components)
                     frame = self._convert_tensor(interaction.frame)
 
@@ -261,10 +260,10 @@ def parse_field(field: tp.Optional[torch.Tensor], freq: tp.Optional[torch.Tensor
         return None
 
     return serialization.ExperimentalParameters(
-        min_field_pos=torch.min(field),
-        max_field_pos=torch.max(field),
+        min_pos=torch.min(field),
+        max_pos=torch.max(field),
         num_points=int(field.shape[0]),
-        freq=freq
+        resonance_parameter=freq
     )
 
 
@@ -285,8 +284,8 @@ def save_easyspin(filepath: str, sample: tp.Optional[BaseSample], spectra_creato
 
     if field_params:
         out["Exp"]["Range"] = np.array(
-            [field_params.min_field_pos.detach().cpu().numpy(),
-             field_params.max_field_pos.detach().cpu().numpy()],
+            [field_params.min_pos.detach().cpu().numpy(),
+             field_params.max_pos.detach().cpu().numpy()],
              dtype=np.float64) * T_to_mT
         out["Exp"]["nPoints"] = field_params.num_points
     scipy.io.savemat(filepath, out, oned_as="row")
@@ -515,10 +514,10 @@ def _parse_easyspin_core(filepath: tp.Union[str, pathlib.Path],
                                              dtype=dtype) * ghz_to_hz if mw_freq_raw is not None else None
 
             exp_parameters = serialization.ExperimentalParameters(
-                min_field_pos=torch.as_tensor(field_range[0][0], device=device, dtype=dtype),
-                max_field_pos=torch.as_tensor(field_range[0][1], device=device, dtype=dtype),
+                min_pos=torch.as_tensor(field_range[0][0], device=device, dtype=dtype),
+                max_pos=torch.as_tensor(field_range[0][1], device=device, dtype=dtype),
                 num_points=n_points,
-                freq=mw_freq_tensor
+                resonance_parameter=mw_freq_tensor[0][0]
             )
 
         temp_raw = exp_data.get("Temperature", None)

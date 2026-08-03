@@ -11,15 +11,6 @@ from .. import contexts
 from . import core
 
 
-def transform_to_complex(vector):
-    if vector.dtype == torch.float32:
-        return vector.to(torch.complex64)
-    elif vector.dtype == torch.float64:
-        return vector.to(torch.complex128)
-    else:
-        return vector
-
-
 class RWADensityPopulator(core.BaseTimeDepPopulator):
     """RWADensityPopulator.
 
@@ -43,7 +34,7 @@ class RWADensityPopulator(core.BaseTimeDepPopulator):
        - Dephasing of coherences (i = k, j = l).
     """
     def __init__(self,
-                 b1_field: tp.Optional[tp.Union[torch.Tensor, float]] = 1e-7,
+                 b1_field: tp.Optional[tp.Union[torch.Tensor, float]] = 1e-8,
                  context: tp.Optional[contexts.BaseContext] = None,
                  tr_matrix_generator_cls: tp.Type[matrix_generators.BaseGenerator] =
                  matrix_generators.DensityRWAGenerator,
@@ -65,7 +56,7 @@ class RWADensityPopulator(core.BaseTimeDepPopulator):
 
         :param context: context is a dataclass / Dict with any objects that are used to compute relaxation matrix.
         :param tr_matrix_generator_cls: class of Matrix Generator
-            that will be used to compute probabilities of transitions
+            that will be used to compute rates of transitions
         :param solver: It solves the general equation dn/dt = A(n,t) @ n.
 
             The following solvers are available:
@@ -130,14 +121,19 @@ class RWADensityPopulator(core.BaseTimeDepPopulator):
             if self.context.contexted_init_population:
                 self.contexted = True
                 self._getter_init_density = self._context_dependant_init_density
+                self._getter_init_population = self._context_dependant_init_population
             else:
                 self.contexted = False
                 self._getter_init_density = self._temp_dependant_init_density
+                self._getter_init_population = self._temp_dependant_init_population
+
             self.time_dependant = self.context.time_dependant
 
         else:
             self.contexted = False
             self._getter_init_density = self._temp_dependant_init_density
+            self._getter_init_population = self._temp_dependant_init_population
+
             self.time_dependant = False
 
     def _get_initial_Hamiltonian(self, energies: torch.Tensor):
@@ -183,45 +179,6 @@ class RWADensityPopulator(core.BaseTimeDepPopulator):
         :return: density in the initial state
         """
         return self._getter_init_density(energies, lvl_down, lvl_up, full_system_vectors)
-
-    def _temp_dependant_init_density(self,
-                energies: torch.Tensor,
-                lvl_down: torch.Tensor,
-                lvl_up: torch.Tensor,
-                full_system_vectors: tp.Optional[torch.Tensor],
-                *args, **kwargs):
-        """Nitializes the density matrix from thermal equilibrium at
-        `self.init_temperature`.
-
-        Populations follow the Boltzmann distribution: p_i ∝ exp(−E_i / k_B T),
-        where energies are converted from Hz to Kelvin using physical constants.
-        The resulting density matrix is diagonal in the Hamiltonian eigenbasis.
-        :return:
-            Diagonal complex-valued density matrix, shape [..., N, N].
-        """
-        populations = torch.nn.functional.softmax(
-            -constants.unit_converter(energies, "Hz_to_K") / self.init_temperature, dim=-1
-        )
-        return transform_to_complex(torch.diag_embed(populations, dim1=-1, dim2=-2))
-
-    def _context_dependant_init_density(self,
-                energies: torch.Tensor,
-                lvl_down: torch.Tensor,
-                lvl_up: torch.Tensor,
-                full_system_vectors: tp.Optional[torch.Tensor],
-                *args, **kwargs):
-
-        """Initializes the density matrix from the Context, which may define it
-        in an arbitrary basis.
-
-        The Context returns a density matrix or population vector in its native basis
-        (e.g., zero-field splitting basis for triplet states).
-        This method uses `full_system_vectors` to transform it into the field-dependent eigenbasis.
-
-        :return:
-            Transformed initial density matrix in the eigenbasis of the full Hamiltonian.
-        """
-        return self.context.get_transformed_init_density(full_system_vectors)
 
     def _transform_to_eigenbasis(self, full_basis: torch.Tensor, args_matrix: tp.Iterable[torch.Tensor]):
         """Transforms an Iterable of operators (matrices) from the
@@ -284,7 +241,7 @@ class RWADensityPopulator(core.BaseTimeDepPopulator):
                                   Ht: torch.Tensor,
                                   *args, **kwargs) -> matrix_generators.BaseGenerator:
         """
-        Function creates TransitionMatrixGenerator - it is object that can compute probabilities of transitions.
+        Function creates TransitionMatrixGenerator - it is object that can compute rates of transitions.
 
         ----------
         :param time:
@@ -687,7 +644,7 @@ class PropagatorDensityPopulator(RWADensityPopulator):
 
         :param context: context is a dataclass / Dict with any objects that are used to compute relaxation matrix.
         :param tr_matrix_generator_cls: class of Matrix Generator
-            that will be used to compute probabilities of transitions
+            that will be used to compute rates of transitions
         :param solver: It solves the general equation dn/dt = A(n,t) @ n.
 
             The following solvers are available:
@@ -750,7 +707,7 @@ class PropagatorDensityPopulator(RWADensityPopulator):
                                   resonance_frequency: torch.Tensor, H0: torch.Tensor,
                                   *args, **kwargs) -> matrix_generators.BaseGenerator:
         """
-        Function creates TransitionMatrixGenerator - it is object that can compute probabilities of transitions.
+        Function creates TransitionMatrixGenerator - it is object that can compute rates of transitions.
 
         ----------
         :param time:

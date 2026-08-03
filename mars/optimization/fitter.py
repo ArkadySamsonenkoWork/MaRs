@@ -622,8 +622,8 @@ class ParameterSpace:
                     low, up = spec.bounds
                     delta = (up - low) * alpha
 
-                    new_low = max(low, default-delta)
-                    new_up = min(up, default+delta)
+                    new_low = max(low, default-delta / 2)
+                    new_up = min(up, default+delta / 2)
                     spec.bounds = (new_low, new_up)
                     break
 
@@ -2169,15 +2169,6 @@ class SpectrumCompositeFitter:
         if method == "optuna":
             if use_penalty:
                 raise NotImplementedError("Complex Fitter doesn't support penalty parameters")
-                return self.fit_optuna_penalty(
-                    seed=seed,
-                    show_progress=show_progress,
-                    return_best_spectrum=return_best_spectrum,
-                    penalty_force=penalty_force,
-                    update_penalty_every=update_penalty_every,
-                    restart_every=restart_every,
-                    **backend_kwargs,
-                )
             else:
                 return self.fit_optuna(
                     seed=seed,
@@ -2188,15 +2179,6 @@ class SpectrumCompositeFitter:
         if method in ("nevergrad", "ng"):
             if use_penalty:
                 raise NotImplementedError("Complex Fitter doesn't support penalty parameters")
-                return self.fit_nevergrad_penalty(
-                    seed=seed,
-                    show_progress=show_progress,
-                    return_best_spectrum=return_best_spectrum,
-                    penalty_force=penalty_force,
-                    update_penalty_every=update_penalty_every,
-                    restart_every=restart_every,
-                    **backend_kwargs,
-                )
             else:
                 return self.fit_nevergrad(
                     seed=seed,

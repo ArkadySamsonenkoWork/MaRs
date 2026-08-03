@@ -1,6 +1,6 @@
 .. _magnetization_computation:
 
-Magnetic Transition Dipole Moment in MarS
+Magnetic Transition Dipole Moment in MaRs
 =========================================
 
 Physical Basis

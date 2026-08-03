@@ -7,6 +7,7 @@ from .. import contexts
 
 import torch.nn as nn
 
+
 class StationaryPopulator(core.BasePopulator):
     """COmputes the population-dependent part of the transition intensity for
     stationary (CW) EPR spectra.
@@ -26,9 +27,9 @@ class StationaryPopulator(core.BasePopulator):
     """
     def forward(self,
                 res_fields: torch.Tensor,
-                energies: torch.Tensor,
                 lvl_down: torch.Tensor,
                 lvl_up: torch.Tensor,
+                energies: torch.Tensor,
                 full_system_vectors: tp.Optional[torch.Tensor],
                 *args, **kwargs) -> torch.Tensor:
         """Computes the population difference for each resonant EPR transition.
@@ -37,16 +38,16 @@ class StationaryPopulator(core.BasePopulator):
             Resonance magnetic field for each transition, shape [..., M],
             where M is the number of resonance conditions, (e.g. the number of resonance for each orientation)
 
-        :param energies:
-            Eigenenergies of all spin states in Hz, shape [..., M, N],
-            where M is the number of resonance conditions, (e.g. the number of resonance for each orientation)
-            and N is the number of energy levels.
-
         :param lvl_down:
             Indices of lower energy levels involved in transitions, shape [M].
 
         :param lvl_up:
             Indices of upper energy levels involved in transitions, shape [M].
+
+        :param energies:
+            Eigenenergies of all spin states in Hz, shape [..., M, N],
+            where M is the number of resonance conditions, (e.g. the number of resonance for each orientation)
+            and N is the number of energy levels.
 
         :param full_system_vectors:
             Eigenvectors of the full spin Hamiltonian, shape [..., N, N].

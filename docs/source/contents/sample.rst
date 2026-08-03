@@ -49,7 +49,7 @@ Add orientation-dependent inhomogeneous broadening due to unresolved hyperfine s
 
 **3. Custom orientation mesh**
 
-In MarS it is possible to modify mesh to increse resolution of increase speed. Also it is possible to set a custom mesh (see :ref:`orientational_mesh`)
+In MaRs it is possible to modify mesh to increse resolution of increase speed. Also it is possible to set a custom mesh (see :ref:`orientational_mesh`)
 
 .. code-block:: python
 
@@ -218,7 +218,7 @@ The following methods allow you to construct and switch between common represent
 Concatenating Samples
 ~~~~~~~~~~~~~~~~~~~~~
 
-MarS allows concatenation of multiple :class:`mars.spin_model.MultiOrientedSample` objects into a single composite samples using the direct sum construction of their spin systems
+MaRs allows concatenation of multiple :class:`mars.spin_model.MultiOrientedSample` objects into a single composite samples using the direct sum construction of their spin systems
 
 This is not equivalent to building a true multi-particle quantum system (which would require a tensor-product Hilbert space). Instead, it creates a block-diagonal representation suitable for specific effective models.
 

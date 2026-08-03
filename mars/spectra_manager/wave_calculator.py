@@ -113,7 +113,7 @@ class PowderPlaneWaveTerms(PlaneWaveTerms):
         def _mixed_term(
                 helicity: int, theta: torch.Tensor, phi: torch.Tensor,
                 wigners: tuple[torch.Tensor, torch.Tensor, torch.Tensor]):
-            return helicity * (wigners[0] - wigners[2])
+            return wigners[0] - wigners[2]
 
         d_pl = wigner_term_square(self.helicity, 1, self.theta)
         d_zero = wigner_term_square(self.helicity, 0, self.theta)
@@ -240,6 +240,7 @@ class CrystalPlaneWaveTerms(PlaneWaveTerms):
     def _linear(self, wave_len: tp.Optional[torch.Tensor]):
         return None, None, None
 
+
 class WaveIntensityCalculator(StationaryIntensityCalculator):
     """Computes the intensity of transitions for general type of radiation,
     when the radiation has different orientation.
@@ -348,8 +349,8 @@ class WaveIntensityCalculator(StationaryIntensityCalculator):
 
     def _compute_magnitization_crystal(
             self, Gx: torch.Tensor, Gy: torch.Tensor, Gz: torch.Tensor,
-            vector_down: torch.Tensor, vector_up: torch.Tensor,
-            resonance_manifold: torch.Tensor, resonance_energies: torch.Tensor):
+            res_manifold: torch.Tensor,
+            vector_down: torch.Tensor, vector_up: torch.Tensor):
         """Single-crystal D from Eq. (2) of Nehrkorn et al.
         All projections are evaluated directly from mu, including the cross
         terms Re(mu_x conj(mu_z)) and Im(mu_y conj(mu_z)) that are non-zero
@@ -389,8 +390,8 @@ class WaveIntensityCalculator(StationaryIntensityCalculator):
 
     def _compute_magnitization_powder(
             self, Gx: torch.Tensor, Gy: torch.Tensor, Gz: torch.Tensor,
-            vector_down: torch.Tensor, vector_up: torch.Tensor,
-            resonance_manifold: torch.Tensor, resonance_energies: torch.Tensor) -> torch.Tensor:
+            res_manifold: torch.Tensor,
+            vector_down: torch.Tensor, vector_up: torch.Tensor,) -> torch.Tensor:
         mu_x = compute_matrix_element(vector_down, vector_up, -Gx)
         mu_y = compute_matrix_element(vector_down, vector_up, -Gy)
         mu_z = compute_matrix_element(vector_down, vector_up, -Gz)
@@ -399,15 +400,17 @@ class WaveIntensityCalculator(StationaryIntensityCalculator):
         magnitization_z = mu_z.square().abs()
         magnitization_mixed = (mu_x * mu_y.conj()).imag
 
-        terms = self.terms_computer(resonance_manifold)
+        terms = self.terms_computer(res_manifold)
         out = magnitization_xy * terms[0] + magnitization_z * terms[1] + magnitization_mixed * terms[2]
         return out * (constants.PLANCK / constants.BOHR) ** 2
 
     def compute_intensity(
             self, Gx: torch.Tensor, Gy: torch.Tensor, Gz: torch.Tensor,
+            res_manifold: torch.Tensor,
+            lvl_down: torch.Tensor, lvl_up: torch.Tensor,
+            resonance_energies: torch.Tensor,
             vector_down: torch.Tensor, vector_up: torch.Tensor,
-            lvl_down: torch.Tensor, lvl_up: torch.Tensor, resonance_energies: torch.Tensor,
-            resonance_manifold: torch.Tensor, full_system_vectors: tp.Optional[torch.Tensor], *args, **kwargs
+            full_system_vectors: tp.Optional[torch.Tensor], *args, **kwargs
     ) -> torch.Tensor:
         """Compute  EPR intensities under polarized radiation.
 
@@ -416,9 +419,9 @@ class WaveIntensityCalculator(StationaryIntensityCalculator):
         :param ...: Other parameters (unused here but kept for interface consistency)
         :return: Magnetization-squared term, shape [...]
         """
-
-        intensity = self.populator(resonance_energies, lvl_down, lvl_up, full_system_vectors, *args, **kwargs) * (
-                self._compute_magnitization(Gx, Gy, Gz, vector_down, vector_up,
-                                            resonance_manifold, resonance_energies)
+        intensity = self.populator(res_manifold, lvl_down, lvl_up,
+                                   resonance_energies, full_system_vectors,
+                                   *args, ** kwargs) * (
+                self._compute_magnitization(Gx, Gy, Gz, res_manifold, vector_down, vector_up)
         )
         return intensity

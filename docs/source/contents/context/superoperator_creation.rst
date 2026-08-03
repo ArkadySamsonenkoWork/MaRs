@@ -3,8 +3,8 @@
 Lindblad Superoperator Construction
 ====================================
 
-MarS uses the *Lindblad master equation* formalism to construct physically valid relaxation superoperators from user-defined parameters.
-This approach guarantees that the density matrix remains positive semi-definite and trace-preserving (if outgoing probabilities equal to zero) during time evolution.
+MaRs uses the *Lindblad master equation* formalism to construct physically valid relaxation superoperators from user-defined parameters.
+This approach guarantees that the density matrix remains positive semi-definite and trace-preserving (if decay rates equal to zero) during time evolution.
 
 .. image:: /_static/context/lindblad_overview.png
    :width: 100%
@@ -49,7 +49,7 @@ Each Lindblad term has two components:
 Mapping Relaxation Parameters to Lindblad Operators
 ----------------------------------------------------
 
-MarS maps the four relaxation parameter types to specific Lindblad operators:
+MaRs maps the four relaxation parameter types to specific Lindblad operators:
 
 Out Probabilities → Loss Operators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -87,13 +87,13 @@ For spontaneous transitions :math:`|j\rangle \to |i\rangle` at rate :math:`w_{ij
 
 .. math::
 
-   \hat{\mathcal{R}}_{\text{free}}[\hat{\rho}] = \sum_{i \neq j} w_{ij} \left( |i\rangle\langle j| \hat{\rho} |j\rangle\langle i| - \frac{1}{2} \{|j\rangle\langle j|, \hat{\rho}\} \right)
+   \hat{\mathcal{R}}_{\text{thermal}}[\hat{\rho}] = \sum_{i \neq j} w_{ij} \left( |i\rangle\langle j| \hat{\rho} |j\rangle\langle i| - \frac{1}{2} \{|j\rangle\langle j|, \hat{\rho}\} \right)
 
 This can be written as:
 
 .. math::
 
-   \hat{\mathcal{R}}_{\text{free}}[\hat{\rho}] = \sum_{i \neq j} w_{ij} \left( |i\rangle\langle i| \rho_{jj} - \frac{1}{2} \{|i\rangle\langle i| + |j\rangle\langle j|, \hat{\rho}\} \right)
+   \hat{\mathcal{R}}_{\text{thermal}}[\hat{\rho}] = \sum_{i \neq j} w_{ij} \left( |i\rangle\langle i| \rho_{jj} - \frac{1}{2} \{|i\rangle\langle i| + |j\rangle\langle j|, \hat{\rho}\} \right)
 
 This term:
 
@@ -118,7 +118,7 @@ For driven transitions :math:`|j\rangle \to |i\rangle` at rate :math:`d_{ij}`:
 
    \hat{\mathcal{R}}_{\text{driv}}[\hat{\rho}] = \sum_{i \neq j} d_{ij} \left( |i\rangle\langle j| \hat{\rho} |j\rangle\langle i| - \frac{1}{2} \{|j\rangle\langle j|, \hat{\rho}\} \right)
 
-This term is same form as free probabilities, but not modified by detailed balance constraints.
+This term is same form as thermal rates, but not modified by detailed balance constraints.
 
 **Implementation:** See :func:`mars.population.transform.Liouvilleator.lindblad_dissipator_from_rates` for the full construction.
 
@@ -148,22 +148,22 @@ For off-diagonal elements (:math:`i \neq j`):
 Separation into Free and Driven Components
 -------------------------------------------
 
-MarS internally separates the total relaxation superoperator:
+MaRs internally separates the total relaxation superoperator:
 
 .. math::
 
-   \hat{\mathcal{R}} = \hat{\mathcal{R}}_{\text{free}} + \hat{\mathcal{R}}_{\text{driv}}
+   \hat{\mathcal{R}} = \hat{\mathcal{R}}_{\text{thermal}} + \hat{\mathcal{R}}_{\text{driv}}
 
 where:
 
-**Free relaxation** :math:`\hat{\mathcal{R}}_{\text{free}}`:
+**Free relaxation** :math:`\hat{\mathcal{R}}_{\text{thermal}}`:
 
-- Includes: out_probs, free_probs, dephasing
+- Includes: decay_rates, thermal_rates, dephasing
 - Modified them to enforce detailed balance at temperature :math:`T`
 
 **Driven relaxation** :math:`\hat{\mathcal{R}}_{\text{driv}}`:
 
-- Includes: driven_probs or user-defined relaxation superoperator
+- Includes: driven_rates or user-defined relaxation superoperator
 - This term remains as specified by user
 
 
@@ -189,35 +189,79 @@ where :math:`\mathbb{I}` is the identity operator.
 - :func:`mars.population.transform.Liouvilleator.unvec` - Convert vector back to matrix
 - :func:`mars.population.transform.Liouvilleator.hamiltonian_superop` - Create Hamiltonian superoperator
 
-Custom Lindblad Operators
---------------------------
+Custom Relaxation Operators: Lindblad and Redfield
+--------------------------------------------------
 
-Beyond the predefined relaxation parameter types,
-MarS allows you to construct relaxation superoperators directly from arbitrary Lindblad jump operators.
-This is useful when you have physically motivated jump channels that do not fit the standard population-transfer or dephasing templates.
+Beyond the predefined kinetic‑rate parameters, MaRs offers two ways to
+define relaxation at the operator level:
 
-To build a dissipator from a single jump operator :math:`\hat{L}`, use:
+**1. Direct Lindblad superoperator**
+   You can construct a superoperator from an arbitrary jump operator
+   :math:`\hat{L}` and pass it directly to :class:`~mars.population.contexts.Context`
+   via the ``relaxation_superop`` argument.
 
-.. code-block:: python
+   To build the dissipator, use:
 
-   from mars.population.transform import Liouvilleator
-   dissipator = Liouvilleator.lindblad_dissipator_from_operator(L)
+   .. code-block:: python
 
-:func:`~mars.population.transform.Liouvilleator.lindblad_dissipator_from_operator` implements the full Lindblad term:
+      from mars.population.transform import Liouvilleator
+      dissipator = Liouvilleator.lindblad_dissipator_from_operator(L)
 
-.. math::
+   This implements
 
-   \mathcal{D}[\hat{\rho}] = \hat{L} \hat{\rho} \hat{L}^\dagger - \frac{1}{2} \{\hat{L}^\dagger \hat{L}, \hat{\rho}\}
+   .. math::
+      \mathcal{D}[\hat{\rho}] = \hat{L} \hat{\rho} \hat{L}^\dagger
+                              - \tfrac{1}{2}\{\hat{L}^\dagger \hat{L}, \hat{\rho}\}.
 
-**Notes:**
+   - The input ``L`` can be any complex‑valued tensor of shape ``[..., d, d]``.
+   - The output superoperator has shape ``[..., d**2, d**2]`` in Liouville space.
+   - For multiple independent jump channels :math:`\{\hat{L}_k\}`, sum the
+     individual dissipators:
+     ``total_R = sum(Liouvilleator.lindblad_dissipator_from_operator(L_k) for L_k in operators)``.
 
-- The input ``L`` can be any complex-valued tensor of shape ``[..., d, d]``
-- The output superoperator has shape ``[..., d**2, d**2]`` in Liouville space
-- For multiple independent jump channels :math:`\{\hat{L}_k\}`, simply sum their individual dissipators:  
-  ``total_R = sum(lindblad_dissipator_from_operator(L_k) for L_k in operators)``
-- The resulting superoperator is guaranteed to be trace-preserving and, when combined with Hamiltonian evolution, positivity-preserving
+   The resulting superoperator is trace‑preserving and, when combined with
+   Hamiltonian evolution, positivity‑preserving.
 
-The buit superoperator should be pass as user defined superoperator in :class:`mars.population.contexts.Context`
+**2. Redfield (or Lindblad) relaxation channels**
+   If the relaxation mechanism is more naturally described by a set of
+   coupling operators :math:`A^{(k)}` and a bath spectral density
+   :math:`J(\omega)`, you can use a :class:`~mars.population.relaxation_channels.redfield.RedfieldRelaxationChannel`.
+   In this case MaRs automatically builds the Redfield tensor in the
+   eigenbasis, respecting the secular approximation and detailed balance.
+
+   Alternatively, you can supply the same operator tuples to a
+   :class:`~mars.population.relaxation_channels.lindblad.LindbladRelaxationChannel`
+   if the jump operators already contain the rate prefactors
+   (i.e. :math:`L_k = \sqrt{\gamma_k} A_k`).
+
+   These channels are passed to :class:`~mars.population.contexts.Context`
+   via the ``relaxation_coupling_channels`` list and are combined with any
+   other relaxation terms automatically.
+
+   For example, to model librational relaxation:
+
+   .. code-block:: python
+
+      from mars.population import RedfieldRelaxationChannel
+
+      # Compute the field‑dependent coupling operator pair
+      O_static, O_dependent = sample.get_librations_along_axis(axis)
+
+      channel = RedfieldRelaxationChannel(
+          operator_components=[(O_static, O_dependent)],
+          spectral_density_func=my_spectral_density,
+          thermal_balance_mode="symmetric"
+      )
+
+      context = population.Context(
+          sample=sample,
+          basis="eigen",
+          relaxation_coupling_channels=[channel],
+          ...
+      )
+
+   See :ref:`relaxation_channels` for a complete description and the available
+   helper methods.
 
 
 References

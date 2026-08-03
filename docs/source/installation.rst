@@ -11,6 +11,6 @@ From source:
 ::
 
 
-   git clone https://github.com/ArkadySamsonenkoWork/MarS.git
-   cd MarS
+   git clone https://github.com/ArkadySamsonenkoWork/MaRs.git
+   cd MaRs
    pip install -e .

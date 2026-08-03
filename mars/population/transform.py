@@ -423,12 +423,14 @@ def batched_kron(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     :param b: torch.Tensor of shape [..., P, Q]
     :return: torch.Tensor of shape [..., M*P, N*Q]
     """
-    *batch_dims, M, N = a.shape
+    *_, M, N = a.shape
     *_, P, Q = b.shape
 
     a_expanded = a[..., :, None, :, None]
     b_expanded = b[..., None, :, None, :]
     result = a_expanded * b_expanded
+    *batch_dims, _, _, _, _ = result.shape
+
     return result.reshape(*batch_dims, M * P, N * Q)
 
 
@@ -883,7 +885,6 @@ def transform_kronecker_dephasing_to_population_transfer(
     K_new = C @ diag(gamma) @ C^T
     K_new[i, j] = Σ_a C[i, a] * gamma[a] * C[j, a]
     """
-
     return transform_dephasing_to_population_transfer(
         batched_sum_kron_diagonal(dephasing_list),
         probabilities

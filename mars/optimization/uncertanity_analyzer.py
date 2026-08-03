@@ -405,7 +405,7 @@ class UncertaintyAnalyzer:
 
         loss ~ Σ (yᵢ - f(xᵢ; θ))²   or   loss ~ (1/N) Σ (yᵢ - f(xᵢ; θ))²
 
-    This is the default loss in MarS. Under this assumption the loss surface is
+    This is the default loss in MaRs. Under this assumption the loss surface is
     proportional to -2 log L of a Gaussian model, and the chi-squared threshold
     derived from Wilks' theorem is:
 
@@ -472,7 +472,7 @@ class UncertaintyAnalyzer:
 
         For ``"hessian"``, ``"profile"``, ``"mcmc"`` -
         The resulting intervals have correct statistical meaning only when the
-        loss is proportional to SSE or MSE, which is the default in MarS.
+        loss is proportional to SSE or MSE, which is the default in MaRs.
         For custom or composite losses the intervals should be interpreted
         as sensitivity bounds only.
 
@@ -663,7 +663,7 @@ class UncertaintyAnalyzer:
 
         The returned value has correct statistical meaning as a variance estimate
         only when the loss is proportional to SSE or MSE, which is the default
-        in MarS. For other losses (e.g. NLL, weighted, composite) the value is
+        in MaRs. For other losses (e.g. NLL, weighted, composite) the value is
         numerically meaningless as a variance and will produce incorrectly
         scaled CIs.
 
@@ -673,6 +673,7 @@ class UncertaintyAnalyzer:
         """
         if n_params is None:
             dof = self._n_data_points - len(self.fitter.param_space.varying_names)
+            n_params = len(self.fitter.param_space.varying_names)
         else:
             dof = self._n_data_points - n_params
         if dof <= 0:
@@ -702,7 +703,7 @@ class UncertaintyAnalyzer:
             Δθᵢ = sqrt(2 · delta_thresh · Cov_ii)
 
         The intervals have correct statistical meaning only when the loss is
-        proportional to SSE or MSE, which is the default in MarS. For other
+        proportional to SSE or MSE, which is the default in MaRs. For other
         losses the factor of 2 and the scale_factor do not cancel correctly
         against the Hessian, and the resulting intervals are not interpretable
         as confidence intervals.
@@ -730,7 +731,7 @@ class UncertaintyAnalyzer:
                 f"The optimizer uses a loss that is probably not proportional to MSE. "
                 "The confidence intervals computed by UncertaintyAnalyzer have correct "
                 "statistical meaning only when the loss is proportional to SSE or MSE "
-                "(the default in MarS). With the current loss the scale_factor, threshold, "
+                "(the default in MaRs). With the current loss the scale_factor, threshold, "
                 "and covariance estimates are not statistically interpretable. "
                 "Use method='bootstrap' for distribution-free intervals that do not "
                 "rely on this assumption.",
@@ -832,7 +833,7 @@ class UncertaintyAnalyzer:
         same units as the loss.
 
         The intervals have correct statistical meaning only when the loss is
-        proportional to SSE or MSE, which is the default in MarS. For other
+        proportional to SSE or MSE, which is the default in MaRs. For other
         losses the scaled threshold has no chi-squared interpretation and the
         crossing points are not true confidence bounds.
 
@@ -852,7 +853,7 @@ class UncertaintyAnalyzer:
                 f"The optimizer uses a loss that is probably not proportional to MSE. "
                 "The confidence intervals computed by UncertaintyAnalyzer have correct "
                 "statistical meaning only when the loss is proportional to SSE or MSE "
-                "(the default in MarS). With the current loss the scale_factor, threshold, "
+                "(the default in MaRs). With the current loss the scale_factor, threshold, "
                 "and covariance estimates are not statistically interpretable. "
                 "Use method='bootstrap' for distribution-free intervals that do not "
                 "rely on this assumption.",
@@ -940,7 +941,7 @@ class UncertaintyAnalyzer:
         The returned intervals are Bayesian credible intervals, not frequentist
         confidence intervals. They have correct statistical meaning and coincide
         with frequentist CIs asymptotically only when the loss is proportional
-        to SSE or MSE, which is the default in MarS. For other losses the
+        to SSE or MSE, which is the default in MaRs. For other losses the
         division by ``2σ̂²`` does not correctly normalise the pseudo-posterior
         and the sampled distribution has no probabilistic interpretation.
 
@@ -963,7 +964,7 @@ class UncertaintyAnalyzer:
                 f"The optimizer uses a loss that is probably not proportional to MSE. "
                 "The confidence intervals computed by UncertaintyAnalyzer have correct "
                 "statistical meaning only when the loss is proportional to SSE or MSE "
-                "(the default in MarS). With the current loss the scale_factor, threshold, "
+                "(the default in MaRs). With the current loss the scale_factor, threshold, "
                 "and covariance estimates are not statistically interpretable. "
                 "Use method='bootstrap' for distribution-free intervals that do not "
                 "rely on this assumption.",

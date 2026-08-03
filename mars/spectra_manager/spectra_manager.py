@@ -117,19 +117,17 @@ class PostSpectraProcessing(nn.Module):
         idx_shape = [1] * batch_dims + [N]
         idx = idx.view(*idx_shape)
 
-        dH = dH.unsqueeze(-1)
+        dH_expanded = dH.unsqueeze(-1)
         gamma = (fwhm_lorentz.unsqueeze(-1) / 2)
-
-        x = idx * dH
-
+        x = idx * dH_expanded
         mask = (gamma == 0)
+
         safe_gamma = gamma.masked_fill(mask, 1.0)
         L = (safe_gamma / torch.pi) / (x ** 2 + safe_gamma ** 2)
 
         delta = torch.zeros_like(L)
-        delta[..., N // 2] = 1.0
+        delta[..., N // 2] = 1.0 / dH
         L = torch.where(mask, delta, L)
-
         return L
 
     def _build_gauss_kernel(self, magnetic_field: torch.Tensor, fwhm_gauss: torch.Tensor) -> torch.Tensor:
@@ -149,16 +147,16 @@ class PostSpectraProcessing(nn.Module):
         idx_shape = [1] * batch_dims + [N]
         idx = idx.view(*idx_shape)
 
-        dH = dH.unsqueeze(-1)
+        dH_expanded = dH.unsqueeze(-1)
         sigma = fwhm_gauss.unsqueeze(-1) / (2 * (2 * torch.log(torch.tensor(2.0, device=device))) ** 0.5)
-        x = idx * dH
+        x = idx * dH_expanded
 
         mask = (sigma == 0)
         safe_sigma = sigma.masked_fill(mask, 1.0)
         G = torch.exp(-0.5 * (x / safe_sigma) ** 2) / (safe_sigma * (2 * torch.pi) ** 0.5)
 
         delta = torch.zeros_like(G)
-        delta[..., N // 2] = 1.0
+        delta[..., N // 2] = 1.0 / dH
         G = torch.where(mask, delta, G)
         return G
 
@@ -205,8 +203,9 @@ class PostSpectraProcessing(nn.Module):
         :param magnetic_field: Shape [*batch_dims, N]
         :param spec: Shape [*batch_dims, N]
         """
+        dH = magnetic_field[..., 1] - magnetic_field[..., 0]
         kernel = self._build_gauss_kernel(magnetic_field, gauss)
-        return self._apply_convolution(spec, kernel)
+        return self._apply_convolution(spec, kernel) * dH.unsqueeze(-1)
 
     def _lorentz_broader(self,
                          gauss: torch.Tensor, lorentz: torch.Tensor,
@@ -217,8 +216,9 @@ class PostSpectraProcessing(nn.Module):
         :param magnetic_field: Shape [*batch_dims, N]
         :param spec: Shape [*batch_dims, N]
         """
+        dH = magnetic_field[..., 1] - magnetic_field[..., 0]
         kernel = self._build_lorentz_kernel(magnetic_field, lorentz)
-        return self._apply_convolution(spec, kernel)
+        return self._apply_convolution(spec, kernel) * dH.unsqueeze(-1)
 
     def _voigt_broader(self, gauss: torch.Tensor, lorentz: torch.Tensor,
                        magnetic_field: torch.Tensor, spec: torch.Tensor) -> torch.Tensor:
@@ -229,8 +229,9 @@ class PostSpectraProcessing(nn.Module):
         :param magnetic_field: Shape [*batch_dims, N]
         :param spec: Shape [*batch_dims, N]
         """
+        dH = magnetic_field[..., 1] - magnetic_field[..., 0]
         kernel = self._build_voigt_kernel(magnetic_field, gauss, lorentz)
-        return self._apply_convolution(spec, kernel)
+        return self._apply_convolution(spec, kernel) * dH.unsqueeze(-1).pow(2)
 
 
 class OutputSpectraMode(str, Enum):
@@ -1296,10 +1297,14 @@ class BaseResIntensityCalculator(BaseIntensityCalculator):
         return populator
 
     def _compute_magnitization_powder(self, Gx: torch.Tensor, Gy: torch.Tensor, Gz: torch.Tensor,
-                                      vector_down: torch.Tensor, vector_up: torch.Tensor):
+                                      res_manifold: torch.Tensor,
+                                      vector_down: torch.Tensor, vector_up: torch.Tensor,):
         """Compute powder-averaged transition intensity.
 
         :param Gx, Gy, Gz: Cartesian components of Zeeman operator. Shape [..., N, N]
+
+        :param res_manifold: Resonance fields or frequencies. Shape [...]
+
         :param vector_down: Lower-state eigenvector. Shape [..., N]
         :param vector_up: Upper-state eigenvector. Shape [..., N]
         :return: Intensity proportional to |<up|Gx|down>|² + |<up|Gy|down>|², in (J·s/μ_B)²
@@ -1309,11 +1314,13 @@ class BaseResIntensityCalculator(BaseIntensityCalculator):
         return magnitization * (constants.PLANCK / constants.BOHR) ** 2
 
     def _compute_magnitization_crystal(self, Gx: torch.Tensor, Gy: torch.Tensor, Gz: torch.Tensor,
-                                       vector_down: torch.Tensor, vector_up: torch.Tensor):
+                                       res_manifold: torch.Tensor,
+                                       vector_down: torch.Tensor, vector_up: torch.Tensor,):
         """Compute crystal transition intensity.
 
         The orientation of the wave magnetic field is along the x-axis.
         :param Gx, Gy, Gz: Cartesian components of Zeeman operator. Shape [..., N, N]
+        :param res_manifold: Resonance fields or frequencies. Shape [...]
         :param vector_down: Lower-state eigenvector. Shape [..., N]
         :param vector_up: Upper-state eigenvector. Shape [..., N]
         :return: Intensity proportional to |<up|Gx|down>|² + |<up|Gy|down>|², in (J·s/μ_B)²
@@ -1323,38 +1330,40 @@ class BaseResIntensityCalculator(BaseIntensityCalculator):
 
     @abstractmethod
     def compute_intensity(self, Gx: torch.Tensor, Gy: torch.Tensor, Gz: torch.Tensor,
-                vector_down: torch.Tensor, vector_up: torch.Tensor, lvl_down: torch.Tensor,
-                lvl_up: torch.Tensor, resonance_energies: torch.Tensor, resonance_manifold,
-                full_system_vectors: tp.Optional[torch.Tensor], *args, **kwargs):
+                          res_manifold: torch.Tensor,
+                          lvl_down: torch.Tensor, lvl_up: torch.Tensor, resonance_energies: torch.Tensor,
+                          vector_down: torch.Tensor, vector_up: torch.Tensor,
+                          full_system_vectors: tp.Optional[torch.Tensor], *args, **kwargs):
         """Compute intensity of transitions.
 
         :param Gx, Gy, Gz: Zeeman operator components :param
         vector_down, vector_up: Transition eigenvectors :param lvl_down,
         lvl_up: Energy level indices
-        :param resonance_energies: Hamiltonian eigenvalues
-        :param resonance_manifold: Resonance condition values
-            (fields/frequencies)
+        :param res_manifold: Resonance fields or frequencies. Shape [...]
+        :param lvl_down, lvl_up: Energy level indices involved in transition
+        :param resonance_energies: Eigenvalues of spin Hamiltonian. Shape [..., N]
         :param full_system_vectors: Optional full eigenbasis
         :return: Transition intensities
         """
         raise NotImplementedError
 
     def forward(self, Gx: torch.Tensor, Gy: torch.Tensor, Gz: torch.Tensor,
-                vector_down: torch.Tensor, vector_up: torch.Tensor, lvl_down: torch.Tensor,
-                lvl_up: torch.Tensor, resonance_energies: torch.Tensor, resonance_manifold,
+                res_manifold: torch.Tensor,
+                lvl_down: torch.Tensor, lvl_up: torch.Tensor, resonance_energies: torch.Tensor,
+                vector_down: torch.Tensor, vector_up: torch.Tensor,
                 full_system_vectors: tp.Optional[torch.Tensor], *args, **kwargs) -> torch.Tensor:
-        """:param Gx, Gy, Gz: Zeeman operator components.
-
+        """
+        :param Gx, Gy, Gz: Zeeman operator components.
+        :param res_manifold: Resonance fields or frequencies. Shape [...]
+        :param lvl_down, lvl_up: Energy level indices involved in transition
+        :param resonance_energies: Eigenvalues of spin Hamiltonian. Shape [..., N]
         :param vector_down, vector_up: Transition eigenvectors :param
         lvl_down, lvl_up: Energy level indices
-        :param resonance_energies: Hamiltonian eigenvalues
-        :param resonance_manifold: Resonance condition values
-            (fields/frequencies)
         :param full_system_vectors: Optional full eigenbasis
         :return: Transition intensities
         """
-        return self.compute_intensity(Gx, Gy, Gz, vector_down, vector_up, lvl_down, lvl_up, resonance_energies,
-                                      resonance_manifold, full_system_vectors)
+        return self.compute_intensity(Gx, Gy, Gz, res_manifold, lvl_down, lvl_up, resonance_energies,
+                                      vector_down, vector_up, full_system_vectors)
 
 
 class StationaryIntensityCalculator(BaseResIntensityCalculator):
@@ -1414,25 +1423,26 @@ class StationaryIntensityCalculator(BaseResIntensityCalculator):
 
     def compute_intensity(self,
                           Gx: torch.Tensor, Gy: torch.Tensor, Gz: torch.Tensor,
-                          vector_down: torch.Tensor, vector_up: torch.Tensor,
+                          res_manifold: torch.Tensor,
                           lvl_down: torch.Tensor, lvl_up: torch.Tensor, resonance_energies: torch.Tensor,
-                          resonance_manifold: torch.Tensor,
+                          vector_down: torch.Tensor, vector_up: torch.Tensor,
                           full_system_vectors: tp.Optional[torch.Tensor], *args, **kwargs):
         """
         Compute CW-EPR transition intensities as the product of:
 
         :param Gx, Gy, Gz: Zeeman operator components. Shape [..., N, N]
-        :param vector_down: Lower-state eigenvector. Shape [..., N]
-        :param vector_up: Upper-state eigenvector. Shape [..., N]
+        :param res_manifold: Resonance fields or frequencies. Shape [...]
         :param lvl_down, lvl_up: Energy level indices involved in transition
         :param resonance_energies: Eigenvalues of spin Hamiltonian. Shape [..., N]
-        :param resonance_manifold: Resonance fields or frequencies. Shape [...]
+
+        :param vector_down: Lower-state eigenvector. Shape [..., N]
+        :param vector_up: Upper-state eigenvector. Shape [..., N]
         :param full_system_vectors: Full eigenbasis (optional, for advanced population models)
         :return: Intensity tensor matching transition dimension [...]
         """
         intensity = self.populator(
-            resonance_manifold, resonance_energies, lvl_down, lvl_up, full_system_vectors, *args, **kwargs) * (
-                self._compute_magnitization(Gx, Gy, Gz, vector_down, vector_up)
+            res_manifold, lvl_down, lvl_up, resonance_energies, full_system_vectors, *args, **kwargs) * (
+                self._compute_magnitization(Gx, Gy, Gz, res_manifold, vector_down, vector_up)
         )
         return intensity
 
@@ -1505,37 +1515,101 @@ class TimeIntensityCalculator(BaseResIntensityCalculator):
             return populator
 
     def compute_intensity(self, Gx: torch.Tensor, Gy: torch.Tensor, Gz: torch.Tensor,
+                          res_manifold: torch.Tensor, lvl_down: torch.Tensor,
+                          lvl_up: torch.Tensor, resonance_energies: torch.Tensor,
                           vector_down: torch.Tensor, vector_up: torch.Tensor,
-                          lvl_down: torch.Tensor, lvl_up: torch.Tensor, resonance_energies: torch.Tensor,
-                          resonance_manifold: torch.Tensor, full_system_vectors: tp.Optional[torch.Tensor],
+                          full_system_vectors: tp.Optional[torch.Tensor],
                           *args, **kwargs):
         """Compute time-resolved EPR intensities based solely on transition
         matrix elements.
 
-        Population dynamics are handled separately via `calculate_population`.
+        Population dynamics are handled separately via `compute_population`.
         This method returns the "geometric" part of intensity `(|<ψ_up|G|ψ_down>|²)`.
 
         :param Gx, Gy, Gz: Zeeman operator components
+
+        :param lvl_down:
+            Energy levels of lower states from which transitions occur.
+            Shape: [..., N], where
+            N is the number of energy levels.
+
+        :param lvl_up:
+            Energy levels of upper states to which transitions occur.
+            Shape: [..., N], where
+            N is the number of energy levels.
+
         :param vector_down, vector_up: Eigenvectors of lower/upper states
         :param ...: Other parameters (unused here but kept for interface consistency)
         :return: Magnetization-squared term, shape [...]
         """
         intensity = (
-                self._compute_magnitization(Gx, Gy, Gz, vector_down, vector_up)
+                self._compute_magnitization(Gx, Gy, Gz, res_manifold, vector_down, vector_up)
         )
         return intensity
 
-    def calculate_population(self, time: torch.Tensor,
-                                    res_fields: torch.Tensor, lvl_down: torch.Tensor, lvl_up: torch.Tensor,
-                                    resonance_energies: torch.Tensor,
-                                    vector_down: torch.Tensor, vector_up: torch.Tensor,
-                                    full_system_vectors: tp.Optional[torch.Tensor],
-                                    *args, **kwargs
-    ):
+    def compute_population(self, time: torch.Tensor,
+                           res_fields: torch.Tensor, lvl_down: torch.Tensor, lvl_up: torch.Tensor,
+                           resonance_energies: torch.Tensor,
+                           vector_down: torch.Tensor, vector_up: torch.Tensor,
+                           full_system_vectors: tp.Optional[torch.Tensor],
+                           *args, **kwargs) -> torch.Tensor:
+        """
+        Compute the time-dependent population differences for the resonant EPR transitions.
+
+        This method delegates the calculation to the time-dependent populator,
+        which solves the kinetic or Liouville-von Neumann equations to model the
+        relaxation dynamics of the spin system over the specified time points.
+
+        :param time: Time points at which to evaluate the populations, shape [T].
+        :param res_fields: Resonance magnetic fields for each transition, shape [..., M].
+        :param lvl_down: Indices of the lower energy levels involved in transitions, shape [M].
+        :param lvl_up: Indices of the upper energy levels involved in transitions, shape [M].
+        :param resonance_energies: Eigenenergies of all spin states, shape [..., M, N].
+        :param vector_down: Eigenvectors of the lower energy states, shape [..., M, N].
+        :param vector_up: Eigenvectors of the upper energy states, shape [..., M, N].
+        :param full_system_vectors: Eigenvectors of the full spin Hamiltonian, shape [..., M, N, N].
+        :param args: Additional positional arguments passed to the populator.
+        :param kwargs: Additional keyword arguments passed to the populator.
+        :return: Time-dependent population differences Δp(t) = p_upper(t) − p_lower(t)
+                 for each transition, shape [..., T, M].
+        """
         return self.populator(time, res_fields, lvl_down,
                               lvl_up, resonance_energies,
                               vector_down, vector_up,
                               full_system_vectors, *args, **kwargs)
+
+    def compute_stationary_polarization(self,
+                                res_fields: torch.Tensor, lvl_down: torch.Tensor, lvl_up: torch.Tensor,
+                                resonance_energies: torch.Tensor,
+                                vector_down: torch.Tensor, vector_up: torch.Tensor,
+                                full_system_vectors: tp.Optional[torch.Tensor],
+                                *args, **kwargs) -> torch.Tensor:
+        """
+        Compute the initial (t=0) stationary population differences for the resonant EPR transitions.
+
+        This method calculates the population difference between the upper and lower
+        resonant levels at the initial time moment, before any time-dependent relaxation
+        or excitation dynamics are applied. It delegates the calculation to the
+        populator `compute_stationary_polarization` method.
+
+        :param res_fields: Resonance magnetic fields for each transition, shape [..., M].
+        :param lvl_down: Indices of the lower energy levels involved in transitions, shape [M].
+        :param lvl_up: Indices of the upper energy levels involved in transitions, shape [M].
+        :param resonance_energies: Eigenenergies of all spin states, shape [..., M, N].
+        :param vector_down: Eigenvectors of the lower energy states, shape [..., M, N].
+        :param vector_up: Eigenvectors of the upper energy states, shape [..., M, N].
+        :param full_system_vectors: Eigenvectors of the full spin Hamiltonian, shape [..., N, N].
+        :param args: Additional positional arguments passed to the populator.
+        :param kwargs: Additional keyword arguments passed to the populator.
+        :return: Initial population differences Δp(t=0) = p_upper(0) − p_lower(0)
+                 for each transition, shape [..., M].
+        """
+        return self.populator.compute_stationary_polarization(
+            res_fields, lvl_down,
+            lvl_up, resonance_energies,
+            vector_down, vector_up,
+            full_system_vectors, *args, **kwargs
+        )
 
 
 class TimeDensityCalculator(TimeIntensityCalculator):
@@ -1673,7 +1747,7 @@ class BaseSpectra(nn.Module, ABC):
             torch.tensor(computational_details.intensity_threshold, device=device, dtype=dtype),
         )
         self.register_buffer("tolerance", torch.tensor(1e-7, device=device, dtype=dtype))
-        self.register_buffer("intensity_std", torch.tensor(1e-7, device=device, dtype=dtype))
+        self.register_buffer("intensity_std", torch.tensor(1e-14, device=device, dtype=dtype))
 
         self.spin_system_dim, self.batch_dims, self.mesh = self._init_sample_parameters(
             sample, spin_system_dim, batch_dims, mesh
@@ -1745,6 +1819,9 @@ class BaseSpectra(nn.Module, ABC):
             with torch.inference_mode():
                 return forward_fn(*args, **kwargs)
         return wrapper
+
+    def _nan_to_zeros(self, *args) -> list[torch.Tensor]:
+        return [torch.nan_to_num(arg, nan=0.0) for arg in args]
 
     def _init_sample_parameters(
         self,
@@ -2027,7 +2104,7 @@ class BaseResSpectra(BaseSpectra):
             computational_details.intensity_threshold, device=device, dtype=dtype)
         )
         self.register_buffer("tolerance", torch.tensor(1e-7, device=device, dtype=dtype))
-        self.register_buffer("intensity_std", torch.tensor(1e-7, device=device, dtype=dtype))
+        self.register_buffer("intensity_std", torch.tensor(3.5829e-13, device=device, dtype=dtype))
 
         self.spin_system_dim, self.batch_dims, self.mesh =\
             self._init_sample_parameters(sample, spin_system_dim, batch_dims, mesh)
@@ -2325,6 +2402,36 @@ class BaseResSpectra(BaseSpectra):
         return (vectors_u, vectors_v), (valid_lvl_down, valid_lvl_up), res_fields,\
             resonance_energies, full_eigen_vectors
 
+    def _get_intensity_mask(self,
+                            intensities: torch.Tensor,
+                            res_manifold: torch.Tensor,
+                            lvl_down: torch.Tensor,
+                            lvl_up: torch.Tensor,
+                            energies: torch.Tensor,
+                            vector_down, vector_up,
+                            full_system_vectors: tp.Optional[torch.Tensor]
+                            ) -> torch.Tensor:
+        """
+        Generate a boolean mask to filter out transitions with intensities below a threshold.
+
+        The mask is created by comparing the absolute intensities, normalized by the
+        global maximum absolute intensity, against `self.threshold`. It evaluates to
+        True if any value along all dimensions (except the last one) exceeds the threshold.
+
+        :param intensities: Tensor of transition intensities.
+        :param res_manifold: Resonance fields / frequencies (passed for signature consistency).
+        :param lvl_down: Energy levels of the lower states.
+        :param lvl_up: Energy levels of the upper states.
+        :param energies: Resonance energies (passed for signature consistency).
+        :param full_system_vectors: Eigenvectors of the full spin system.
+        :return: A boolean tensor indicating which transitions have sufficient
+                 intensity to be kept.
+        """
+        lines_dimension = tuple(range(intensities.ndim - 1))
+        intensities_mask = (intensities.abs() / intensities.abs().max() > self.threshold).any(dim=lines_dimension)
+        return intensities_mask
+
+
     def forward(self,
                  sample: spin_model.MultiOrientedSample,
                  fields: torch.Tensor, time: tp.Optional[torch.Tensor] = None, **kwargs):
@@ -2354,10 +2461,10 @@ class BaseResSpectra(BaseSpectra):
 
         res_fields, intensities, width, full_system_vectors, *extras =\
             self.compute_parameters(sample, F, Gx, Gy, Gz,
-                                    vector_down, vector_up,
-                                    lvl_down, lvl_up,
                                     res_fields,
+                                    lvl_down, lvl_up,
                                     resonance_energies,
+                                    vector_down, vector_up,
                                     full_system_vectors)
 
         res_fields, intensities, width = self._postcompute_batch_data(
@@ -2366,7 +2473,6 @@ class BaseResSpectra(BaseSpectra):
 
         gauss = sample.gauss
         lorentz = sample.lorentz
-
         return self._finalize(res_fields, intensities, width, gauss, lorentz, fields, lvl_down, lvl_up)
 
     def _postcompute_batch_data(self, sample: spin_model.BaseSample, res_fields: torch.Tensor,
@@ -2441,19 +2547,20 @@ class BaseResSpectra(BaseSpectra):
                 updated_extras.append(extras[idx][..., intensities_mask, :, :])
         return updated_extras
 
-    def _add_to_mask_additional(self, vector_down: torch.Tensor, vector_up: torch.Tensor,
-                           lvl_down: torch.Tensor, lvl_up: torch.Tensor,
-                           resonance_energies: torch.Tensor) -> tp.Any:
+    def _add_to_mask_additional(self,
+                                lvl_down: torch.Tensor, lvl_up: torch.Tensor,
+                                resonance_energies: torch.Tensor,
+                                vector_down: torch.Tensor, vector_up: torch.Tensor) -> tp.Any:
         """Return additional tensors to be masked alongside intensities.
 
         Subclasses may override to include level indices, energies, or vectors
         in the masking step. Base class returns empty tuple.
 
-        :param vector_down: Eigenvector of lower state.
-        :param vector_up: Eigenvector of upper state.
         :param lvl_down: Index of lower energy level.
         :param lvl_up: Index of upper energy level.
         :param resonance_energies: Hamiltonian eigenvalues.
+        :param vector_down: Eigenvector of lower state.
+        :param vector_up: Eigenvector of upper state.
         :return: Extra tensors to mask (must match `_get_param_specs` count/order).
         """
         return ()
@@ -2499,10 +2606,10 @@ class BaseResSpectra(BaseSpectra):
                            Gx: torch.Tensor,
                            Gy: torch.Tensor,
                            Gz: torch.Tensor,
-                           vector_down: torch.Tensor, vector_up: torch.Tensor,
-                           lvl_down: torch.Tensor, lvl_up: torch.Tensor,
                            res_fields: torch.Tensor,
+                           lvl_down: torch.Tensor, lvl_up: torch.Tensor,
                            resonance_energies: torch.Tensor,
+                           vector_down: torch.Tensor, vector_up: torch.Tensor,
                            full_system_vectors: tp.Optional[torch.Tensor]) ->\
             tuple[torch.Tensor, torch.Tensor, torch.Tensor, tp.Optional[torch.Tensor], tuple[tp.Any]]:
         """
@@ -2513,13 +2620,7 @@ class BaseResSpectra(BaseSpectra):
         :param Gy: y-part of Hamiltonian Zeeman Term
         :param Gz: z-part of Hamiltonian Zeeman Term
 
-        :param vector_down:
-            Eigenvectors of the lower energy states. The shape is [...., M, N],
-            where M is number of transitions, N is number of levels
-
-        :param vector_up:
-            Eigenvectors of the upper energy states.The shape is [...., M, N],
-            where M is number of transitions, N is number of levels
+        :param res_fields: Resonance fields. The shape os [..., N]
 
         :param lvl_down:
             Energy levels of lower states from which transitions occur.
@@ -2534,7 +2635,13 @@ class BaseResSpectra(BaseSpectra):
         :param resonance_energies:
             Energies of spin states. The shape is [..., N]
 
-        :param res_fields: Resonance fields. The shape os [..., N]
+        :param vector_down:
+            Eigenvectors of the lower energy states. The shape is [...., M, N],
+            where M is number of transitions, N is number of levels
+
+        :param vector_up:
+            Eigenvectors of the upper energy states.The shape is [...., M, N],
+            where M is number of transitions, N is number of levels
 
         :param full_system_vectors: Eigen vector of each level of a spin system. The shape os [..., N, N]. If
         output_eigen_vectors == False, then it will be None
@@ -2547,14 +2654,15 @@ class BaseResSpectra(BaseSpectra):
          - extras parameters computed in _compute_additional
         """
         intensities = self.intensity_calculator.compute_intensity(
-            Gx, Gy, Gz, vector_down, vector_up, lvl_down, lvl_up, resonance_energies, res_fields, full_system_vectors
+            Gx, Gy, Gz, res_fields, lvl_down, lvl_up, resonance_energies, vector_down, vector_up, full_system_vectors
         )
-        lines_dimension = tuple(range(intensities.ndim - 1))
-        intensities_mask = (intensities.abs() / intensities.abs().max() > self.threshold).any(dim=lines_dimension)
+        intensities = torch.nan_to_num(intensities, nan=0.0, out=intensities)
+        intensities_mask = self._get_intensity_mask(
+            intensities, res_fields, lvl_down, lvl_up, resonance_energies, vector_down, vector_up, full_system_vectors
+        )
         intensities = intensities[..., intensities_mask]
 
-        extras = self._add_to_mask_additional(vector_down,
-            vector_up, lvl_down, lvl_up, resonance_energies)
+        extras = self._add_to_mask_additional(lvl_down, lvl_up, resonance_energies, vector_down, vector_up)
         extras = self._mask_components(intensities_mask, *extras)
         full_system_vectors = self._mask_full_system_eigenvectors(intensities_mask, full_system_vectors)
 
@@ -2989,9 +3097,10 @@ class TruncTimeSpectra(BaseResSpectra):
             ]
         return params
 
-    def _add_to_mask_additional(self, vector_down: torch.Tensor, vector_up: torch.Tensor,
-                        lvl_down: torch.Tensor, lvl_up: torch.Tensor,
-                        resonance_energies: torch.Tensor):
+    def _add_to_mask_additional(self,
+                                lvl_down: torch.Tensor, lvl_up: torch.Tensor,
+                                resonance_energies: torch.Tensor,
+                                vector_down: torch.Tensor, vector_up: torch.Tensor):
         return lvl_down, lvl_up, resonance_energies, vector_down, vector_up
 
     def _postcompute_batch_data(self, sample: spin_model.BaseSample,
@@ -3001,7 +3110,9 @@ class TruncTimeSpectra(BaseResSpectra):
                                 time: torch.Tensor, *extras, **kwargs):
         lvl_down, lvl_up, resonance_energies, vector_down, vectors_up, *extras = extras
 
-        population = self.intensity_calculator.calculate_population(
+        res_fields, resonance_energies = self._nan_to_zeros(res_fields, resonance_energies)
+
+        population = self.intensity_calculator.compute_population(
             time, res_fields, lvl_down, lvl_up,
             resonance_energies, vector_down, vectors_up, full_system_vectors, *extras
         )
@@ -3061,6 +3172,61 @@ class TruncTimeSpectra(BaseResSpectra):
         :return:
         """
         return False
+
+    def _get_intensity_mask(self,
+                            intensities: torch.Tensor,
+                            res_manifold: torch.Tensor,
+                            lvl_down: torch.Tensor,
+                            lvl_up: torch.Tensor,
+                            energies: torch.Tensor,
+                            vector_down: torch.Tensor,
+                            vector_up: torch.Tensor,
+                            full_system_vectors: tp.Optional[torch.Tensor]
+                            ) -> torch.Tensor:
+        """
+        Generate a boolean mask to filter out transitions with intensities below a threshold.
+
+        The mask evaluates to True if *either* of the following conditions is met:
+        1. The absolute intensity multiplied by polarization, normalized by its global
+           maximum, exceeds `self.threshold`.
+        2. The absolute intensity alone, normalized by its global maximum, exceeds
+           `self.threshold`.
+
+        :param intensities: Tensor of transition intensities.
+        :param res_manifold: Resonance fields / frequencies (passed for signature consistency).
+        :param lvl_down: Energy levels of the lower states.
+        :param lvl_up: Energy levels of the upper states.
+        :param energies: Resonance energies (passed for signature consistency).
+        :param vector_down: Eigenvectors of the lower energy states.
+        :param vector_up: Eigenvectors of the upper energy states.
+        :param full_system_vectors: Eigenvectors of the full spin system.
+        :return: A boolean tensor indicating which transitions have sufficient
+                 intensity to be kept.
+        """
+        res_manifold, energies = self._nan_to_zeros(res_manifold, energies)
+
+        polarization = self.intensity_calculator.compute_stationary_polarization(
+            res_manifold, lvl_down, lvl_up, energies, vector_down, vector_up,
+            full_system_vectors
+        )
+        abs_int = intensities.abs()
+        abs_pol = polarization.abs()
+
+        abs_int_with_pop = abs_int * abs_pol
+        max_with_pop = abs_int_with_pop.max()
+        thresh_with_pop = self.threshold * max_with_pop
+        mask_1 = abs_int_with_pop > thresh_with_pop
+
+        max_raw = abs_int.max()
+        thresh_raw = self.threshold * max_raw
+        mask_2 = abs_int > thresh_raw
+
+        combined_mask = mask_1 | mask_2
+
+        if combined_mask.ndim > 1:
+            leading_size = combined_mask.numel() // combined_mask.shape[-1]
+            return combined_mask.view(leading_size, -1).any(dim=0)
+        return combined_mask
 
 
 class CoupledTimeSpectra(TruncTimeSpectra):
@@ -3233,7 +3399,10 @@ class DensityTimeSpectra(CoupledTimeSpectra):
                                 time: torch.Tensor, *extras, **kwargs):
         lvl_down, lvl_up, resonance_energies, vector_down, vectors_up, *extras = extras
         Sz = sample.base_spin_system.get_electron_z_operator()
-        population = self.intensity_calculator.calculate_population(
+
+        res_fields, resonance_energies = self._nan_to_zeros(res_fields, resonance_energies)
+
+        population = self.intensity_calculator.compute_population(
             time, res_fields, lvl_down, lvl_up,
             resonance_energies, vector_down, vectors_up,
             full_system_vectors,
@@ -3459,10 +3628,10 @@ class StationaryFreqSpectra(StationarySpectra):
                            Gx: torch.Tensor,
                            Gy: torch.Tensor,
                            Gz: torch.Tensor,
-                           vector_down: torch.Tensor, vector_up: torch.Tensor,
-                           lvl_down: torch.Tensor, lvl_up: torch.Tensor,
                            res_freq: torch.Tensor,
+                           lvl_down: torch.Tensor, lvl_up: torch.Tensor,
                            resonance_energies: torch.Tensor,
+                           vector_down: torch.Tensor, vector_up: torch.Tensor,
                            full_system_vectors: tp.Optional[torch.Tensor]) ->\
             tuple[torch.Tensor, torch.Tensor, torch.Tensor, tp.Optional[torch.Tensor], tuple[tp.Any]]:
         """
@@ -3473,6 +3642,21 @@ class StationaryFreqSpectra(StationarySpectra):
         :param Gy: y-part of Hamiltonian Zeeman Term
         :param Gz: z-part of Hamiltonian Zeeman Term
 
+        :param res_freq: Resonance frequencies. The shape os [..., N]
+
+        :param lvl_down:
+            Energy levels of lower states from which transitions occur.
+            Shape: [..., N], where
+            N is the number of energy levels.
+
+        :param lvl_up:
+            Energy levels of upper states to which transitions occur.
+            Shape: [..., N], where
+            N is the number of energy levels.
+
+        :param resonance_energies:
+            Energies of spin states. The shape is [..., N]
+
         :param vector_down:
             Eigenvectors of the lower energy states. The shape is [...., M, N],
             where M is number of transitions, N is number of levels
@@ -3480,21 +3664,6 @@ class StationaryFreqSpectra(StationarySpectra):
         :param vector_up:
             Eigenvectors of the upper energy states.The shape is [...., M, N],
             where M is number of transitions, N is number of levels
-
-        :param lvl_down:
-            Energy levels of lower states from which transitions occur.
-            Shape: [time, ..., N], where time is the time dimension and
-            N is the number of energy levels.
-
-        :param lvl_up:
-            Energy levels of upper states to which transitions occur.
-            Shape: [time, ..., N], where time is the time dimension and
-            N is the number of energy levels.
-
-        :param resonance_energies:
-            Energies of spin states. The shape is [..., N]
-
-        :param res_freq: Resonance frequencies. The shape os [..., N]
 
         :param full_system_vectors: Eigen vector of each level of a spin system. The shape os [..., N, N]
 
@@ -3507,14 +3676,17 @@ class StationaryFreqSpectra(StationarySpectra):
         """
 
         intensities = self.intensity_calculator.compute_intensity(
-            Gx, Gy, Gz, vector_down, vector_up, lvl_down, lvl_up, resonance_energies, res_freq, full_system_vectors
+            Gx, Gy, Gz, res_freq, lvl_down, lvl_up, resonance_energies, vector_down, vector_up, full_system_vectors
         )
-        lines_dimension = tuple(range(intensities.ndim - 1))
-        intensities_mask = (intensities / intensities.abs().max() > self.threshold).any(dim=lines_dimension)
+        intensities = torch.nan_to_num(intensities, nan=0.0, out=intensities)
+
+        intensities_mask = self._get_intensity_mask(
+            intensities, res_freq, lvl_down, lvl_up, resonance_energies, vector_down, vector_up, full_system_vectors
+        )
+
         intensities = intensities[..., intensities_mask]
 
-        extras = self._add_to_mask_additional(vector_down,
-            vector_up, lvl_down, lvl_up, resonance_energies)
+        extras = self._add_to_mask_additional(lvl_down, lvl_up, resonance_energies, vector_down, vector_up)
 
         extras = self._mask_components(intensities_mask, *extras)
         full_system_vectors = self._mask_full_system_eigenvectors(intensities_mask, full_system_vectors)

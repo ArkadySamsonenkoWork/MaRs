@@ -15,7 +15,6 @@ import typing as tp
 
 from .. import spin_model
 from . import transform
-from .relaxation_channels.redfield import RedfieldRelaxationChannel
 from .relaxation_channels.base_couling_channels import CouplingChannelManager,\
     combine_coupling_managers, BaseRelaxationChannel
 
@@ -316,7 +315,7 @@ def _multiply_homogeneous_contexts_to_context(contexts: tp.Sequence[Context]) ->
     """ Build the tensor-product (Kronecker) composition of multiple homogeneous `Contexts.
 
     This Function is not used for the manual code!!. It doesn't work correct for superoperators transformation
-    if free_probs or drive_probs are set
+    if thermal_rates or driven_rates are set
 
     This function returns a new Context describing the composite system that is the
     tensor product of the provided `contexts`. Behavior / rules follow the same
@@ -328,12 +327,12 @@ def _multiply_homogeneous_contexts_to_context(contexts: tp.Sequence[Context]) ->
       If ALL values are None -> resulting parameter is None. If ANY is None,
       The output is ZERO tensor of the corresponding dimension.
 
-    -`out_probs` / `dephasing`: combined as sum of **diagonal** local operators
+    -`decay_rates` / `dephasing`: combined as sum of **diagonal** local operators
         `sum_i I ⊗ ... ⊗ diag(v_i) ⊗ ... ⊗ I` (i.e. vector x I + I x vector interpreted as diag).
         If ALL values are None -> resulting parameter is None. If ANY is -None, missing
           vectors are replaced with zero vectors of the corresponding dimension.
 
-    - Square matrices (free_probs, driven_probs) are combined into a sum of local operators:
+    - Square matrices (thermal_rates, driven_rates) are combined into a sum of local operators:
         K_total = sum_i (I ⊗ ... ⊗ K_i ⊗ ... ⊗ I)
       If ALL values are None -> resulting parameter is None. If ANY is non-None, missing
       matrices are replaced with zero matrices of the corresponding dimension.
@@ -408,7 +407,7 @@ def _multiply_homogeneous_contexts_to_context(contexts: tp.Sequence[Context]) ->
         return transform.batched_multi_kron([v.unsqueeze(-1) for v in operators]).squeeze(-1)
 
     def _process_diagonal_vectors(attr_name: str):
-        """Combine diagonal vectors (out_probs, dephasing) using batched_sum_kron_diagonal."""
+        """Combine diagonal vectors (decay_rates, dephasing) using batched_sum_kron_diagonal."""
         values = [getattr(ctx, attr_name) for ctx in contexts]
         _check_callables(values, attr_name)
 
@@ -484,9 +483,9 @@ def _multiply_homogeneous_contexts_to_context(contexts: tp.Sequence[Context]) ->
         basis=_process_basis(),
         init_populations=_process_init_populations(),
         init_density=_process_init_density(),
-        free_probs=_process_matrices("free_probs"),
-        driven_probs=_process_matrices("driven_probs"),
-        out_probs=_process_diagonal_vectors("out_probs"),
+        thermal_rates=_process_matrices("thermal_rates"),
+        driven_rates=_process_matrices("driven_rates"),
+        decay_rates=_process_diagonal_vectors("decay_rates"),
         dephasing=_process_diagonal_vectors("dephasing"),
         relaxation_superop=_process_matrices("_default_driven_superop"),
         profile=None,
@@ -511,12 +510,12 @@ def _multiply_homogeneous_contexts(
       If ALL values are None -> resulting parameter is None. If ANY is None,
       The output is ZERO tensor of the corresponding dimension.
 
-    -`out_probs` : combined as sum of **diagonal** local operators
+    -`decay_rates` : combined as sum of **diagonal** local operators
         `sum_i I ⊗ ... ⊗ diag(v_i) ⊗ ... ⊗ I` (i.e. vector x I + I x vector interpreted as diag).
         If ALL values are None -> resulting parameter is None. If ANY is -None, missing
           vectors are replaced with zero vectors of the corresponding dimension.
 
-    - Square matrices (free_probs, driven_probs) are combined into a sum of local operators:
+    - Square matrices (thermal_rates, driven_rates) are combined into a sum of local operators:
         K_total = sum_i (I ⊗ ... ⊗ K_i ⊗ ... ⊗ I)
       If ALL values are None -> resulting parameter is None. If ANY is non-None, missing
       matrices are replaced with zero matrices of the corresponding dimension.
@@ -564,12 +563,12 @@ class BaseContext(nn.Module, ABC):
 
     A Context encapsulates the physical model of relaxation and initial state in time-resolved EPR.
     It specifies:
-      - The basis in which relaxation parameters (transition probabilities, loss rates, etc.) are defined,
+      - The basis in which relaxation parameters (transition rates between levels, loss rates, etc.) are defined,
       - The initial population vector or density matrix,
       - Time-dependence profiles for any parameter
       - Transformation rules to map all quantities into the field-dependent Hamiltonian eigenbasis.
 
-    MarS distinguishes two relaxation paradigms:
+    MaRs distinguishes two relaxation paradigms:
       1. **Population-based**: Only diagonal elements (populations) evolve; off-diagonal coherences are neglected.
       2. **Density-matrix-based**: Full dynamic including coherences and dephsing.
     """
@@ -646,7 +645,7 @@ class BaseContext(nn.Module, ABC):
         pass
 
     @abstractmethod
-    def get_transformed_free_probs(
+    def get_transformed_thermal_rates(
             self,
             full_system_vectors: tp.Optional[torch.Tensor],
             time_dep_values: tp.Optional[torch.Tensor] = None,
@@ -654,7 +653,7 @@ class BaseContext(nn.Module, ABC):
             energies: tp.Optional[torch.Tensor] = None,
             temperature: tp.Optional[torch.Tensor] = None
     ):
-        """Return spontaneous (thermal) transition probabilities in the
+        """Return spontaneous (thermal) transition rates in the
         eigenbasis.
 
         These transitions are constrained by detailed balance at the specified temperature.
@@ -691,7 +690,7 @@ class BaseContext(nn.Module, ABC):
         pass
 
     @abstractmethod
-    def get_transformed_driven_probs(
+    def get_transformed_driven_rates(
             self,
             full_system_vectors: tp.Optional[torch.Tensor],
             time_dep_values: tp.Optional[torch.Tensor] = None,
@@ -699,7 +698,7 @@ class BaseContext(nn.Module, ABC):
             energies: tp.Optional[torch.Tensor] = None,
             temperature: tp.Optional[torch.Tensor] = None
     ):
-        """Return induced (non-thermal) transition probabilities in the
+        """Return induced (non-thermal) transition rates in the
         eigenbasis.
 
         These transitions are **not** subject to detailed balance.
@@ -723,7 +722,7 @@ class BaseContext(nn.Module, ABC):
         pass
 
     @abstractmethod
-    def get_transformed_out_probs(
+    def get_transformed_decay_rates(
             self,
             full_system_vectors: tp.Optional[torch.Tensor],
             time_dep_values: tp.Optional[torch.Tensor] = None,
@@ -731,7 +730,7 @@ class BaseContext(nn.Module, ABC):
             energies: tp.Optional[torch.Tensor] = None,
             temperature: tp.Optional[torch.Tensor] = None
     ) -> tp.Optional[torch.Tensor]:
-        """Return loss (out-of-system) probabilities in the eigenbasis.
+        """Return loss (out-of-system) rates in the eigenbasis.
 
         These represent irreversible decay processes that remove population from the spin
         system entirely. Examples include:
@@ -763,7 +762,7 @@ class BaseContext(nn.Module, ABC):
         pass
 
     @abstractmethod
-    def get_transformed_free_superop(
+    def get_transformed_thermal_superop(
             self,
             full_system_vectors: tp.Optional[torch.Tensor],
             time_dep_values: tp.Optional[torch.Tensor] = None,
@@ -790,7 +789,7 @@ class BaseContext(nn.Module, ABC):
         :param temperature: Optional system temperature in Kelvin. Shape `[]` (scalar)
             or `[t]` (time-dependent). Used for Redfield relaxation evaluation.
 
-        :return: Superoperator R_free with shape `[..., N², N²]`, where N is the number of
+        :return: Superoperator R_thermal with shape `[..., N², N²]`, where N is the number of
             energy levels. This superoperator acts on vectorized density matrices.
 
         Construction method:
@@ -851,7 +850,7 @@ class BaseContext(nn.Module, ABC):
             or `[t]` (time-dependent). Used for Redfield relaxation evaluation.
         :return: Superoperator R_driven with shape `[..., N², N²]`.
 
-        Unlike the free superoperator, NO thermal correction is applied to these elements,
+        Unlike the thermal superoperator, NO thermal correction is applied to these elements,
         as they represent processes that actively drive the system away from equilibrium.
 
         Note: If a user provides a complete superoperator directly (bypassing individual
@@ -958,7 +957,7 @@ class TransformedContext(BaseContext):
 
     Supported transformations:
     1. Vector transformation: For initial populations and loss rates
-    2. Matrix transformation: For transition probability matrices
+    2. Matrix transformation: For transition rate matrices
     3. Density matrix transformation: For initial quantum states
     4. Superoperator transformation: For Liouville-space relaxation operators
 
@@ -1013,7 +1012,7 @@ class TransformedContext(BaseContext):
             return superoperator * self._secular_mask().type_as(superoperator)
         return superoperator
 
-    def _add_redfield_transition_probs(
+    def _add_redfield_transition_rates(
             self,
             full_system_vectors: tp.Optional[torch.Tensor],
             probs_matrix: tp.Optional[torch.Tensor],
@@ -1037,11 +1036,11 @@ class TransformedContext(BaseContext):
         if self.coupling_manager is not None:
             if not self.coupling_manager.eigen_basis_flag:
                 coeffs = self._compute_transformation_unitary(full_system_vectors)
-                redfield_matrix = self.coupling_manager.compute_transition_probabilities(
+                redfield_matrix = self.coupling_manager.compute_transition_rates(
                     coeffs, fields, energies, temperature
                 )
             else:
-                redfield_matrix = self.coupling_manager.compute_transition_probabilities(
+                redfield_matrix = self.coupling_manager.compute_transition_rates(
                     None, fields, energies, temperature
                 )
             if probs_matrix is not None:
@@ -1250,7 +1249,7 @@ class TransformedContext(BaseContext):
             unitary,
         )
 
-    def get_transformed_free_probs(
+    def get_transformed_thermal_rates(
             self,
             full_system_vectors: tp.Optional[torch.Tensor],
             time_dep_values: tp.Optional[torch.Tensor] = None,
@@ -1258,7 +1257,7 @@ class TransformedContext(BaseContext):
             energies: tp.Optional[torch.Tensor] = None,
             temperature: tp.Optional[torch.Tensor] = None
     ) -> tp.Optional[torch.Tensor]:
-        """Return spontaneous (thermal) transition probabilities in the
+        """Return spontaneous (thermal) transition rates in the
         eigenbasis.
 
         These transitions are constrained by detailed balance at the specified temperature.
@@ -1266,7 +1265,7 @@ class TransformedContext(BaseContext):
         thermal equilibrium.
 
         :param full_system_vectors: Eigenvectors of the full Hamiltonian.
-        :param time_dep_values: Optional time points for evaluation if transition probabilities are
+        :param time_dep_values: Optional time points for evaluation if transition rates are
             time-dependent.
 
         :param fields: Optional External magnetic fields in T. The shape [..., N, N].
@@ -1289,24 +1288,24 @@ class TransformedContext(BaseContext):
             `W^new_{ij}/W^new_{ji} = exp(-(E_i - E_j)/k_B·T)`
         where `E_i` are eigenenergies and T is the temperature.
         """
-        _free_probs = self._get_free_probs_tensor(time_dep_values)
-        term_free = self.transformed_matrix(_free_probs, full_system_vectors)
+        _thermal_rates = self._get_thermal_rates_tensor(time_dep_values)
+        term_thermal = self.transformed_matrix(_thermal_rates, full_system_vectors)
 
         _dephasing = self._get_dephasing_tensor(time_dep_values)
         term_dephasing = self.dephasing_to_population_transfer(_dephasing, full_system_vectors)
 
         if term_dephasing is None:
-            out = term_free
-        elif term_free is None:
+            out = term_thermal
+        elif term_thermal is None:
             out = term_dephasing
         else:
-            out = term_free + term_dephasing
+            out = term_thermal + term_dephasing
 
         if out is not None:
             out.diagonal(offset=0, dim1=-2, dim2=-1).fill_(0)
         return out
 
-    def get_transformed_driven_probs(
+    def get_transformed_driven_rates(
             self,
             full_system_vectors: tp.Optional[torch.Tensor],
             time_dep_values: tp.Optional[torch.Tensor] = None,
@@ -1314,13 +1313,13 @@ class TransformedContext(BaseContext):
             energies: tp.Optional[torch.Tensor] = None,
             temperature: tp.Optional[torch.Tensor] = None
     ) -> tp.Optional[torch.Tensor]:
-        """Return induced (non-thermal) transition probabilities in the  eigenbasis.
+        """Return induced (non-thermal) transition rates in the eigenbasis.
 
         These transitions are NOT constrained by detailed balance and represent external
         driving forces or non-equilibrium processes.
 
         :param full_system_vectors: Eigenvectors of the full Hamiltonian.
-        :param time_dep_values: Optional time points for evaluation if transition probabilities are
+        :param time_dep_values: Optional time points for evaluation if transition rates are
             time-dependent.
 
         :param fields: Optional External magnetic fields in T. The shape [..., N, N].
@@ -1333,7 +1332,7 @@ class TransformedContext(BaseContext):
         :return: Transition rate matrix D with shape `[..., N, N]`, where `D_{ij} (i≠j)` is the
             non-thermal rate from state j to state i.
 
-        Transformation rule is the same as for free probabilities:
+        Transformation rule is the same as for thermal rates:
             `D^new_{ij} = Σ_{k≠l} |<ψ_i^new|ψ_k^old>|² · |<ψ_j^new|ψ_l^old>|² · D^old_{kl}`
 
         If the superoperator is set, then it will be transformed into new basis and after that the population transfer
@@ -1342,15 +1341,15 @@ class TransformedContext(BaseContext):
         Note: No thermal correction is applied to these rates as they represent non-equilibrium
         processes that actively drive the system away from thermal equilibrium.
         """
-        _driven_probs = self._get_driven_probs_tensor(time_dep_values)
-        _driven_probs =\
-            self.transformed_matrix(_driven_probs, full_system_vectors)
+        _driven_rates = self._get_driven_rates_tensor(time_dep_values)
+        _driven_rates =\
+            self.transformed_matrix(_driven_rates, full_system_vectors)
 
-        if _driven_probs is not None:
-            _driven_probs.diagonal(offset=0, dim1=-2, dim2=-1).fill_(0)
+        if _driven_rates is not None:
+            _driven_rates.diagonal(offset=0, dim1=-2, dim2=-1).fill_(0)
 
-        out = self._add_redfield_transition_probs(full_system_vectors,
-                                                   _driven_probs,
+        out = self._add_redfield_transition_rates(full_system_vectors,
+                                                   _driven_rates,
                                                    fields, energies, temperature)
 
         _relaxation_superop = self._get_default_superop_tensor(time_dep_values)
@@ -1366,7 +1365,7 @@ class TransformedContext(BaseContext):
                 return _driven_from_superop
         return out
 
-    def get_transformed_out_probs(
+    def get_transformed_decay_rates(
             self,
             full_system_vectors: tp.Optional[torch.Tensor],
             time_dep_values: tp.Optional[torch.Tensor] = None,
@@ -1374,7 +1373,7 @@ class TransformedContext(BaseContext):
             energies: tp.Optional[torch.Tensor] = None,
             temperature: tp.Optional[torch.Tensor] = None
     ) -> tp.Optional[torch.Tensor]:
-        """Return loss (out-of-system) probabilities in the eigenbasis.
+        """Return loss (out-of-system) rates in the eigenbasis.
 
         These represent irreversible decay processes that remove population from the spin
         system entirely. Examples include:
@@ -1399,34 +1398,34 @@ class TransformedContext(BaseContext):
 
         Physical constraint: Loss rates must be non-negative (O_i ≥ 0).
         """
-        _out_probs = self._get_out_probs_tensor(time_dep_values)
-        return self.transformed_vector(_out_probs, full_system_vectors)
+        _decay_rates = self._get_decay_rates_tensor(time_dep_values)
+        return self.transformed_vector(_decay_rates, full_system_vectors)
 
     @property
-    def free_superop(self) ->\
+    def thermal_superop(self) ->\
             tp.Union[tp.Callable[[tp.Optional[torch.Tensor]], tp.Optional[torch.Tensor]], tp.Optional[torch.Tensor]]:
-        """:return: free superoperator created from other relaxation parameters (free_probs, dephasing, out_probs).
+        """:return: thermal superoperator created from other relaxation parameters (thermal_rates, dephasing, decay_rates).
             or the functional dependance of these parameters
         """
-        if self._default_free_superop is None:
-            if (self.free_probs is None) and (self.out_probs is None) and (self.dephasing is None):
+        if self._default_thermal_superop is None:
+            if (self.thermal_rates is None) and (self.decay_rates is None) and (self.dephasing is None):
                 return None
-            return self._create_free_superop
+            return self._create_thermal_superop
         else:
-            return self._default_free_superop
+            return self._default_thermal_superop
 
     @property
     def driven_superop(self) ->\
             tp.Union[tp.Callable[[tp.Optional[torch.Tensor]], tp.Optional[torch.Tensor]], tp.Optional[torch.Tensor]]:
         """
-        :return: free superoperator created from other relaxation parameters (driven_probs) and user-defined.
+        :return: thermal superoperator created from other relaxation parameters (driven_rates) and user-defined.
             superoperator
         """
-        if self._default_driven_superop is None and self.driven_probs is None:
+        if self._default_driven_superop is None and self.driven_rates is None:
             return None
-        if self._default_driven_superop is None and self.driven_probs is not None:
+        if self._default_driven_superop is None and self.driven_rates is not None:
             return self._create_driven_superop
-        if self._default_driven_superop is not None and self.driven_probs is None:
+        if self._default_driven_superop is not None and self.driven_rates is None:
             return self._default_driven_superop
         else:
             return lambda x: self._default_driven_superop + self._create_driven_superop(x)
@@ -1434,14 +1433,14 @@ class TransformedContext(BaseContext):
     @property
     def default_driven_superop(self) -> tp.Optional[torch.Tensor]:
         """
-        :return: free superoperator created from yser-defined superoperator
+        :return: thermal superoperator created from yser-defined superoperator
         """
         if self._default_driven_superop is None:
             return None
         else:
             return self._default_driven_superop
 
-    def get_transformed_free_superop(
+    def get_transformed_thermal_superop(
             self,
             full_system_vectors: tp.Optional[torch.Tensor],
             time_dep_values: tp.Optional[torch.Tensor] = None,
@@ -1469,7 +1468,7 @@ class TransformedContext(BaseContext):
         :param temperature: Optional system temperature in Kelvin. Shape `[]` (scalar)
             or `[t]` (time-dependent). Used for Redfield relaxation evaluation.
 
-        :return: Superoperator R_free with shape [..., N², N²], where N is the number of
+        :return: Superoperator R_thermal with shape [..., N², N²], where N is the number of
             energy levels. This superoperator acts on vectorized density matrices.
 
         Construction method:
@@ -1490,7 +1489,7 @@ class TransformedContext(BaseContext):
 
         where E_i are eigenenergies and T is temperature.
         """
-        _relaxation_superop = self._get_free_superop_tensor(time_dep_values)
+        _relaxation_superop = self._get_thermal_superop_tensor(time_dep_values)
         out = self.transformed_superop(_relaxation_superop, full_system_vectors)
         if out is not None:
             out = self.apply_secular_mask(out)
@@ -1534,7 +1533,7 @@ class TransformedContext(BaseContext):
             R_new = (U ⊗ U*) · R_old · (U ⊗ U*)
             where U is the basis transformation matrix and ⊗ denotes Kronecker product
 
-        Unlike the free superoperator, NO thermal correction is applied to these elements,
+        Unlike the thermal superoperator, NO thermal correction is applied to these elements,
         as they represent processes that actively drive the system away from equilibrium.
 
         Note: If a user provides a complete superoperator directly (bypassing individual
@@ -1547,22 +1546,22 @@ class TransformedContext(BaseContext):
             out = self.apply_secular_mask(out)
         return self._add_coupling_superoperator(full_system_vectors, out, fields, energies, temperature)
 
-    def _extract_free_populations_superop(self, time_dep_values):
-        if (self.out_probs is not None) and (self.free_probs is not None):
-            _out_probs = self._get_out_probs_tensor(time_dep_values)
-            _free_probs = self._get_free_probs_tensor(time_dep_values)
-            return self.liouvilleator.lindblad_dissipator_from_rates(_free_probs) +\
+    def _extract_thermal_populations_superop(self, time_dep_values):
+        if (self.decay_rates is not None) and (self.thermal_rates is not None):
+            _decay_rates = self._get_decay_rates_tensor(time_dep_values)
+            _thermal_rates = self._get_thermal_rates_tensor(time_dep_values)
+            return self.liouvilleator.lindblad_dissipator_from_rates(_thermal_rates) +\
                 torch.diag_embed(
-                    self.liouvilleator.anticommutator_superop_diagonal(-0.5 * _out_probs), dim1=-1, dim2=-2)
+                    self.liouvilleator.anticommutator_superop_diagonal(-0.5 * _decay_rates), dim1=-1, dim2=-2)
 
-        elif (self.out_probs is not None) and (self.free_probs is None):
-            _out_probs = self._get_out_probs_tensor(time_dep_values)
+        elif (self.decay_rates is not None) and (self.thermal_rates is None):
+            _decay_rates = self._get_decay_rates_tensor(time_dep_values)
             return torch.diag_embed(
-                self.liouvilleator.anticommutator_superop_diagonal(-0.5 * _out_probs), dim1=-1, dim2=-2)
+                self.liouvilleator.anticommutator_superop_diagonal(-0.5 * _decay_rates), dim1=-1, dim2=-2)
 
-        elif (self.out_probs is None) and (self.free_probs is not None):
-            _free_probs = self._get_free_probs_tensor(time_dep_values)
-            return self.liouvilleator.lindblad_dissipator_from_rates(_free_probs)
+        elif (self.decay_rates is None) and (self.thermal_rates is not None):
+            _thermal_rates = self._get_thermal_rates_tensor(time_dep_values)
+            return self.liouvilleator.lindblad_dissipator_from_rates(_thermal_rates)
 
         else:
             return None
@@ -1571,36 +1570,36 @@ class TransformedContext(BaseContext):
             self,
             time_dep_values: tp.Optional[torch.Tensor] = None
     ):
-        if self.driven_probs is None:
+        if self.driven_rates is None:
             return None
         else:
-            _driven_probs = self._get_driven_probs_tensor(time_dep_values)
-            _relaxation_superop = self.liouvilleator.lindblad_dissipator_from_rates(_driven_probs)
+            _driven_rates = self._get_driven_rates_tensor(time_dep_values)
+            _relaxation_superop = self.liouvilleator.lindblad_dissipator_from_rates(_driven_rates)
             return _relaxation_superop
 
-    def _create_free_superop(
+    def _create_thermal_superop(
             self,
             time_dep_values: tp.Optional[torch.Tensor] = None
     ):
-        """For the dephasing, free_probs, out_probs create free-superoperator.
+        """For the dephasing, thermal_rates, decay_rates create thermal-superoperator.
 
         :param time_dep_values: Optional time_dep_values for evaluation
             if loss rates are time-dependent.
-        :return: free superoperator tensor or None
+        :return: thermal superoperator tensor or None
         """
-        if (self.free_probs is None) and (self.dephasing is None) and (self.out_probs is None):
+        if (self.thermal_rates is None) and (self.dephasing is None) and (self.decay_rates is None):
             return None
 
-        _density_condition = (self.out_probs is not None) or (self.free_probs is not None)
+        _density_condition = (self.decay_rates is not None) or (self.thermal_rates is not None)
         if self.dephasing is not None and _density_condition:
             _dephasing = self._get_dephasing_tensor(time_dep_values)
             _relaxation_superop =\
                 self.liouvilleator.lindblad_dephasing_from_rates(_dephasing) +\
-                self._extract_free_populations_superop(time_dep_values)
+                self._extract_thermal_populations_superop(time_dep_values)
             return _relaxation_superop
 
         elif (self.dephasing is None) and _density_condition:
-            return self._extract_free_populations_superop(time_dep_values)
+            return self._extract_thermal_populations_superop(time_dep_values)
 
         else:
             _dephasing = self._get_dephasing_tensor(time_dep_values)
@@ -1699,9 +1698,9 @@ class Context(TransformedContext):
     - Time-dependent profile functions
 
     Physical interpretation of parameters:
-    - free_probs: Thermal (Boltzmann-weighted) transition probabilities between states
-    - driven_probs: Non-thermal transition probabilities not constrained by detailed balance
-    - out_probs: Irreversible loss rates from states (e.g., phosphorescence)
+    - thermal_rates: Thermal (Boltzmann-weighted) transition rates between states
+    - driven_rates: Non-thermal transition rates that are not constrained by detailed balance
+    - decay_rates: Irreversible loss rates from states (e.g., phosphorescence)
     - dephasing: Probabilities of dephasing relaxation (decay of off-diagonal terms of a density matrix)
     - init_populations: Initial state populations in the working basis
     - init_density: Complete initial quantum state (includes coherences)
@@ -1713,7 +1712,7 @@ class Context(TransformedContext):
     - Addition (+): Combines multiple relaxation mechanisms acting on the SAME system
     - Tensor product (@): Combines independent subsystems into a kronecker quantum system
 
-    These operations follow the physical rules described in the MarS documentation and
+    These operations follow the physical rules described in the MaRs documentation and
     enable construction of sophisticated relaxation models from simpler components.
     """
     def __init__(
@@ -1723,9 +1722,9 @@ class Context(TransformedContext):
             init_populations: tp.Optional[tp.Union[torch.Tensor, tp.List[float]]] = None,
             init_density: tp.Optional[torch.Tensor] = None,
 
-            free_probs: tp.Optional[tp.Union[torch.Tensor, tp.Callable[[torch.Tensor], torch.Tensor]]] = None,
-            driven_probs: tp.Optional[tp.Union[torch.Tensor, tp.Callable[[torch.Tensor], torch.Tensor]]] = None,
-            out_probs: tp.Optional[
+            thermal_rates: tp.Optional[tp.Union[torch.Tensor, tp.Callable[[torch.Tensor], torch.Tensor]]] = None,
+            driven_rates: tp.Optional[tp.Union[torch.Tensor, tp.Callable[[torch.Tensor], torch.Tensor]]] = None,
+            decay_rates: tp.Optional[
                 tp.Union[torch.Tensor, tp.List[float], tp.Callable[[torch.Tensor], torch.Tensor]]] = None,
 
             dephasing: tp.Optional[
@@ -1773,10 +1772,10 @@ class Context(TransformedContext):
             If provided then init_populations will be ignored for computations,
             however for the most cases it is better to set only one among init_populations / init_density
 
-        :param free_probs: Thermal (Boltzmann) transition rates between states, or a callable that generates them.
+        :param thermal_rates: Thermal (Boltzmann) transition rates between states, or a callable that generates them.
             Uses the **rate matrix convention** where element ``[j, i]``
             represents the rate from state *i* to state *j*:
-            free_probs[j, i] = w_{i→j}
+            thermal_rates[j, i] = w_{i→j}
             Accepts either:
               - A tensor of shape ``[..., N, N]`` with zero diagonal (diagonal will be corrected as negative row-sum).
                 Example for a 2-level system:
@@ -1785,9 +1784,9 @@ class Context(TransformedContext):
               , or
               -  A callable ``f(time) -> Tensor`` that returns time-dependent rates at the requested time points.
 
-        :param driven_probs: Non-thermal transition rates induced by external driving (e.g., out radiation).
-            Follows the same convention and shape requirements as ``free_probs``:
-                driven_probs[j, i] = d_{i→j}
+        :param driven_rates: Non-thermal transition rates induced by external driving (e.g., out radiation).
+            Follows the same convention and shape requirements as ``thermal_rates``:
+                driven_rates[j, i] = d_{i→j}
             Accepts either:
               - A tensor of shape ``[..., N, N]`` with zero diagonal (diagonal will be corrected as negative row-sum).
                 Example for a 2-level system:
@@ -1796,29 +1795,29 @@ class Context(TransformedContext):
               , or
               -  A callable ``f(time) -> Tensor`` that returns time-dependent rates at the requested time points.
 
-            If the relaxation_superop is given, then driven_probs and the relaxation superoperators population
+            If the relaxation_superop is given, then driven_rates and the relaxation superoperators population
             transfer terms will be sum up with it
             For superoperator the population transfer terms will be extracted after its basis transformation.
 
-        :param out_probs: torch.Tensor or list[float] or callable or None, optional
-            Out-of-system transition probabilities (loss terms). Expected shapes:
+        :param decay_rates: torch.Tensor or list[float] or callable or None, optional
+            Out-of-system transition rates (loss terms). Expected shapes:
               - `[..., N]` (or `[..., T, N]`), or
               - Python list of length `N` (converted to tensor), or
               - callable `f(time) -> tensor`.
 
         :param dephasing: torch.Tensor or callable or None, optional
-            dephasing vector probabilities with shape [N].
+            dephasing vector rates with shape [N].
             Each element set the Decreasing of the non-diagonal matrix elements of density matrix
             d <i|rho|j> / dt = -(dephasing[i] + dephasing[j]) / 2 * <i|rho|j>
-            For implementation of dephasing, out_probs, driven_probs, free_probs we use Lindblad form of relaxation.
+            For implementation of dephasing, decay_rates, driven_rates, thermal_rates we use Lindblad form of relaxation.
 
         :param relaxation_superop: torch.Tensor or callable or None, optional
             Full superoperator of relaxation rates for density matrix
             with shape [N*N, N*N]. Any elements can be given.
-            If the driven_probs are given, then driven_probs transformed into the Liuville space
+            If the driven_rates are given, then driven_rates transformed into the Liuville space
              and the relaxation superoperators terms will be sum up
             After transformation the thermal correction is not used for this term,
-            While, free_probs, dephasing, out_probs are part of thermal part of the resulting superoperator
+            While, thermal_rates, dephasing, decay_rates are part of thermal part of the resulting superoperator
 
         :param profile: callable or None, optional
             Callable `profile(time: torch.Tensor) -> torch.Tensor` that returns
@@ -1876,18 +1875,18 @@ class Context(TransformedContext):
         self.register_buffer("_init_density_real", init_density_real)
         self.register_buffer("_init_density_imag", init_density_imag)
 
-        if isinstance(out_probs, torch.Tensor) or out_probs is None:
+        if isinstance(decay_rates, torch.Tensor) or decay_rates is None:
             pass
         else:
-            out_probs = torch.tensor(out_probs, device=device, dtype=dtype)
-        self.register_buffer("out_probs", out_probs)
+            decay_rates = torch.tensor(decay_rates, device=device, dtype=dtype)
+        self.register_buffer("decay_rates", decay_rates)
 
-        self.free_probs = free_probs
-        self.driven_probs = driven_probs
+        self.thermal_rates = thermal_rates
+        self.driven_rates = driven_rates
 
         dephasing = self._get_init_dephasing(dephasing, device=device, dtype=dtype)
         self.register_buffer("dephasing", dephasing)
-        self._default_free_superop = None
+        self._default_thermal_superop = None
         self._default_driven_superop = relaxation_superop
 
         self.profile = profile
@@ -1904,8 +1903,8 @@ class Context(TransformedContext):
         1. From `init_populations` if provided (shape [..., N])
         2. From `init_density` if provided (shape [..., N, N])
         3. From `basis` tensor if provided (shape [..., N, N])
-        4. From rate matrices (`free_probs`, `driven_probs`) if they are tensors (shape [..., N, N])
-        5. From vector parameters (`out_probs`, `dephasing`) if they are tensors (shape [..., N])
+        4. From rate matrices (`thermal_rates`, `driven_rates`) if they are tensors (shape [..., N, N])
+        5. From vector parameters (`decay_rates`, `dephasing`) if they are tensors (shape [..., N])
         6. From supeoperator of relaxatin (shape [..., N^2, N^2])
 
         Returns 0 if no dimension can be inferred.
@@ -1925,7 +1924,7 @@ class Context(TransformedContext):
             self._spin_system_dim = self.basis.shape[-1]
             return self._spin_system_dim
 
-        for param in [self.free_probs, self.driven_probs]:
+        for param in [self.thermal_rates, self.driven_rates]:
             if isinstance(param, torch.Tensor):
                 self._spin_system_dim = param.shape[-1]
                 return self._spin_system_dim
@@ -1976,8 +1975,8 @@ class Context(TransformedContext):
         1. From `init_populations` if provided (shape [..., N])
         2. From `init_density` if provided (shape [..., N, N])
         3. From `basis` tensor if provided (shape [..., N, N])
-        4. From rate matrices (`free_probs`, `driven_probs`) if they are tensors (shape [..., N, N])
-        5. From vector parameters (`out_probs`, `dephasing`) if they are tensors (shape [..., N])
+        4. From rate matrices (`thermal_rates`, `driven_rates`) if they are tensors (shape [..., N, N])
+        5. From vector parameters (`decay_rates`, `dephasing`) if they are tensors (shape [..., N])
         6. From supeoperator of relaxatin (shape [..., N^2, N^2])
         """
         if self.init_populations is not None:
@@ -1989,7 +1988,7 @@ class Context(TransformedContext):
         if self.basis is not None:
             return self.basis.device
 
-        for param in [self.free_probs, self.driven_probs]:
+        for param in [self.thermal_rates, self.driven_rates]:
             if isinstance(param, torch.Tensor):
                 return param.device
 
@@ -2006,8 +2005,8 @@ class Context(TransformedContext):
         1. From `init_populations` if provided (shape [..., N])
         2. From `init_density` if provided (shape [..., N, N])
         3. From `basis` tensor if provided (shape [..., N, N])
-        4. From rate matrices (`free_probs`, `driven_probs`) if they are tensors (shape [..., N, N])
-        5. From vector parameters (`out_probs`, `dephasing`) if they are tensors (shape [..., N])
+        4. From rate matrices (`thermal_rates`, `driven_rates`) if they are tensors (shape [..., N, N])
+        5. From vector parameters (`decay_rates`, `dephasing`) if they are tensors (shape [..., N])
         6. From supeoperator of relaxatin (shape [..., N^2, N^2])
 
         """
@@ -2020,7 +2019,7 @@ class Context(TransformedContext):
         if self.basis is not None:
             return self.basis.real.dtype
 
-        for param in [self.free_probs, self.driven_probs]:
+        for param in [self.thermal_rates, self.driven_rates]:
             if isinstance(param, torch.Tensor):
                 return param.dtype
         if self._default_driven_superop is not None:
@@ -2060,6 +2059,22 @@ class Context(TransformedContext):
         self.transformation_probabilities = None
         self.transformation_unitary = None
         self.transformation_liouville = None
+
+    def is_opened(self) -> bool:
+        """
+        Check if the context is open (i.e., if basis transformation data is cached).
+
+        Caching this data speeds up execution and saves memory, allowing it to be
+        reused efficiently.
+
+        Note: If you change the sample without creating a new context, the cached
+        data may become invalid.
+
+        :return: True if the context is open (data is cached), False otherwise.
+        """
+        return (self.transformation_probabilities is not None or
+                self.transformation_unitary is not None or
+                self.transformation_liouville is not None)
 
     @property
     def init_density(self) -> tp.Optional[torch.Tensor]:
@@ -2287,20 +2302,20 @@ class Context(TransformedContext):
     def _setup_prob_getters(self):
         """Setup getter methods for probabilities based on callable status at
         initialization."""
-        current_free_probs = self.free_probs
-        self._get_free_probs_tensor = self._setup_single_getter(current_free_probs)
+        current_thermal_rates = self.thermal_rates
+        self._get_thermal_rates_tensor = self._setup_single_getter(current_thermal_rates)
 
-        current_driven_probs = self.driven_probs
-        self._get_driven_probs_tensor = self._setup_single_getter(current_driven_probs)
+        current_driven_rates = self.driven_rates
+        self._get_driven_rates_tensor = self._setup_single_getter(current_driven_rates)
 
-        current_out_probs = self.out_probs
-        self._get_out_probs_tensor = self._setup_single_getter(current_out_probs)
+        current_decay_rates = self.decay_rates
+        self._get_decay_rates_tensor = self._setup_single_getter(current_decay_rates)
 
         current_dephasing = self.dephasing
         self._get_dephasing_tensor = self._setup_single_getter(current_dephasing)
 
-        current_free_superop = self.free_superop
-        self._get_free_superop_tensor = self._setup_single_getter(current_free_superop)
+        current_thermal_superop = self.thermal_superop
+        self._get_thermal_superop_tensor = self._setup_single_getter(current_thermal_superop)
 
         current_driven_superop = self.driven_superop
         self._get_driven_superop_tensor = self._setup_single_getter(current_driven_superop)
@@ -2474,19 +2489,19 @@ class Context(TransformedContext):
         if _dephasing is not None:
             dephasing_components.append(transform.construct_dephasing_matrix(_dephasing))
 
-        _free_probs = self._get_free_probs_tensor(time_dep_values)
-        if _free_probs is not None:
-            _free_probs[..., diag_indices, diag_indices] = -_free_probs.sum(dim=-2)
-            population_transfer_components.append(_free_probs)
+        _thermal_rates = self._get_thermal_rates_tensor(time_dep_values)
+        if _thermal_rates is not None:
+            _thermal_rates[..., diag_indices, diag_indices] = -_thermal_rates.sum(dim=-2)
+            population_transfer_components.append(_thermal_rates)
 
-        _driven_probs = self._get_driven_probs_tensor(time_dep_values)
-        if _driven_probs is not None:
-            _driven_probs[..., diag_indices, diag_indices] = -_driven_probs.sum(dim=-2)
-            population_transfer_components.append(_driven_probs)
+        _driven_rates = self._get_driven_rates_tensor(time_dep_values)
+        if _driven_rates is not None:
+            _driven_rates[..., diag_indices, diag_indices] = -_driven_rates.sum(dim=-2)
+            population_transfer_components.append(_driven_rates)
 
-        _out_probs = self._get_out_probs_tensor(time_dep_values)
-        if _out_probs is not None:
-            population_transfer_components.append(-_out_probs.diag_embed())
+        _decay_rates = self._get_decay_rates_tensor(time_dep_values)
+        if _decay_rates is not None:
+            population_transfer_components.append(-_decay_rates.diag_embed())
 
         ### Add dephasing connected with population loss
         if population_transfer_components is not None:
@@ -2751,6 +2766,25 @@ class KroneckerContext(TransformedContext):
         for ctx in self.component_contexts:
             ctx.close_context()
 
+    def is_opened(self) -> bool:
+        """
+        Check if the context is open (i.e., if basis transformation data is cached).
+
+        Caching this data speeds up execution and saves memory, allowing it to be
+        reused efficiently.
+
+        Note: If you change the sample without creating a new context, the cached
+        data may become invalid.
+
+        :return: True if the context is open (data is cached), False otherwise.
+        """
+        if (self.transformation_probabilities is not None or
+            self.transformation_unitary is not None
+        ):
+            return True
+
+        return any(ctx.is_opened() for ctx in self.component_contexts)
+
     def __len__(self):
         """This is just entire context. Let's set its len as 1"""
         return 1
@@ -2810,7 +2844,7 @@ class KroneckerContext(TransformedContext):
         else:
             raise ValueError(
                 "All elements of the union meaning \n"
-                "(all free probs or all driven probs) must be either callable or not callable."
+                "(all thermal probs or all driven probs) must be either callable or not callable."
             )
 
     def _setup_single_getter(
@@ -2850,30 +2884,30 @@ class KroneckerContext(TransformedContext):
         Setup getter methods for probabilities based on callable status at
         initialization.
         """
-        current_free_probs_lst = [
-            context.free_probs for context in self.component_contexts
+        current_thermal_rates_lst = [
+            context.thermal_rates for context in self.component_contexts
         ]
-        self._get_free_probs_tensor = self._setup_single_getter(current_free_probs_lst)
+        self._get_thermal_rates_tensor = self._setup_single_getter(current_thermal_rates_lst)
 
-        current_driven_probs_lst = [
-            context.driven_probs for context in self.component_contexts
+        current_driven_rates_lst = [
+            context.driven_rates for context in self.component_contexts
         ]
-        self._get_driven_probs_tensor = self._setup_single_getter(current_driven_probs_lst)
+        self._get_driven_rates_tensor = self._setup_single_getter(current_driven_rates_lst)
 
-        current_out_probs_lst = [
-            context.out_probs for context in self.component_contexts
+        current_decay_rates_lst = [
+            context.decay_rates for context in self.component_contexts
         ]
-        self._get_out_probs_tensor = self._setup_single_getter(current_out_probs_lst)
+        self._get_decay_rates_tensor = self._setup_single_getter(current_decay_rates_lst)
 
         current_dephasing_lst = [
             context.dephasing for context in self.component_contexts
         ]
         self._get_dephasing_tensor = self._setup_single_getter(current_dephasing_lst)
 
-        current_free_superop_lst = [
-            context.free_superop for context in self.component_contexts
+        current_thermal_superop_lst = [
+            context.thermal_superop for context in self.component_contexts
         ]
-        self._get_free_superop_tensor = self._setup_single_getter(current_free_superop_lst)
+        self._get_thermal_superop_tensor = self._setup_single_getter(current_thermal_superop_lst)
 
         current_driven_superop_lst = [
             context.driven_superop for context in self.component_contexts
@@ -3002,7 +3036,7 @@ class KroneckerContext(TransformedContext):
             return None
         else:
             coeffs = self._compute_transformation_probabilities(full_system_vectors)
-            dephasing = self._compose_matrices(dephasing)
+            dephasing = self._compose_vectors(dephasing)
         return transform.transform_kronecker_dephasing_to_population_transfer(dephasing, coeffs)
 
     def get_transformed_init_populations(self, full_system_vectors: tp.Optional[torch.Tensor], normalize: bool = False):
@@ -3172,23 +3206,23 @@ class KroneckerContext(TransformedContext):
                     transform.batched_sum_kron_diagonal(_dephasing_lst)
                 )
             )
-        _free_probs_lst = self._get_free_probs_tensor(time_dep_values)
+        _thermal_rates_lst = self._get_thermal_rates_tensor(time_dep_values)
 
-        if _free_probs_lst is not None:
-            _free_probs = transform.batched_sum_kron(_free_probs_lst)
-            _free_probs[..., diag_indices, diag_indices] = -_free_probs.sum(-2)
-            population_transfer_components.append(_free_probs)
+        if _thermal_rates_lst is not None:
+            _thermal_rates = transform.batched_sum_kron(_thermal_rates_lst)
+            _thermal_rates[..., diag_indices, diag_indices] = -_thermal_rates.sum(-2)
+            population_transfer_components.append(_thermal_rates)
 
-        _driven_probs_lst = self._get_driven_probs_tensor(time_dep_values)
-        if _driven_probs_lst is not None:
-            _driven_probs = transform.batched_sum_kron(_driven_probs_lst)
-            _driven_probs[..., diag_indices, diag_indices] = -_driven_probs.sum(-2)
-            population_transfer_components.append(_driven_probs)
+        _driven_rates_lst = self._get_driven_rates_tensor(time_dep_values)
+        if _driven_rates_lst is not None:
+            _driven_rates = transform.batched_sum_kron(_driven_rates_lst)
+            _driven_rates[..., diag_indices, diag_indices] = -_driven_rates.sum(-2)
+            population_transfer_components.append(_driven_rates)
 
-        _out_probs_lst = self._get_out_probs_tensor(time_dep_values)
-        if _out_probs_lst is not None:
-            _out_probs = transform.batched_sum_kron_diagonal(_out_probs_lst)
-            population_transfer_components.append(-_out_probs.diag_embed())
+        _decay_rates_lst = self._get_decay_rates_tensor(time_dep_values)
+        if _decay_rates_lst is not None:
+            _decay_rates = transform.batched_sum_kron_diagonal(_decay_rates_lst)
+            population_transfer_components.append(-_decay_rates.diag_embed())
 
         ### Add dephasing connected with population loss
 
@@ -3376,6 +3410,20 @@ class SummedContext(BaseContext):
         for ctx in self.component_contexts:
             ctx.close_context()
 
+    def is_opened(self) -> bool:
+        """
+        Check if the context is open (i.e., if basis transformation data is cached).
+
+        Caching this data speeds up execution and saves memory, allowing it to be
+        reused efficiently.
+
+        Note: If you change the sample without creating a new context, the cached
+        data may become invalid.
+
+        :return: True if the context is open (data is cached), False otherwise.
+        """
+        return any(ctx.is_opened() for ctx in self.component_contexts)
+
     def __len__(self):
         """This is just entire context. Let's set its len as 1"""
         return len(self.component_contexts)
@@ -3472,7 +3520,7 @@ class SummedContext(BaseContext):
                 result = density if result is None else result + density
         return result
 
-    def get_transformed_free_probs(
+    def get_transformed_thermal_rates(
         self,
         full_system_vectors: tp.Optional[torch.Tensor],
         time_dep_values: tp.Optional[torch.Tensor] = None,
@@ -3502,14 +3550,14 @@ class SummedContext(BaseContext):
         """
         result = None
         for context in self.component_contexts:
-            probs = context.get_transformed_free_probs(
+            probs = context.get_transformed_thermal_rates(
                 full_system_vectors, time_dep_values, fields, energies, temperature
             )
             if probs is not None:
                 result = probs if result is None else result + probs
         return result
 
-    def get_transformed_driven_probs(
+    def get_transformed_driven_rates(
         self,
         full_system_vectors: tp.Optional[torch.Tensor],
         time_dep_values: tp.Optional[torch.Tensor] = None,
@@ -3538,13 +3586,13 @@ class SummedContext(BaseContext):
         """
         result = None
         for context in self.component_contexts:
-            probs = context.get_transformed_driven_probs(
+            probs = context.get_transformed_driven_rates(
                 full_system_vectors, time_dep_values, fields, energies, temperature)
             if probs is not None:
                 result = probs if result is None else result + probs
         return result
 
-    def get_transformed_out_probs(
+    def get_transformed_decay_rates(
         self,
         full_system_vectors: tp.Optional[torch.Tensor],
         time_dep_values: tp.Optional[torch.Tensor] = None,
@@ -3572,18 +3620,18 @@ class SummedContext(BaseContext):
         The shape is [] or [t], where t is number of time-steps
 
         :return: torch.Tensor or None
-            Transformed free probabilities shaped `[..., N, N]` or `[..., R, M, N, N]`.
+            Transformed thermal probabilities shaped `[..., N, N]` or `[..., R, M, N, N]`.
         """
         result = None
         for context in self.component_contexts:
-            probs = context.get_transformed_out_probs(
+            probs = context.get_transformed_decay_rates(
                 full_system_vectors, time_dep_values, fields, energies, temperature
             )
             if probs is not None:
                 result = probs if result is None else result + probs
         return result
 
-    def get_transformed_free_superop(
+    def get_transformed_thermal_superop(
             self,
             full_system_vectors: tp.Optional[torch.Tensor],
             time_dep_values: tp.Optional[torch.Tensor] = None,
@@ -3616,7 +3664,7 @@ class SummedContext(BaseContext):
         """
         result = None
         for context in self.component_contexts:
-            probs = context.get_transformed_free_superop(
+            probs = context.get_transformed_thermal_superop(
                 full_system_vectors, time_dep_values, fields, energies, temperature)
             if probs is not None:
                 result = probs if result is None else result + probs

@@ -32,9 +32,18 @@ The kinetic matrix incorporates three types of processes:
 
 where:
 
-* **W**: Spontaneous (free) transition probabilities modified to satisfy detailed balance
-* **D**: Driven (induced) transition probabilities from external perturbations
-* **\text{diag}(O)**: Population loss probabilities (e.g., phosphorescence decay from triplet states)
+* **W**: Spontaneous (thermal) transition rates (free probabilities) modified to satisfy detailed balance
+* **D**: Driven (induced) transition rates from external perturbations
+* **\text{diag}(O)**: Population outgoing rates (e.g., phosphorescence decay from triplet states)
+
+
+When relaxation coupling channels (Redfield or Lindblad) are provided via the
+``relaxation_coupling_channels`` argument of :class:`~mars.population.contexts.Context`,
+their population transfer contributions are automatically extracted and added to the
+kinetic matrix.  For each channel, the block of the Redfield tensor that describes
+population flow (the :math:`R_{aacc}` components) is computed and summed into **K**.
+See :ref:`relaxation_channels` for details on how to define such channels.
+
 
 Signal Intensity
 ~~~~~~~~~~~~~~~~
@@ -75,7 +84,7 @@ To carry out a detailed balance, "Mars" forces (see :ref:`detailed_balance`):
 Time-Dependent Relaxation
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The MarS library supports relaxation parameters that depend on time, enabling modeling of systems where macroscopic properties (e.g., temperature) change during evolution.
+The MaRs library supports relaxation parameters that depend on time, enabling modeling of systems where macroscopic properties (e.g., temperature) change during evolution.
 In this case, K becomes K(t).
 
 Numerical Solutions

@@ -149,7 +149,7 @@ class RedfieldRelaxationChannel(BaseRelaxationChannel):
         J_raw = self.spectral_density_func(omega_hz * 2 * math.pi, temperature)
         return self.thermal_corrector_partial(energies).apply_matrix_transform(temperature, J_raw)
 
-    def _compute_transition_probs(self, operators: tp.List[torch.Tensor],
+    def _compute_transition_rates(self, operators: tp.List[torch.Tensor],
                                   spec_density: torch.Tensor) -> torch.Tensor:
         """
        Compute secular population transfer rates W_a<-c.
@@ -178,7 +178,7 @@ class RedfieldRelaxationChannel(BaseRelaxationChannel):
         W = W.masked_fill_(diag_mask, 0.0)
         return W
 
-    def transition_probabilities(
+    def transition_rates(
             self, transformation_unitary: tp.Optional[torch.Tensor],
             fields: tp.Optional[torch.Tensor], energies: torch.Tensor,
             temperature: torch.Tensor) -> torch.Tensor:
@@ -195,7 +195,7 @@ class RedfieldRelaxationChannel(BaseRelaxationChannel):
         """
         operators = self.get_coupling_operators(transformation_unitary, fields)
         spec_density = self._get_spectral_density_matrix(energies, temperature)
-        return self._compute_transition_probs(operators, spec_density)
+        return self._compute_transition_rates(operators, spec_density)
 
     def _compute_dephasing_matrix(
             self, operators: tp.List[torch.Tensor],
@@ -219,7 +219,7 @@ class RedfieldRelaxationChannel(BaseRelaxationChannel):
         :param spec_density: Spectral density. Shape: (..., N, N).
         :return: Dephasing rate matrix. Shape: (..., N, N).
         """
-        W = self._compute_transition_probs(operators, spec_density)
+        W = self._compute_transition_rates(operators, spec_density)
 
         rate_out = W.sum(dim=-2, keepdim=True)
         gamma_pop = 0.5 * (rate_out + rate_out.transpose(-1, -2))
@@ -274,7 +274,7 @@ class RedfieldRelaxationChannel(BaseRelaxationChannel):
         :param spec_density: Spectral density matrix.
         :return: 4D Relaxation tensor. Shape: (..., N, N, N, N).
         """
-        W = self._compute_transition_probs(operators, spec_density)
+        W = self._compute_transition_rates(operators, spec_density)
         gamma = self._compute_dephasing_matrix(operators, spec_density)
 
         N = W.shape[-1]
@@ -332,15 +332,13 @@ class RedfieldRelaxationChannel(BaseRelaxationChannel):
         spec_density = spec_density.to(ref_op.dtype)
         N = ref_op.shape[-1]
         device = ref_op.device
-        batch_ndim = spec_density.dim() - 2
 
         A_Aconj_sum = torch.zeros(
                 spec_density.shape[:-2] + (N, N, N, N), dtype=ref_op.dtype, device=device)
         for op in operators:
             A_Aconj_sum += torch.einsum("...ab,...cd->...abcd", op, op.conj())
-        R = torch.zeros_like(A_Aconj_sum)
 
-        #Term 1
+        #1. Term 1
         eye = torch.eye(N, device=device, dtype=ref_op.dtype)
         term1 = torch.einsum("...aece,...ec,bd->...abcd", A_Aconj_sum, spec_density, eye)
 

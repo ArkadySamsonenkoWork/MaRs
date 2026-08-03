@@ -1049,7 +1049,7 @@ class SphereSpectraIntegrator(BaseSpectraIntegrator):
         :param spectral_field: The magnetic fields where spectra should be created. The shape is [...., N]
         :return: result: Tensor of shape (..., N) with the value of the integral for each B
         """
-        spectral_width = (spectral_field[..., 1] - spectral_field[..., 0])
+        spectral_width = (spectral_field[..., 1] - spectral_field[..., 0]).mul_(3.0)
         A_mean = A_mean * area
         B1, B2, B3 = torch.unbind(res_fields, dim=-1)
 
@@ -1286,7 +1286,7 @@ class AxialSpectraIntegrator(BaseSpectraIntegrator):
         """
         A_mean = A_mean * area
         B1, B2 = torch.unbind(res_fields, dim=-1)
-        spectral_width = (spectral_field[..., 1] - spectral_field[..., 0])
+        spectral_width = (spectral_field[..., 1] - spectral_field[..., 0]).mul_(3.0)
 
         width = self._compute_effective_width(width, B1, B2, spectral_width)
         c_extended = self._width_to_gaussian_scale(width)
@@ -1388,7 +1388,7 @@ class MeanIntegrator(BaseSpectraIntegrator):
         :rtype: torch.Tensor
         """
         res_fields = res_fields.squeeze(-1)
-        spectral_width = (spectral_field[..., 1] - spectral_field[..., 0])
+        spectral_width = (spectral_field[..., 1] - spectral_field[..., 0]).mul_(3.0)
         width = self._compute_effective_width(width, spectral_width)
         A_mean = A_mean * area
         c_extended = self._width_to_gaussian_scale(width)

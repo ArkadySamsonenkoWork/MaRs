@@ -175,6 +175,7 @@ def filter_noise_1d(
                 "Choose from: gaussian, wavelet, median, savgol."
             )
 
+
 def _svd_denoise_2d(I: np.ndarray, rank: int) -> np.ndarray:
     """
     Reconstruct *I* from its top-*rank* singular triplets.

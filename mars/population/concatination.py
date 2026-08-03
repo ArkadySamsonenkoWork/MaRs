@@ -289,8 +289,8 @@ def _concat_sametype_contexts(contexts: tp.Sequence[Context]) -> tp.Union[Contex
     - Homogeneous case:
         * If ALL contexts have None for a parameter then Resulting context has None
         * If ANY context has non-None parameter then Missing values replaced with:
-            - Zeros for vectors (init_populations, out_probs, dephasing)
-            - Zero matrices for square matrices (free_probs, driven_probs)
+            - Zeros for vectors (init_populations, decay_rates, dephasing)
+            - Zero matrices for square matrices (thermal_rates, driven_rates)
     - Mixed basis case:
         * Non-eigenbasis context: Only non-None basis subsystems have non-zero parameters
         * Eigenbasis context: Only None basis subsystems have non-zero parameters
@@ -380,8 +380,8 @@ def _concat_homogeneous_contexts(
     Parameter handling rules:
     - If ALL contexts have None for a parameter then Resulting context has None
     - If ANY context has non-None parameter then Missing values replaced with:
-        * Zeros for vectors (init_populations, out_probs, dephasing)
-        * Zero matrices for square matrices (free_probs, driven_probs)
+        * Zeros for vectors (init_populations, decay_rates, dephasing)
+        * Zero matrices for square matrices (thermal_rates, driven_rates)
         * Identity matrices for basis transformations
     - profiles are always set to None in concatenated context
     - Batch dimensions are determined by broadcasting all non-None parameters
@@ -435,12 +435,12 @@ def _concat_homogeneous_contexts(
     def _process_vectors(attr_name: str):
         """Construct block-concatenated vector by stacking context vectors along system dimension.
 
-        Handles parameters like init_populations, out_probs, and dephasing.
+        Handles parameters like init_populations, decay_rates, and dephasing.
         Missing values (None) are filled with zeros in their respective blocks.
         Batch dimensions are broadcasted across all non-None inputs.
 
         :param attr_name: Name of the vector attribute to extract from each context
-                          (e.g., 'init_populations', 'out_probs').
+                          (e.g., 'init_populations', 'decay_rates').
         :return: Concatenated tensor of shape [..., total_dim] where total_dim = sum(dims),
                  or None if all contexts have None for this attribute.
         """
@@ -468,11 +468,11 @@ def _concat_homogeneous_contexts(
     def _process_matrices(attr_name, use_identity_for_none=False):
         """Construct block-diagonal matrix by placing context matrices on the diagonal.
 
-        Handles square matrix parameters (free_probs, driven_probs, basis).
+        Handles square matrix parameters (thermal_rates, driven_rates, basis).
         Missing values are filled with zeros unless use_identity_for_none=True
         (used for basis where identity is physically meaningful).
 
-        :param attr_name: Name of the matrix attribute to extract (e.g., 'basis', 'free_probs').
+        :param attr_name: Name of the matrix attribute to extract (e.g., 'basis', 'thermal_rates').
         :param use_identity_for_none: If True, replaces None values with identity matrices
                                       (required for basis transformations); otherwise uses zeros.
         :return: Block-diagonal tensor of shape [..., total_dim, total_dim],
@@ -610,9 +610,9 @@ def _concat_homogeneous_contexts(
         basis=_process_matrices("basis", use_identity_for_none=use_identity_for_basis),
         init_populations=_process_vectors("init_populations"),
         init_density=_process_density(),
-        free_probs=_process_matrices("free_probs"),
-        driven_probs=_process_matrices("driven_probs"),
-        out_probs=_process_vectors("out_probs"),
+        thermal_rates=_process_matrices("thermal_rates"),
+        driven_rates=_process_matrices("driven_rates"),
+        decay_rates=_process_vectors("decay_rates"),
         dephasing=_process_vectors("dephasing"),
         relaxation_superop=_process_superoperators("_default_driven_superop"),
         relaxation_coupling_channels=relaxation_coupling_channels,

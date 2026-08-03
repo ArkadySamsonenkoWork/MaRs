@@ -39,7 +39,7 @@ def squeeze(
         dim: tp.Optional[int] = None,
 ) -> mars_item_type:
     """
-    Remove dimensions of size one from a MarS item.
+    Remove dimensions of size one from a MaRs item.
 
     :param item: A single MARS object.
     :param dim: If given, only the specified dimension will be squeezed. Otherwise, all dimensions of size 1 are removed.

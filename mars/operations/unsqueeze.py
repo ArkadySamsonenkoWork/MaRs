@@ -39,7 +39,7 @@ def unsqueeze(
         dim: int,
 ) -> mars_item_type:
     """
-    Insert a dimension of size one at the specified position in a MarS item.
+    Insert a dimension of size one at the specified position in a MaRs item.
 
     :param item: A single MARS object.
     :param dim: The index at which to insert the new dimension.

@@ -50,7 +50,7 @@ def repeat(
         repeats: tp.Union[torch.Size, tp.List[int]],
 ) -> mars_item_type:
     """
-    Repeat batch dimensions of a MarS item.
+    Repeat batch dimensions of a MaRs item.
 
     :param item: A single MARS object.
     :param repeats: The number of times to repeat each dimension.

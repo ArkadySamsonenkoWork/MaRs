@@ -67,7 +67,7 @@ Basis and Operator Methods
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following methods allow you to construct and switch between common representations of the spin Hilbert space.  
-In MarS, all operators and vectors are initially defined in the product basis of individual spin projections, denoted as :math:`|\alpha\rangle` and :math:`|\beta\rangle`.
+In MaRs, all operators and vectors are initially defined in the product basis of individual spin projections, denoted as :math:`|\alpha\rangle` and :math:`|\beta\rangle`.
 
 .. code-block:: python
 
@@ -115,7 +115,7 @@ In MarS, all operators and vectors are initially defined in the product basis of
 Applying Frame Rotations
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Spin systems in MarS can be rotated as a whole relative to laboratory frame using the :meth:`mars.spin_model.SpinSystem.apply_rotation` method.
+Spin systems in MaRs can be rotated as a whole relative to laboratory frame using the :meth:`mars.spin_model.SpinSystem.apply_rotation` method.
 
 .. code-block:: python
 
@@ -149,7 +149,7 @@ This operation updates the internal representation of all interaction tensors (g
 Concatenating Spin Systems
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-MarS provides functionality to combine multiple independent spin systems into a single composite system using the direct sum construction.
+MaRs provides functionality to combine multiple independent spin systems into a single composite system using the direct sum construction.
 This is not equivalent to building a true multi-particle quantum system (which would require a tensor-product Hilbert space). Instead, it creates a block-diagonal representation for specific effective models.
 
 Use concatenation only in scenarios such as:

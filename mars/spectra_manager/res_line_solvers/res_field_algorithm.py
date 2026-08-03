@@ -213,15 +213,38 @@ class BaseResonanceIntervalSolver(nn.Module, ABC):
         """Compute a mask based on loop-dependent resonance conditions."""
         pass
 
-    def _compute_derivative(self, eigen_vector: torch.Tensor, G: torch.Tensor):
+    def _compute_derivative(self, eigen_vector: torch.Tensor, eig_values: torch.Tensor,
+                            G: torch.Tensor, deg_tol: float = 1e-10):
         """
-        :param eigen_vector: eigen vectors of Hamiltonian.
+        Derivatives of energies wrt B (Feynman-Hellmann), resolved for
+        (near-)degenerate levels via first-order degenerate perturbation theory.
 
-        :param G: Magnetic dependant part of the Hamiltonian: H = F + B * G
-        :return: Derivatives of energies by magnetic field. The calculations are based on Feynman's theorem.
+        :param eigen_vector: eigenvectors, [..., K, K]
+        :param eig_values: corresponding eigenvalues, ascending order, [..., K]
+        :param G: field-dependent part of H, [..., K, K]
+        :param deg_tol: eigenvalue gap below which levels are treated as degenerate
         """
         tmp = torch.matmul(G, eigen_vector)
-        deriv = (torch.conj(eigen_vector) * tmp).sum(dim=-2).real
+        G_full = torch.conj(eigen_vector).transpose(-2, -1) @ tmp
+        deriv = G_full.diagonal(dim1=-2, dim2=-1).real.clone()
+
+        gap = eig_values[..., 1:] - eig_values[..., :-1]
+        deg = gap < deg_tol
+        if deg.any():
+            warnings.warn("The degenerated or near-degenerated levels were found."
+                          "Convergence may be incorrect."
+                          "Increase the spatial grid and decrease the res_field_r_tol if necessary.",
+                          UserWarning)
+            a = deriv[..., :-1]
+            d = deriv[..., 1:]
+            b = torch.diagonal(G_full, offset=1, dim1=-2, dim2=-1)  # <i|G|i+1>
+            b_abs2 = b.real ** 2 + b.imag ** 2 if torch.is_complex(b) else b ** 2
+
+            mean = 0.5 * (a + d)
+            half_gap = torch.sqrt((0.5 * (a - d)) ** 2 + b_abs2)
+            low2, high2 = mean - half_gap, mean + half_gap
+            deriv[..., :-1] = torch.where(deg, low2, a)
+            deriv[..., 1:] = torch.where(deg, high2, d)
         return deriv
 
     def compute_error(self, eig_values_low: torch.Tensor, eig_values_mid: torch.Tensor,
@@ -230,7 +253,7 @@ class BaseResonanceIntervalSolver(nn.Module, ABC):
                       eig_vectors_high: torch.Tensor,
                       B_low: torch.Tensor, B_high: torch.Tensor,
                       G: torch.Tensor,
-                      row_indexes: torch.Tensor):
+                      row_indexes: torch.Tensor, degeneracy_tol: float = 1e-10):
         """Compute the error after division of the interval.
 
         :param eig_values_low: energies in the ascending order at B_low magnetic field.
@@ -250,12 +273,23 @@ class BaseResonanceIntervalSolver(nn.Module, ABC):
         :return: epsilon is epsilon mistake. The tensor with the shape [...]
         """
         G_idx = G.index_select(0, row_indexes)
-        derivatives_low = self._compute_derivative(eig_vectors_low, G_idx)
-        derivatives_high = self._compute_derivative(eig_vectors_high, G_idx)
+        derivatives_low = self._compute_derivative(eig_vectors_low, eig_values_low, G_idx)
+        derivatives_high = self._compute_derivative(eig_vectors_high, eig_values_high, G_idx)
+
         eig_values_estimation = 0.5 * (eig_values_high + eig_values_low) +\
                                       (B_high - B_low) / 8 * (derivatives_high - derivatives_low)
+        epsilon_deriv = 2 * (eig_values_estimation - eig_values_mid).abs()
 
-        epsilon = 2 * (eig_values_estimation - eig_values_mid).abs().max(dim=-1)[0]
+
+        plain_err = (eig_values_high - eig_values_low).abs()
+        gaps_low = torch.diff(eig_values_low, dim=-1).abs()
+        gaps_high = torch.diff(eig_values_high, dim=-1).abs()
+        min_gap = torch.minimum(gaps_low.min(dim=-1, keepdim=True)[0],
+                                gaps_high.min(dim=-1, keepdim=True)[0])
+        is_degenerate = (min_gap < degeneracy_tol)
+
+        epsilon = torch.where(is_degenerate, plain_err, epsilon_deriv).max(dim=-1)[0]
+
         return epsilon, (derivatives_low, derivatives_high)
 
     @abstractmethod
@@ -384,7 +418,6 @@ class BaseResonanceIntervalSolver(nn.Module, ABC):
 
         torch.where(mask_left.unsqueeze(-1).unsqueeze(-1), eig_vectors_low, eig_vectors_mid, out=eig_vectors_low)
         torch.where(mask_left.unsqueeze(-1).unsqueeze(-1), eig_vectors_mid, eig_vectors_high, out=eig_vectors_high)
-
 
         row_indexes = row_indexes.clone().index_select(0, idx_xor)
 
@@ -519,8 +552,7 @@ class BaseResonanceIntervalSolver(nn.Module, ABC):
         eig_values_mid, eig_vectors_mid = self.eigen_finder(
             F.index_select(0, row_indexes) + Gz.index_select(0, row_indexes) * B_mid
         )
-        # It is only one    single
-        # point where gradient should be calculated
+
         error, (derivatives_low, derivatives_high) =\
             self.compute_error(eig_values_low, eig_values_mid, eig_values_high,
                                eig_vectors_low, eig_vectors_high,
@@ -537,7 +569,10 @@ class BaseResonanceIntervalSolver(nn.Module, ABC):
             # indexes_conv[indexes_conv == True] = converged_mask
 
             eig_vectors_mid_converg = eig_vectors_mid.index_select(0, converged_idx)
-            derivatives_mid = self._compute_derivative(eig_vectors_mid_converg, Gz.index_select(0, row_indexes_conv))
+            derivatives_mid = self._compute_derivative(eig_vectors_mid_converg,
+                                                       eig_values_mid.index_select(0, converged_idx),
+                                                       Gz.index_select(0, row_indexes_conv))
+
             final_batches.extend(
                 self._finilize_batch(
                     eig_values_low.index_select(0, converged_idx), eig_values_mid.index_select(0, converged_idx),
@@ -860,7 +895,8 @@ class BaseResonanceLocator(nn.Module):
                                   mask_trans: torch.Tensor,
                                   resonance_frequency: torch.Tensor) ->\
             list[tuple[torch.Tensor, torch.Tensor]]:
-        step_B = torch.zeros_like(mask_trans, dtype=resonance_frequency.dtype)
+        step_B = torch.full_like(mask_trans, float('nan'), dtype=resonance_frequency.dtype)
+
         step_B[mask_trans] = self._find_resonance_roots(diff_eig_low, diff_eig_high,
                                                   diff_deriv_low, diff_deriv_high,
                                                   resonance_frequency)
@@ -927,7 +963,6 @@ class BaseResonanceLocator(nn.Module):
                         ):
         (eig_low, eig_high), (vec_low, vec_high), (deriv_low, deriv_high), (B_low, B_high), indexes = batch
 
-
         delta_B = B_high - B_low
         K = eig_low.shape[-1]
         lvl_down, lvl_up = torch.triu_indices(K, K, offset=1, device=B_low.device)
@@ -943,7 +978,6 @@ class BaseResonanceLocator(nn.Module):
     def _compute_raw_differences(
         self, eig_low: torch.Tensor, eig_high: torch.Tensor, deriv_low: torch.Tensor,
             deriv_high: torch.Tensor, lvl_down: torch.Tensor, lvl_up: torch.Tensor):
-
         diff_low = (eig_low[..., lvl_up] - eig_low[..., lvl_down]).squeeze(-2)
         diff_high = (eig_high[..., lvl_up] - eig_high[..., lvl_down]).squeeze(-2)
         raw_d_low = (deriv_low[..., lvl_up] - deriv_low[..., lvl_down])
@@ -1212,7 +1246,6 @@ class BaseResonanceLocator(nn.Module):
 
         diff_deriv_low = (delta_B * diff_deriv_low).squeeze(-2)[mask_res]
         diff_deriv_high = (delta_B * diff_deriv_high).squeeze(-2)[mask_res]
-
         resonance_field_data = self._compute_resonance_fields(diff_eig_low, diff_eig_high, diff_deriv_low,
                                     diff_deriv_high, mask_trans, resonance_frequency)
 
@@ -1220,6 +1253,7 @@ class BaseResonanceLocator(nn.Module):
 
         original_shape = mask_trans.shape
         outputs = []
+        #for mask_triu_new, row_indexes_new, pattern_local_indices, pattern_true_indices, step_B in resonance_field_data[2:]:
         for mask_triu_new, row_indexes_new, pattern_local_indices, pattern_true_indices, step_B in resonance_field_data:
             resonance_energies = self._compute_resonance_energies(step_B,
                                                                   eig_values_low, eig_values_high,
@@ -1257,13 +1291,13 @@ class BaseResonanceLocator(nn.Module):
             outputs.append(out_res)
         return outputs
 
-    def forward(self, final_batches, resonance_frequency,
+    def forward(self, batches, resonance_frequency,
                 baselign_sign: tp.Optional[torch.Tensor] = None,
                 derivative_max: tp.Optional[torch.Tensor] = None
                 ):
         return list(chain.from_iterable(
             self._iterate_batch(batch, resonance_frequency, baselign_sign, derivative_max)
-            for batch in final_batches
+            for batch in batches
         ))
 
 
@@ -1300,14 +1334,14 @@ class GeneralResonanceLocator(BaseResonanceLocator):
     def _compute_resonance_fields(self, diff_eig_low, diff_eig_high, diff_deriv_low,
                                   diff_deriv_high, mask_trans, resonance_frequency):
         results = self._find_resonance_roots(diff_eig_low, diff_eig_high,
-                                                  diff_deriv_low, diff_deriv_high,
-                                                  resonance_frequency)
+                                             diff_deriv_low, diff_deriv_high,
+                                             resonance_frequency)
         if not results or all(roots.numel() == 0 for roots, _ in results):
             return []
         outs = []
         for roots, mask_roots in results:
             pair_mask = torch.clone(mask_trans)
-            step_B = torch.zeros_like(mask_trans, dtype=resonance_frequency.dtype)
+            step_B = torch.full_like(mask_trans, float('nan'), dtype=resonance_frequency.dtype)
             pair_mask[mask_trans] = mask_roots
             step_B[pair_mask] = roots
             outs.append((step_B, pair_mask))
@@ -1396,11 +1430,10 @@ class GeneralResonanceLocator(BaseResonanceLocator):
         mask_one_root = ~mask_three_roots
         roots_case1 = torch.empty((mask_three_roots.sum(), 3), dtype=a.dtype, device=a.device).fill_(float('inf'))
         roots_case2 = torch.empty((mask_one_root.sum(), 1), dtype=a.dtype, device=a.device).fill_(float('inf'))
-
         if mask_three_roots.any():
             roots_case1 = self._find_three_roots(a[mask_three_roots], p[mask_three_roots], q[mask_three_roots])
             roots_in_interval = roots_case1.ge(0.0) & roots_case1.le(1.0)
-            #roots_in_interval = (roots_case1 >= 0.0) & (roots_case1 <= 1.0)
+
             roots_case1 = torch.where(roots_in_interval, roots_case1, torch.full_like(roots_case1, float('inf')))
 
         if mask_one_root.any():
@@ -1733,12 +1766,16 @@ class ResField(nn.Module):
                                 device=device)
         vectors_v = torch.zeros((total_batch_size, max_columns, self.spin_system_dim), dtype=complex_dtype,
                                 device=device)
-        resonance_energies = torch.zeros((total_batch_size, max_columns, self.spin_system_dim), dtype=dtype,
-                                         device=device)
+        #resonance_energies = torch.zeros((total_batch_size, max_columns, self.spin_system_dim), dtype=dtype,
+        #                                 device=device)
+        resonance_energies = torch.full(
+            (total_batch_size, max_columns, self.spin_system_dim), float("nan"),  dtype=dtype, device=device)
+
 
         valid_lvl_down = torch.zeros(max_columns, dtype=torch.long, device=device)
         valid_lvl_up = torch.zeros(max_columns, dtype=torch.long, device=device)
-        res_fields = torch.zeros((total_batch_size, max_columns), dtype=dtype, device=device)
+        res_fields = torch.full((total_batch_size, max_columns), float("nan"),  dtype=dtype, device=device)
+        #res_fields = torch.zeros((total_batch_size, max_columns), dtype=dtype, device=device)
 
         if self.output_full_eigenvector:
             full_eigen_vectors = torch.zeros((total_batch_size, max_columns,
@@ -1799,14 +1836,16 @@ class ResField(nn.Module):
         - resonance energies
         - vector_full_system | None. The eigen vectors for all energy levels
         """
+        B_low = torch.clip(B_low, min=1e-7)
+
         interval_solver, locator, args = self._solver_fabric(sample, F, resonance_frequency)
 
         batches = interval_solver(
             F.flatten(0, -3) / resonance_frequency,
             Gz.flatten(0, -3) / resonance_frequency, B_low.flatten(0, -1),
             B_high.flatten(0, -1), resonance_frequency / resonance_frequency, *args)
-
         batches = locator(batches, resonance_frequency / resonance_frequency, *args)
         out = self._combine_resonance_data(dtype=resonance_frequency.dtype,
                                            device=Gz.device, batches=batches, resonance_frequency=resonance_frequency)
+
         return out

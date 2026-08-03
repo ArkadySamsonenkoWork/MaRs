@@ -25,7 +25,7 @@ These processes are encoded in the **Lindblad master equation**, which provides 
       - \frac{1}{2} \{ \hat{L}_k^\dagger \hat{L}_k, \rho \}
    \right)
 
-In addition to the four standard contributions, MarS supports user-defined superoperators, allowing custom relaxation, or phenomenological models to be incorporated directly into :math:`\mathcal{R}[\rho]`.
+In addition to the four standard contributions, MaRs supports user-defined superoperators, allowing custom relaxation, or phenomenological models to be incorporated directly into :math:`\mathcal{R}[\rho]`.
 
 Two computational strategies are available for time propagation:
 
