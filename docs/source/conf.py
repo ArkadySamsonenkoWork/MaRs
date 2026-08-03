@@ -42,7 +42,6 @@ autodoc_mock_imports = [
     "scipy",
     "numpy",
     "sklearn",
-    "scikit-learn",
     
     # Optional dependencies
     "optuna",

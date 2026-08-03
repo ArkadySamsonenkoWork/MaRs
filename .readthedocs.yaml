@@ -12,6 +12,7 @@ build:
       - sphinx-apidoc -f -o docs/source/api mars --separate --module-first --no-toc
       # Fix RST files
       - python docs/fix_rst.py
+      - python -c "import mars"
       # Debug: show what was generated
       - echo "=== Generated RST files ==="
       - find docs/source/api -name "*.rst" -type f | head -20

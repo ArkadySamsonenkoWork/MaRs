@@ -8,6 +8,7 @@ Subpackages
    :maxdepth: 4
 
    mars.mesher
+   mars.operations
    mars.optimization
    mars.particles
    mars.population
@@ -18,14 +19,6 @@ Subpackages
 
 Submodules
 ----------
-
-mars.concatination module
--------------------------
-
-.. automodule:: mars.concatination
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 mars.constants module
 ---------------------
@@ -39,14 +32,6 @@ mars.multiplication module
 --------------------------
 
 .. automodule:: mars.multiplication
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.save\_procedures module
-----------------------------
-
-.. automodule:: mars.save_procedures
    :members:
    :undoc-members:
    :show-inheritance:
