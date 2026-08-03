@@ -8,9 +8,9 @@ import typing as tp
 from abc import ABC
 from enum import Enum
 
-from scipy.special import sph_harm
+from scipy.special import sph_harm_y
 
-import torch
+import torch    
 import torch.nn as nn
 
 from sklearn.metrics import pairwise_distances
@@ -261,7 +261,7 @@ class RBFInterpolator(BaseInterpolator):
 
         for l in range(max_l + 1):
             for m in range(-l, l + 1):
-                Y_lm = sph_harm(m, l, phi, theta)
+                Y_lm = sph_harm_y(m, l, phi, theta)
                 Y_col = Y_lm.reshape(-1, 1)
                 R += np.real(Y_col @ Y_col.conj().T) / (l * (l + 1) + 1)
         R = R * (np.trace(R) / (n_points * np.max(np.diag(R)) + self.epsilon))
