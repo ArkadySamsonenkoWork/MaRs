@@ -3,7 +3,7 @@
 Lindblad Superoperator Construction
 ====================================
 
-MaRs uses the *Lindblad master equation* formalism to construct physically valid relaxation superoperators from user-defined parameters.
+MaRs uses the *Lindblad master equation* formalism to construct physically valid relaxation superoperators from user-defined relaxation rates.
 This approach guarantees that the density matrix remains positive semi-definite and trace-preserving (if decay rates equal to zero) during time evolution.
 
 .. image:: /_static/context/lindblad_overview.png
@@ -51,7 +51,7 @@ Mapping Relaxation Parameters to Lindblad Operators
 
 MaRs maps the four relaxation parameter types to specific Lindblad operators:
 
-Out Probabilities → Loss Operators
+Decay Rates → Loss Operators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For population loss from level :math:`|i\rangle` at rate :math:`o_i`:
@@ -74,7 +74,7 @@ This simplifies to:
 
 **Implementation:** See :func:`mars.population.transform.Liouvilleator.anticommutator_superop_diagonal` for the anticommutator construction.
 
-Free Probabilities → Spontaneous Transition Operators
+Thermal Rates → Spontaneous Transition Operators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For spontaneous transitions :math:`|j\rangle \to |i\rangle` at rate :math:`w_{ij}`:
@@ -103,7 +103,7 @@ This term:
 
 **Implementation:** See :func:`mars.population.transform.Liouvilleator.lindblad_dissipator_from_rates` for the full construction.
 
-Driven Probabilities → Stimulated Transition Operators
+Driven Rates → Stimulated Transition Operators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For driven transitions :math:`|j\rangle \to |i\rangle` at rate :math:`d_{ij}`:
@@ -195,12 +195,12 @@ Custom Relaxation Operators: Lindblad and Redfield
 Beyond the predefined kinetic‑rate parameters, MaRs offers two ways to
 define relaxation at the operator level:
 
-**1. Direct Lindblad superoperator**
-   You can construct a superoperator from an arbitrary jump operator
+**1. Direct construction of a superoperator**
+   You can construct an arbitary superoperator and pass it to the context directly
    :math:`\hat{L}` and pass it directly to :class:`~mars.population.contexts.Context`
    via the ``relaxation_superop`` argument.
 
-   To build the dissipator, use:
+   For example, to build the supeoperator via the Lindblad Jump operator directly:
 
    .. code-block:: python
 
@@ -222,16 +222,17 @@ define relaxation at the operator level:
    The resulting superoperator is trace‑preserving and, when combined with
    Hamiltonian evolution, positivity‑preserving.
 
-**2. Redfield (or Lindblad) relaxation channels**
+
+2. **Redfield (or Lindblad) relaxation channels**
    If the relaxation mechanism is more naturally described by a set of
    coupling operators :math:`A^{(k)}` and a bath spectral density
    :math:`J(\omega)`, you can use a :class:`~mars.population.relaxation_channels.redfield.RedfieldRelaxationChannel`.
-   In this case MaRs automatically builds the Redfield tensor in the
+   In this case MaRs automatically builds the Redfield operator in the
    eigenbasis, respecting the secular approximation and detailed balance.
 
    Alternatively, you can supply the same operator tuples to a
    :class:`~mars.population.relaxation_channels.lindblad.LindbladRelaxationChannel`
-   if the jump operators already contain the rate prefactors
+   if the jump operators already contain the amplitude factor
    (i.e. :math:`L_k = \sqrt{\gamma_k} A_k`).
 
    These channels are passed to :class:`~mars.population.contexts.Context`

@@ -49,6 +49,7 @@ autodoc_mock_imports = [
     "nevergrad",
     "optuna_dashboard",
     "torchdiffeq",
+    "safetensors",
     
     # Visualization
     "seaborn",

@@ -32,7 +32,7 @@ The kinetic matrix incorporates three types of processes:
 
 where:
 
-* **W**: Spontaneous (thermal) transition rates (free probabilities) modified to satisfy detailed balance
+* **W**: Spontaneous (thermal) transition rates (thermal rates) modified to satisfy detailed balance
 * **D**: Driven (induced) transition rates from external perturbations
 * **\text{diag}(O)**: Population outgoing rates (e.g., phosphorescence decay from triplet states)
 

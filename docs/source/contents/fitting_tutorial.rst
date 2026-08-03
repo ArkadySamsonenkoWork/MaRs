@@ -338,7 +338,7 @@ For convenience, use :func:`mars.optimization.fitter.print_trial_results` to dis
 .. code-block:: python
 
     from mars.optimization import print_trial_results
-    print_trial_results(alternatives, max_params=6, precision=5)
+    print_trial_results(alternatives, max_params=6, precision=5)  # Print all found alternatives
 
 
 Plotting Capabilities
@@ -366,7 +366,7 @@ for analysing the distribution of good parameters:
   Parallel-coordinates plot for the top-K trials.
 
 - :meth:`~mars.optimization.fitter.SpaceSearcher.plot_rescaled_loss_scatter`:
-  Scatter plots of each parameter versus a rescaled loss (min→0, avg→0.5, max→1), helping to identify parameter ranges that produce low losses.
+  Scatter plots of each parameter versus a rescaled loss, helping to identify parameter ranges that produce low losses.
 
 - :meth:`~mars.optimization.fitter.SpaceSearcher.plot_loss_boxplots_by_bin`:
   Box-plots of the loss distribution across quantile-based bins of each parameter, highlighting regions of consistently good fits.

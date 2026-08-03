@@ -178,7 +178,7 @@ and :func:`mars.population.transform.transform_state_weights_to_new_basis`:
    populations_old = torch.tensor([0.5, 0.3, 0.2])
    populations_new = transform_state_weights_to_new_basis(populations_old, probabilities)
    
-   # Transform out probabilities
+   # Transform out rates
    decay_rates_old = torch.tensor([100.0, 50.0, 75.0])
    decay_rates_new = transform_state_weights_to_new_basis(decay_rates_old, probabilities)
 
@@ -191,7 +191,7 @@ then its population is the sum of populations with :math:`|U^{*}_{ik}|^2` which 
    If you set the initial density as parameter of Context, then the denisty will be tranformed under desnity transforamtion rule (see futher),
    then the real part of transformed diagonal will be used as initial population if it is needed
 
-Transition Probabilities (Free and Driven)
+Transition Rates (Thermal and Driven)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The library supports two types of transitions: **thermal** (spontaneous) and **driven** (induced), represented by matrices :math:`W` and :math:`D`, respectively.
@@ -226,7 +226,7 @@ and identically for driven transitions:
 .. code-block:: python
 
    from mars.population.transform import transform_rate_matrix_to_new_basis
-   # Transition probabilities between singlet state and triplet sublevels
+   # Transition rates between singlet state and triplet sublevels
    W_old = torch.tensor([
        [0.0,    1000.0,   1000.0, 1000.0],
        [1000.0,    0.0,   0.0,   0.0],
@@ -358,7 +358,7 @@ The relaxation superoperator transforms in Liouville space:
    R_new = transform_superop_to_new_basis(R_old, T_liouville)
    # Applies: T @ R_old @ T.conj().T
 
-Derivation of Transition Probabilities from the Lindblad Master Equation
+Derivation of Transition Rates from the Lindblad Master Equation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The transformation rules for kinetic coefficients (loss (outgoing) rates and transition rates)
@@ -385,10 +385,10 @@ When changing the basis from :math:`\{|i\rangle\}` to :math:`\{|\alpha\rangle\}`
 :math:`U` (where :math:`|\alpha\rangle = \sum_i U^{*}_{\alpha i} |i\rangle`), the operators transform, 
 necessitating a corresponding transformation of the rates :math:`\gamma_k`.
 
-Loss Probabilities (Out Probabilities)
-""""""""""""""""""""""""""""""""""""""
+Decay Rates
+"""""""""""""
 
-Loss probabilities :math:`\Gamma_i` represent decay rates from state :math:`|i\rangle` to outside 
+Decay rates :math:`\Gamma_i` represent the probability of transition from state :math:`|i\rangle` to outside 
 the system (e.g., radiative decay). The corresponding jump operator is:
 
 .. math::
@@ -423,11 +423,11 @@ Substituting the transformation :math:`\hat{L}_i^\dagger \hat{L}_i = |i\rangle\l
    \end{aligned}
 
 In matrix form, this is :math:`\boldsymbol{\Gamma}' = |U|^2 \cdot \boldsymbol{\Gamma}`. 
-This confirms that loss probabilities transform via the element-wise squared transformation 
+This confirms that decay rates transform via the element-wise squared transformation 
 matrix, consistent with probability conservation.
 
-Transition Probabilities: Formal Lindblad Derivation
-""""""""""""""""""""""""""""""""""""""""""""""""""""
+Intra-System Transition Rates
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 This section provides a rigorous derivation of the transition rate transformation rule
 using the Lindblad master equation formalism. We explicitly show how the secular approximation

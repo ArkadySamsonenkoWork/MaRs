@@ -333,8 +333,8 @@ Key functions:
 
 - :func:`mars.population.transform.compute_clebsch_gordan_probabilities` - Compute transformation coefficients
 - :func:`mars.population.transform.transform_kronecker_populations` - Transform populations
-- :func:`mars.population.transform.transform_kronecker_rate_matrix` - Transform probabilities matrices
-- :func:`mars.population.transform.transform_kronecker_rate_vector` - Transform probabilities vector 
+- :func:`mars.population.transform.transform_kronecker_rate_matrix` - Transform rates matrices
+- :func:`mars.population.transform.transform_kronecker_rate_vector` - Transform rates vector 
 - :func:`mars.population.transform.transform_kronecker_operator` - Transform Hilbert operators (density matrices)
 - :func:`mars.population.transform.transform_kronecker_superoperator` - Transform superoperators
 - :func:`mars.population.transform.reshape_vectorized_kronecker_to_tensor_product` - Convert Kronecker-ordered vectorized states to tensor-product ordering

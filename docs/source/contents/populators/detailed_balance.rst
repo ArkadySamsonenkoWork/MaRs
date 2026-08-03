@@ -117,7 +117,7 @@ The full kinetic matrix :math:`K` is constructed as:
 where:
 
 - :math:`W^*` is the matrix of Boltzmann‑corrected thermal transition rates
-  (free probabilities).
+  (thermal rates).
 - :math:`D` is the matrix of driven transitions (no Boltzmann correction).
 - :math:`O` is the vector of outgoing loss rates (e.g., phosphorescence).
 

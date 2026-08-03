@@ -3,7 +3,7 @@
 Relaxation Parameters and Initial States
 ========================================
 
-The Context class in MaRs supports four types of relaxation parameters that define how spin populations and coherences evolve over time. All probabilities are expressed in **s⁻¹** (inverse seconds).
+The Context class in MaRs supports four types of relaxation parameters that define how spin populations and coherences evolve over time. All rate constants are expressed in **s⁻¹** (inverse seconds).
 
 Initial States
 --------------
@@ -27,9 +27,9 @@ Relaxation Overview
 
 MaRs defines relaxation through four distinct mechanisms:
 
-1. **decay_rates** (Outgoing probabilities) - Population loss rates
-2. **thermal_rates** (Free probabilities) - Spontaneous transition rates
-3. **driven_rates** (Driven probabilities) - Stimulated transition rates
+1. **decay_rates** (Outgoing Rates)- Population loss rates
+2. **thermal_rates** (Thermal rates) - Spontaneous transition rates
+3. **driven_rates** (Driven rates) - Stimulated transition rates
 4. **dephasing** (Dephasing) - Pure dephasing rates used only for density-based relaxation
 
 Each mechanism serves a specific physical purpose and transforms differently under basis changes.
@@ -44,12 +44,12 @@ Decay Rates (decay_rates)
 
 .. image:: /_static/context/decay_rates.png
    :width: 70%
-   :alt: Out probabilities diagram
+   :alt: Out rates diagram
    :align: center
 
 **Physical Meaning**
 
-Out probabilities describe irreversible population loss from energy levels.
+Out rates describe irreversible population loss from energy levels.
 
 **Mathematical Form**
 
@@ -93,7 +93,7 @@ Thermal rates (thermal_rates)
 
 .. image:: /_static/context/thermal_rates.png
    :width: 70%
-   :alt: Free probabilities diagram
+   :alt: Thermal rates diagram
    :align: center
 
 **Physical Meaning**
@@ -167,12 +167,12 @@ Driven Probabilities (driven_rates)
 
 .. image:: /_static/context/driven_rates.png
    :width: 70%
-   :alt: Driven probabilities diagram
+   :alt: Driven rates diagram
    :align: center
 
 **Physical Meaning**
 
-Driven probabilities describe stimulated transitions that do NOT obey detailed balance.
+Driven rates describe stimulated transitions that do NOT obey detailed balance.
 
 **Mathematical Form**
 
@@ -289,7 +289,7 @@ Let's consider a triplet state with several realxation mechanisms:
    # Initial selective population (spin polarization)
    init_populations = [0.7, 0.05, 0.25]  # Strong population of one of the states
    
-   # Outgoing probabilities in ZFS basis
+   # Outgoing rates in ZFS basis
    decay_rates = torch.tensor([100.0, 45.0, 70.0])  # s^-1
    
    # Spin-lattice relaxation in eigen basis  
