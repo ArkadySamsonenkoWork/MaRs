@@ -47,6 +47,7 @@ mars/population/populators/core.py
 mars/population/populators/density_population.py
 mars/population/populators/level_population.py
 mars/population/populators/stationary.py
+mars/population/relaxation_channels/__init__.py
 mars/population/relaxation_channels/base_couling_channels.py
 mars/population/relaxation_channels/lindblad.py
 mars/population/relaxation_channels/redfield.py

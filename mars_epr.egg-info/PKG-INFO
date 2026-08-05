@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mars-epr
-Version: 0.0.5
+Version: 0.0.5.post1
 Summary: A library for computation CW and time resolved spectra
 Author-email: Arkady Samsonenko <a.samsonenko@tomo.nsc.ru>, Ivan Kurganskii <kurgansky@tomo.nsc.ru>
 License-Expression: MIT
@@ -25,9 +25,12 @@ Provides-Extra: opt
 Requires-Dist: optuna>=4.3; extra == "opt"
 Requires-Dist: nevergrad>=1.0.12; extra == "opt"
 Requires-Dist: optuna_dashboard; extra == "opt"
+Requires-Dist: safetensors; extra == "opt"
+Requires-Dist: PyWavelets; extra == "opt"
 Provides-Extra: plot
 Requires-Dist: seaborn; extra == "plot"
 Requires-Dist: plotly; extra == "plot"
+Requires-Dist: matplotlib; extra == "plot"
 
 # MaRs
 
@@ -75,11 +78,19 @@ MaRs provides several mechanisms to model experimental linewidths:
 
 ---
 
-### Radiation Polarization Support
-- Simulation of spectra under **polarized microwave radiation**
-- Polarization-dependent transition probabilities
+### Spin-Polarized Spectra Support
+- Simulation of stationary EPR spectra with arbitrary **non-equilibrium (spin-polarized) initial populations**, in addition to standard thermal (Boltzmann) populations
+- Polarization can be specified directly in any of the supported bases (e.g. eigenbasis, ZFS basis, multiplet basis, product basis, triplet xyz basis, Zeeman basis, or a custom basis), with automatic transformation into the working basis
 
 ---
+
+### Radiation Polarization Support
+- Simulation of spectra under polarized microwave radiation
+- Polarization-dependent transition probabilities
+- Supports crystalline and powder samples under linear, circular, and unpolarized excitation
+
+---
+
 
 ### Numerical Precision Control
 - Support for `float64` and `float32` precision
@@ -102,9 +113,9 @@ MaRs provides several mechanisms to model experimental linewidths:
 
 # ⏱️ Time-Resolved Capabilities
 
-MaRs is a comprehensive framework for modeling **time-resolved EPR experiments** with two complementary computational paradigms.
+MaRs is a comprehensive framework for modeling time-resolved EPR experiments with two complementary computational approaches.
 
-### Relaxation Paradigms
+### Relaxation Approaches
 - **Population relaxation (Kinetic approach)**: Evolution of diagonal density matrix elements (population vectors)
 - **Density matrix relaxation**: Full evolution of all density matrix elements. It includes two methods of computations:
   - Rotating frame approximation method
@@ -112,7 +123,7 @@ MaRs is a comprehensive framework for modeling **time-resolved EPR experiments**
 
 ---
 
-### Flexible Relaxation Factrors Definition
+### Flexible Relaxation Parameters Definition
 MaRs provides powerful tools for defining complex relaxation processes:
 - **Population losses** (e.g., phosphorescence from triplet states)
 - **Spontaneous transitions** (thermal transitions satisfying detailed balance)
@@ -120,6 +131,17 @@ MaRs provides powerful tools for defining complex relaxation processes:
 - **Dephasing** (for density matrix formalism)
 
 All mechanisms can be specified in any of several predefined bases or custom transformation matrices.
+
+---
+
+### Relaxation Formalisms: Lindblad and Bloch-Redfield
+MaRs provides three complementary ways to define relaxation, which can be freely combined within a single simulation:
+
+- **Lindblad formalism**: relaxation is defined phenomenologically from Lindblad jump-operator form.
+- **Bloch-Redfield formalism**: relaxation rates are derived microscopically from system-bath coupling operators and a spectral density function. Users define the coupling operator as a matrix together with the spectral density function (as an explicit function of frequency).
+- **Custom relaxation superoperators**: for relaxation processes that fall outside both formalisms, users can supply a fully custom relaxation superoperator directly.
+
+Thermal balance (detailed balance) is automatically enforced for the thermal parts of all three formalisms, and the Lindblad, Bloch-Redfield, and custom contributions can be summed together into a single total relaxation superoperator (or kinetic matrix).
 
 ---
 
@@ -170,7 +192,7 @@ Multiple solution strategies optimized for different scenarios:
 ```bash
 git clone https://github.com/ArkadySamsonenkoWork/MaRs.git
 cd mars
-pip install -e <folder
+pip install -e <folder>
 ```
 or just
 ```bash

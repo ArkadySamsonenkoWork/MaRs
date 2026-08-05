@@ -3,8 +3,8 @@
 project = 'MaRs'
 copyright = '2026, Arkady Samsonenko, Ivan Kurgansky'
 author = 'Arkady Samsonenko, Ivan Kurgansky'
-release = '2026.08.03'
-version = '0.0.5'
+release = '2026.08.05'
+version = '0.0.5.post1'
 
 # -- General configuration ---------------------------------------------------
 
