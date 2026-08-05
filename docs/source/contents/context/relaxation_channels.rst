@@ -3,29 +3,41 @@
 Relaxation Channels: Redfield and Lindblad
 ===========================================
 
-MaRs provides built‑in support for modelling spin relaxation via **Redfield** and **Lindblad** master equations.
-Unlike the simple rate‑matrix approach, these relaxation channels
-define the system–bath coupling at the operator level and (in the Redfield case) incorporate a
-frequency‑dependent spectral density :math:`J(\omega)`.
+MaRs provides built-in support for modelling spin relaxation via **Redfield** and **Lindblad** master equations.
+Unlike the simple rate-matrix approach, these relaxation channels
+define the system-bath coupling at the operator level and (in the Redfield case) incorporate a
+frequency-dependent spectral density :math:`J(\omega)`.
 
 A relaxation channel is specified as a list of operator tuples
 :math:`\{(A_{\mathrm{static}}^{(k)}, A_{\mathrm{field}}^{(k)})\}`.
-The total system–bath coupling Hamiltonian for channel :math:`k` is
+The total system-bath coupling Hamiltonian for channel :math:`k` is
 
 .. math::
    H_{\mathrm{SB}}^{(k)} = \underbrace{A_{\mathrm{static}}^{(k)}}_{\text{dimensionless}}
-                         + \underbrace{A_{\mathrm{field}}^{(k)}}_{\text{T}^{-1}} \cdot B(t)
+                         + \underbrace{A_{\mathrm{field}}^{(k)}}_{\mathrm{T}^{-1}} \cdot B(t)
 
 where :math:`B(t)` is the external magnetic field vector (in T).
 If a term is not needed, the corresponding operator may be ``None``.
 
 .. note::
-   **Unit consistency** –
-   The coupling operators are constructed so that :math:`|A|^2` is dimensionless.
-   For the Redfield channel, the spectral density :math:`J(\omega)` must have units of **rad/s**,
-   giving relaxation rates :math:`W = |A|^2 J(\omega)` in rad/s.
-   For the Lindblad channel, the jump operators themselves must already incorporate rate scaling,
-   i.e. :math:`L = \sqrt{\gamma}\,A` with :math:`\gamma` in rad/s.
+   **Unit consistency** --
+   The static coupling operator, :math:`A_{\mathrm{static}}` (``O_static``), must be dimensionless.
+   The field-dependent coupling operator, :math:`A_{\mathrm{field}}` (``O_dependent``), must have units of :math:`\mathrm{T}^{-1}`.
+
+   The Redfield tensor scales as :math:`|A|^2 J(\omega)`, so the product
+   :math:`|A|^2 J(\omega)` must have units of :math:`\mathrm{rad\,s^{-1}}`.
+   By default, :math:`|A|^2` is assumed to be dimensionless; therefore,
+   :math:`J(\omega)` must be given in :math:`\mathrm{rad\,s^{-1}}`, producing rates
+   :math:`W = |A|^2 J(\omega)` in :math:`\mathrm{rad\,s^{-1}}`.
+
+   Alternatively, if :math:`A` is assigned units of :math:`\mathrm{rad\,s^{-1}}`,
+   then :math:`J(\omega)` must have units of
+   :math:`(\mathrm{rad\,s^{-1}})^{-1}` so that the product still has units of
+   :math:`\mathrm{rad\,s^{-1}}`.
+
+   For the Lindblad channel, the jump operators must already incorporate the rate scaling, i.e.
+   :math:`L = \sqrt{\gamma}\,A`, where :math:`\gamma` is in :math:`\mathrm{rad\,s^{-1}}`.
+
 
 Redfield Relaxation Channel
 ---------------------------

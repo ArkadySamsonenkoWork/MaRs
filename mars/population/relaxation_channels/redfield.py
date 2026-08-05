@@ -27,7 +27,8 @@ class RedfieldRelaxationChannel(BaseRelaxationChannel):
     The Redfield tensor scales as |A|² × J(ω) so the total dimension
     of this multiplication must be rad / s
     By default we ask to set |A|^2 as dimensionless then
-    J(ω) must return rad/s to produce rates in rad/s.
+    J(ω) must return rad/s to produce rates in rad/s,
+    or set A as rad/s and J(w) as the (rad/s)^-1
 
     This class implements the logic for constructing the Redfield tensor
     based on system-bath coupling operators and spectral density functions.
@@ -73,7 +74,8 @@ class RedfieldRelaxationChannel(BaseRelaxationChannel):
             The Redfield tensor scales as |A|^2 × J(ω) so the total
             dimension of this multiplication must be rad / s
             By default we ask to set |A|^2 as dimensionless then
-            J(ω) must return rad/s to produce rates in rad/s.
+            J(ω) must return rad/s to produce rates in rad/s,
+            or set A as rad/s and J(w) as the (rad/s)^-1
 
         :param spectral_density_func:
             Function calculating the spectral density J(ω).
@@ -81,11 +83,10 @@ class RedfieldRelaxationChannel(BaseRelaxationChannel):
                 - Input: Two parameters: Transition frequencies in rad/s (can be negative) and the temperature at K
                 - Output: Spectral density values.
                 - Units: Must match `dimension_convention`.
-                For 'rad_per_s', output must be rad/s.
 
             The Redfield rate is: W = |A|^2 × J(ω)
             Since |A|² is dimensionless and probabilities must be positive,
-            J(ω) should return non-negative values in rad/s.
+            J(ω) should return non-negative values
 
             Mathematical formulation:
             The spectral density describes the bath correlation function
