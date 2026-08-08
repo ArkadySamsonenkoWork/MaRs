@@ -1,4 +1,5 @@
 import math
+import warnings
 
 import torch
 import typing as tp
@@ -811,8 +812,16 @@ class PropagatorDensityPopulator(RWADensityPopulator):
         :return: Signal intensity over time, shape [..., T ..., Tr],
         where the first ... is batch dimensions, the next ... is orientations, Tr is transition fields
         """
-
         tau = 1 / resonance_frequency
+        delta_time = time[..., 1] - time[..., 0]
+        ratio = delta_time / tau
+        if (ratio < 100.0).any:
+            warnings.warn(
+                f"Time discretization may become visible: min(dt/tau)={ratio.max().item():.3g}. "
+                "Increase the time step or use a coarser time grid if possible.",
+                stacklevel=2,
+            )
+
         delta_phi = self.two_pi / self.n_steps
         res_omega = resonance_frequency * self.two_pi
         superop_static = evo(*tr_matrix_generator(time))
@@ -870,6 +879,15 @@ class PropagatorDensityPopulator(RWADensityPopulator):
         where the first ... is batch dimensions, the next ... is orientations, Tr is transition fields
         """
         tau = 1 / resonance_frequency
+        delta_time = time[..., 1] - time[..., 0]
+        ratio = delta_time / tau
+        if (ratio < 100.0).any:
+            warnings.warn(
+                f"Time discretization may become visible: min(dt/tau)={ratio.max().item():.3g}. "
+                "Increase the time step or use a coarser time grid if possible.",
+                stacklevel=2,
+            )
+
         delta_phi = self.two_pi / self.n_steps
         res_omega = resonance_frequency * self.two_pi
         superop_static = evo(*tr_matrix_generator(time))

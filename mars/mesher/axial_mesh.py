@@ -31,7 +31,7 @@ class SkipMeshProcessor(MeshProcessorAxial):
         return f_values
 
 
-def mesh_processor_factory(init_grid_frequency,
+def axial_mesh_processor_factory(init_grid_frequency,
                            interpolate_grid_frequency,
                            interpolate=False,
                            device=torch.device("cpu"),
@@ -68,9 +68,9 @@ class AxialMesh(BaseMeshAxial):
         self.initial_grid_frequency = initial_grid_frequency
         self.interpolation_grid_frequency = interpolation_grid_frequency
 
-        self.mesh_processor = mesh_processor_factory(initial_grid_frequency, interpolation_grid_frequency,
-                                                     interpolate, device=device, dtype=dtype
-                                                     )
+        self.mesh_processor = axial_mesh_processor_factory(initial_grid_frequency, interpolation_grid_frequency,
+                                                           interpolate, device=device, dtype=dtype
+                                                          )
 
         (
         initial_grid,

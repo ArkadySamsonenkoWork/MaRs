@@ -19,7 +19,6 @@ import numdifftools as nd
 from ..spectra_processing import normalize_spectrum, percentile_baseline, normalize_spectrum2d
 
 
-
 @dataclass
 class ParameterCI:
     """Confidence interval for a single parameter.
@@ -83,16 +82,48 @@ class UncertaintyResult:
 
 
 class ChiSquareComputer:
-    """Compute chi-squared statistics using baseline-estimated noise.
+    """    This class computes the (reduced) chi‑squared statistic between experimental
+    spectra and a pre‑computed best‑fit model.
 
-    Uses the pre-computed best_spectrum from FitResult — no re-simulation.
-    Residuals are computed in the fitters normalized space.
+    Noise estimation
+    Instead of using the loss‑derived variance :math:`\\hat\\sigma^2 = \\text{loss}^*/(N-P)`
+    (which would force the reduced χ² to exactly 1.0 at the optimum, making it
+    useless for diagnostics), σ is estimated **independently from the data**:
 
-    The experimental spectrum is assumed being baselineless
+        - The experimental spectrum is assumed to be baseline‑free (baseline already
+          subtracted).
+        - A signal‑free baseline mask is created via a local‑percentile algorithm.
+        - The noise level σ is the standard deviation of the **residuals**
+          (``experimental − model``) restricted to those baseline regions.
 
-    :param fitter: A fitted SpectrumFitter or Spectrum2DFitter instance.
-    :param best_spectrum: Pre-computed normalized model spectrum(s) from FitResult.
-    :param n_varying: Number of varying parameters (for dof calculation).
+    This estimate reflects the true measurement noise only when the loss is
+    proportional to SSE or MSE (the default in MaRS).  For other loss
+    functions the estimated σ is not the true noise level, but the reduced χ²
+    remains *qualitatively* interpretable (χ²/dof ≈ 1 indicates a good fit,
+    < 1 overfitting, > 1 poor model).
+
+    Workflow summary:
+    1. Baseline detection (optional) – A signal‑free mask is generated from the
+       *experimental* spectrum using a local percentile method.  This mask isolates
+       regions that should contain only noise.
+    2. Noise estimation – The standard deviation of the residuals
+       (``experimental − model``) is computed only inside the baseline mask,
+       yielding a  estimate of the noise level :math:`\\sigma`.
+    3. Chi‑squared calculation – The statistic
+       :math:`\\chi^2 = \\sum_i \\big((y_i^{\\text{exp}} - y_i^{\\text{model}})/\\sigma\\big)^2`
+       is formed.  If reduced chi‑squared is requested, the result is divided by
+       the number of degrees of freedom (``n_data − n_varying``).
+
+
+    Notes
+    -----
+    - The baseline mask is computed on the *experimental* spectrum (not on the
+      residual) because the model may already contain a fitted baseline, making
+      the residual unsuitable for distinguishing signal‑free regions.
+    - If fewer than 3 points fall inside the baseline mask, the noise estimate
+      falls back to ``NaN``.  The caller should ensure a reliable mask is supplied.
+    - For multisample fitters, a chi‑squared value (and optionally a sigma) is
+      computed per individual spectrum.  The return type adapts accordingly.
     """
 
     def __init__(
@@ -101,6 +132,11 @@ class ChiSquareComputer:
         best_spectrum: tp.Union[torch.Tensor, tp.List[torch.Tensor]],
         n_varying: int,
     ):
+        """
+        :param fitter: A fitted SpectrumFitter or Spectrum2DFitter instance.
+        :param best_spectrum: Pre-computed normalized model spectrum(s) from FitResult.
+        :param n_varying: Number of varying parameters (for dof calculation).
+        """
         self.fitter = fitter
         self.best_spectrum = best_spectrum
         self.n_varying = n_varying
@@ -204,7 +240,7 @@ class ChiSquareComputer:
         """
         residuals = y_exp - y_model
 
-        sigma = self._estimate_sigma(y_exp, baseline_mask)
+        sigma = self._estimate_sigma(residuals , baseline_mask)
         chi2 = float(np.sum((residuals / sigma) ** 2))
 
         if return_reduced:
@@ -269,7 +305,7 @@ class ChiSquareComputer:
             for multisample fitters. If ``None``, detected automatically using
             the percentile method; pass ``baseline_kwargs`` to control it.
         :param return_reduced: If ``True``, return χ^2/dof (reduced chi-squared).
-            χ^2/dof ≈ 1 indicates a good fit, < 1 overfitting, > 1 poor model.
+            χ^2/dof = 1 indicates a good fit, < 1 overfitting, > 1 poor model.
             Default ``True``.
         :param return_sigma: If ``True``, also return estimated σ value(s).
             Default ``False``.
@@ -412,29 +448,30 @@ class UncertaintyAnalyzer:
         delta_thresh = chi2.ppf(confidence_level, df=1) / 2
 
     A parameter value is *inside* the confidence interval when:
-
         loss(θ) - loss(θ*) ≤ delta_thresh * scale_factor
 
     where ``scale_factor = loss* / (N - P)`` estimates the residual variance σ².
 
-    :param fitter: Any :class:`BaseSpectrumFitter` or
-        :class:`SpectrumCompositeFitter` that exposes
-        ``_loss_from_params`` and ``param_space``.
-    :param fit_result: The :class:`FitResult` returned by ``fitter.fit(...)``.
-    :param method: Uncertainty method to use:
+    ...
+    Variance estimation procedures
+    The definition of σ² depends on the uncertainty method:
 
-        - ``"hessian"``   — Fast, symmetric intervals via quadratic approximation
-          of the loss surface. Correct statistical meaning only for SSE or MSE loss.
-        - ``"profile"``   — Asymmetric intervals via re-optimisation of nuisance
-          parameters. Correct statistical meaning only for SSE or MSE loss.
-        - ``"mcmc"``      — Bayesian credible intervals via ensemble sampling.
-          Correct statistical meaning only for SSE or MSE loss.
-        - ``"trials"``    — Conservative bounding-box from optimiser history.
-          No distributional assumption; requires dense trial coverage near optimum.
-        - ``"bootstrap"`` — Distribution-free intervals via residual resampling.
-          Correct statistical meaning for any smooth loss.
-
-    :param confidence_level: Target coverage probability, e.g. ``0.95`` for 95 %.
+    - ``"hessian"``, ``"profile"``, ``"mcmc"``
+      Use the residual variance from the best fit:
+      ``σ̂² = loss* / (N − P)`` (scale_factor).
+      This is an unbiased estimate of the true noise variance **only when the loss
+      is SSE or MSE** (the default in MaRS).  For other losses the value is not a
+      valid variance, and confidence intervals lose their statistical interpretation.
+    - ``"bootstrap"``
+      Does not require an explicit σ² – uncertainty is derived directly from
+      empirical refits on resampled data.
+    - ``"trials"``
+      No σ²; bounds are taken from the optimiser’s own trial history.
+    - ``get_chi_square()`` (from ``ChiSquareComputer``)
+      Estimates σ² **independently** from the baseline (signal‑free) regions of the
+      experimental spectrum, avoiding the trivial χ²/dof = 1 that would occur if
+      the loss‑based σ² were used.  This is only meaningful for SSE/MSE losses.
+    ...
     """
     _METHODS: tp.Tuple[str, ...] = ("profile", "hessian", "mcmc", "trials", "bootstrap")
 
@@ -445,6 +482,27 @@ class UncertaintyAnalyzer:
         method: str = "hessian",
         confidence_level: float = 0.95,
     ) -> None:
+        """
+        :param fitter: Any :class:`BaseSpectrumFitter` or
+            :class:`SpectrumCompositeFitter` that exposes
+            ``_loss_from_params`` and ``param_space``.
+        :param fit_result: The :class:`FitResult` returned by ``fitter.fit(...)``.
+        :param method: Uncertainty method to use:
+
+            - ``"hessian"``   — Fast, symmetric intervals via quadratic approximation
+              of the loss surface. Correct statistical meaning only for SSE or MSE loss.
+            - ``"profile"``   — Asymmetric intervals via re-optimisation of nuisance
+              parameters. Correct statistical meaning only for SSE or MSE loss.
+            - ``"mcmc"``      — Bayesian credible intervals via ensemble sampling.
+              Correct statistical meaning only for SSE or MSE loss.
+            - ``"trials"``    — Conservative bounding-box from optimiser history.
+              No distributional assumption; requires dense trial coverage near optimum.
+            - ``"bootstrap"`` — Distribution-free intervals via residual resampling.
+              Correct statistical meaning for any smooth loss.
+
+        :param confidence_level: Target coverage probability, e.g. ``0.95`` for 95 %.
+        """
+
         if method not in self._METHODS:
             raise ValueError(f"method must be one of {self._METHODS}, got {method!r}")
 
@@ -470,9 +528,27 @@ class UncertaintyAnalyzer:
     ) -> UncertaintyResult:
         """Compute and return confidence intervals using the chosen method.
 
+        Noise variance σ² definition
+        For ``"hessian"``, ``"profile"``, and ``"mcmc"``, the estimated variance used
+        to scale thresholds and covariance matrices is
+
+            .. math::
+
+                \hat\sigma^2 = \frac{L(\theta^*)}{N - P}
+
+        where :math:`L(\theta^*)` is the best‑fit loss, :math:`N` is the number of
+        data points, and :math:`P` is the number of varying parameters.
+        This is an unbiased estimator of the true noise variance only when the loss
+        is proportional to SSE or MSE (the default in MaRS).  For other losses the
+        estimator is not interpretable as a variance; the resulting intervals should
+        then be treated as sensitivity bounds, not as formal confidence intervals.
+
+        The ``"bootstrap"`` method does not require an explicit σ^2, and
+        ``"trials"`` does not use a noise model at all.
+
         For ``"hessian"``, ``"profile"``, ``"mcmc"`` -
         The resulting intervals have correct statistical meaning only when the
-        loss is proportional to SSE or MSE, which is the default in MaRs.
+        loss is proportional to SSE or MSE, which is the default in MaRS.
         For custom or composite losses the intervals should be interpreted
         as sensitivity bounds only.
 
@@ -533,19 +609,26 @@ class UncertaintyAnalyzer:
             return_reduced: bool = True,
             return_sigma: bool = False,
     ) -> tp.Union[float, list[float], tp.Tuple[tp.Union[float, list[float]], tp.Union[float, list[float]]]]:
-        """Compute chi-squared statistics from the best-fit spectrum.
+        """Compute chi‑squared statistics from the best‑fit spectrum.
 
-        Delegates to :class:`ChiSquareComputer` — no re-simulation is performed.
-        Residuals are computed in the normalised space defined by the fitter's
-        ``norm_mode``. Noise σ is estimated from baseline regions of the
-        experimental spectrum using a local percentile method.
+            Delegates to :class:`ChiSquareComputer` — no re‑simulation is performed.
+            Residuals are computed in the normalised space defined by the fitter's
+            ``norm_mode``.
 
-        The experimental spectrum must have zero baseline (baseline-subtracted
-        before fitting). If a residual baseline is present, the σ estimate will
-        be inflated and χ^2 will be underestimated.
+            Noise estimation
+            σ² is not derived from the best‑fit loss (which would trivially give
+            χ²/dof ~ 1 and hide model inadequacies).  Instead, σ is estimated from the
+            residuals in signal‑free (baseline) regions:
 
-        For multisample fitters, returns one value per spectrum. For single
-        spectra, returns a scalar.
+                - A baseline mask is created from the *experimental* spectrum using a
+                  local‑percentile method (controlled by ``percentile``,
+                  ``proximity_threshold``, ``window_size``).
+                - The noise level σ is the standard deviation of the residuals
+                  ``y_exp - y_model`` restricted to that mask.
+
+            The experimental spectrum must have zero baseline (baseline‑subtracted
+            before fitting). If a residual baseline is present, the σ estimate will be
+            inflated and χ² will be underestimated.
 
         :param baseline: Pre-computed boolean baseline mask, or list of masks for
             multisample fitters. If ``None``, the baseline is detected automatically
@@ -693,14 +776,14 @@ class UncertaintyAnalyzer:
         Approximates the loss as quadratic near the optimum and derives symmetric
         intervals from the curvature. The covariance is estimated as:
 
-            Cov(θ̂) = 2 · σ̂² · H⁻¹
+            Cov(θ̂) = 2 · σ̂^2 · H^-1
 
-        where ``H = ∂²L/∂θ²`` at ``θ*`` and ``σ̂² = loss* / (N - P)``.
+        where ``H = ∂^2L/∂θ^2`` at ``θ*`` and ``σ̂^2 = loss* / (N - P)``.
         The factor of 2 arises from the least-squares identity ``H ≈ 2 JᵀJ / σ²``,
-        so that ``2σ̂²H^-1 ≈ σ²(JᵀJ)⁻¹ = Cov(θ̂)``.
+        so that ``2σ̂²H^-1 ≈ σ²(JᵀJ)^-1 = Cov(θ̂)``.
         The CI half-width for parameter i is then:
 
-            Δθᵢ = sqrt(2 · delta_thresh · Cov_ii)
+            Δθ_i = sqrt(2 · delta_thresh · Cov_ii)
 
         The intervals have correct statistical meaning only when the loss is
         proportional to SSE or MSE, which is the default in MaRs. For other
@@ -939,7 +1022,7 @@ class UncertaintyAnalyzer:
         ``burn_in`` steps (discarded) followed by ``n_steps`` production steps.
 
         The returned intervals are Bayesian credible intervals, not frequentist
-        confidence intervals. They have correct statistical meaning and coincide
+        confidence intervals. They  coincide
         with frequentist CIs asymptotically only when the loss is proportional
         to SSE or MSE, which is the default in MaRs. For other losses the
         division by ``2σ̂²`` does not correctly normalise the pseudo-posterior
@@ -1048,7 +1131,6 @@ class UncertaintyAnalyzer:
             - ``"loss_cutoff"``   — absolute loss threshold used.
             - ``"delta_thresh"``  — relative threshold applied (``delta_thresh · loss*``).
         """
-
         names = param_names if param_names is not None else list(self._varying_names)
         trials = self._collect_trials()
         lows, highs = self._bounds_arrays()

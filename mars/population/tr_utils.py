@@ -483,6 +483,7 @@ class EvolutionRWASolver(EvolutionSolver):
         where the first ... is batch dimensions, the next ... is orientations, resonance and so on
         """
         M = evo(*matrix_generator(time[0]))
+
         eig_vals, eig_vecs = torch.linalg.eig(M)
 
         intermediate = torch.linalg.solve(

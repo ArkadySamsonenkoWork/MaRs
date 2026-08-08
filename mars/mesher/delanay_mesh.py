@@ -185,7 +185,7 @@ class RBFInterpolator(BaseInterpolator):
                  extended_vertices: tp.Union[list[tuple[float, float]], np.ndarray],
                  kernel: str = "cubic",
                  regularization="spherical",
-                 jitter: float = 1e-7,
+                 jitter: float = 1e-5,
                  epsilon: float = 1e-8,
                  device: torch.device = torch.device("cpu"),
                  dtype: torch.dtype = torch.float32):
@@ -923,7 +923,7 @@ class BoundaryMeshProcessor(MeshProcessorBase):
         return f_values
 
 
-def mesh_processor_factory(init_grid_frequency: int,
+def delaunay_mesh_processor_factory(init_grid_frequency: int,
                            interpolate_grid_frequency: int,
                            interpolate: bool,
                            interpolator: InterpolatorsName,
@@ -1045,7 +1045,7 @@ class DelaunayMesh(BaseMeshPowder):
         if isinstance(interpolator, str):
             interpolator = InterpolatorsName(interpolator)
 
-        self.mesh_processor = mesh_processor_factory(initial_grid_frequency, interpolation_grid_frequency,
+        self.mesh_processor = delaunay_mesh_processor_factory(initial_grid_frequency, interpolation_grid_frequency,
                                                      interpolate=interpolate,
                                                      interpolator=interpolator,
                                                      interpolator_kwargs=interpolator_kwargs,

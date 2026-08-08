@@ -12,8 +12,6 @@ def apply_expanded_rotations(R: torch.Tensor, T: torch.Tensor):
     :param T: tensor that must be rotated. The shape is [... 3, 3]
     :return: The rotated tensors with the shape [..., *rotation_dims, 3, 3]
     """
-
-
     R_batch_shape = R.shape[:-2]
     T_batch_shape = T.shape[:-2]
 

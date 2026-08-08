@@ -16,7 +16,7 @@ Key features include:
 - Population kinetics and full density matrix relaxation formalisms
 - Flexible relaxation parameters management for complex experimental scenarios
 - Automated parameter optimization via Optuna and Nevergrad
-- Time-resolved EPR modeling with multiple relaxation paradigms
+- Time-resolved EPR modeling with multiple relaxation approaches
 
 
 .. toctree::

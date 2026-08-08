@@ -90,11 +90,11 @@ def concat_spin_systems(systems: tp.Sequence[SpinSystem], mode: str = "direct_su
     """
     Concatenate multiple independent spin systems into a single block-diagonal system.
 
-    This function constructs a **direct sum** of the input Hilbert spaces, not a tensor product.
-    The resulting system is **not** a physically coupled multi-particle system - it represents
+    This function constructs a **direct sum** of the input Hilbert spaces.
+    The resulting system represents
     effectively isolated subsystems that do not interact with each other.
 
-    Use this only when you explicitly need to model scenarios such as:
+    Use it only when you explicitly need to model scenarios such as:
       - Effective models for time-resolved spectroscopy where an electron may occupy
         distinct spin environments (e.g., two triplet states with slightly different
         dipolar couplings),
