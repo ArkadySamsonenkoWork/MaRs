@@ -1,3 +1,38 @@
+"""
+spin_model – Definition of spin systems, interactions, and samples for EPR simulations
+
+This module provides the core building blocks for constructing spin Hamiltonians:
+
+- **Particles** – electrons and nuclei (from `mars.particles`)
+- **Interactions** – g‑tensors, hyperfine, zero‑field splitting (ZFS), dipolar, exchange
+- **SpinSystem** – a collection of spins with their interactions
+- **Samples** – represent a physical sample (e.g., powder, single crystal) with broadening
+
+The module is designed for **batched** and **orientation‑averaged** simulations.
+All tensors support broadcasting over batch dimensions (e.g., multiple samples,
+different parameter sets, or strain points).
+
+Quick example – a simple S=1/2 electron with anisotropic g‑tensor:
+----------------------------------------------------------------
+>>> import torch
+>>> from mars import spin_model
+>>>
+>>> # Define an anisotropic g‑tensor
+>>> g = spin_model.Interaction(components=[2.0, 2.01, 2.02])
+>>>
+>>> # Create a spin system with one electron (spin=0.5)
+>>> system = spin_model.SpinSystem(electrons=[0.5], g_tensors=[g])
+>>>
+>>> # Create a powder sample with Gaussian broadening
+>>> sample = spin_model.MultiOrientedSample(
+...     base_spin_system=system,
+...     gauss=5e-4          # FWHM in tesla
+... )
+>>>
+>>> # The sample can then be passed to a spectra manager.
+"""
+
+
 from __future__ import annotations
 
 import functools
@@ -278,8 +313,6 @@ def concat_multioriented_samples(samples: tp.Sequence[MultiOrientedSample], mode
         )
 
 
-# Возможно, стоит переделать логику работы расчёта тензоров через тенорное произведение. Сделать отдельный тип данных.
-# Сейчас каждый спин даёт матрицу [K, K] и расчёт взаимодействией не оптимальный
 def init_tensor(
         components: tp.Union[torch.Tensor, tp.Sequence[float], float],
         device: torch.device, dtype: torch.dtype) -> torch.Tensor:
@@ -995,7 +1028,7 @@ class Interaction(BaseInteraction):
         interaction = Interaction(
             components=new_components,
             frame=new_frame,
-            strain=new_strain,
+            strain=None,
             device=self.components.device,
             dtype=self.components.dtype
         )
@@ -1260,7 +1293,12 @@ class MultiOrientedInteraction(BaseInteraction):
         """Return the precomputed tensor of unit excitation for all orientations.
         It is determined as delta H (strained_derivatives)
 
-        :return: Tensor of shape ``[..., orientations, 3, 3, 3]``, or ``None``.
+        :return: torch.Tensor or None
+        Shape ``[..., 3, 3, 3]``, where:
+          - ``strained_derivatives[..., 0, :, :]`` = ∂(interaction)/∂(component_x),
+          - ``strained_derivatives[..., 1, :, :]`` = ∂(interaction)/∂(component_y),
+          - ``strained_derivatives[..., 2, :, :]`` = ∂(interaction)/∂(component_z).
+        Returns None if no strain is defined.
         """
         return self._strained_derivatives
 
@@ -1287,14 +1325,11 @@ class MultiOrientedInteraction(BaseInteraction):
 
     @property
     def strain_correlation(self) -> torch.Tensor:
-        """Return the strain correlation matrix.
+        """In some cases the components of the interaction can correlate.
 
-        :return: torch.Tensor or None
-        Shape ``[..., 3, 3, 3]``, where:
-          - ``strained_derivatives[..., 0, :, :]`` = ∂(interaction)/∂(component_x),
-          - ``strained_derivatives[..., 1, :, :]`` = ∂(interaction)/∂(component_y),
-          - ``strained_derivatives[..., 2, :, :]`` = ∂(interaction)/∂(component_z).
-        Returns None if no strain is defined.
+        To implement this correlation the strain_correlation matrix is used. For example, in the case of D/E interaction
+        strain_correlation = [[-1/3, 1], [-1/3, -1], [2/3, 0]] - the matrix of trnasformation of  D and E to Dx, Dy, Dz
+        :return:
         """
         return self._strain_correlation
 

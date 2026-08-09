@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mars-epr"
-version = "0.0.5.post3"
+version = "0.0.5.post5"
 authors = [
     {name = "Arkady Samsonenko", email = "a.samsonenko@tomo.nsc.ru"},
     {name = "Ivan Kurganskii", email = "kurgansky@tomo.nsc.ru"},
@@ -34,7 +34,8 @@ dependencies = [
     "torchdiffeq",
     "PyWavelets",
     "matplotlib",
-    "safetensors"
+    "safetensors",
+    "seaborn"
 ]
 
 [project.optional-dependencies]
