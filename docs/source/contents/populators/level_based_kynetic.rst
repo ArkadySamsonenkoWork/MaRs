@@ -74,7 +74,7 @@ Relaxation Mechanisms
 The Context object (see :ref:`relaxation_parameters` for more inforamtion) encodes physical relaxation processes:
 
 * **Losses (O)**: Depopulation without transitions to other spin states (e.g. low singlet state)
-* **Free transitions (W)**: Spontaneous transitions satisfying detailed balance at temperature T
+* **Thermal transitions (W)**: Spontaneous transitions satisfying detailed balance at temperature T
 * **Induced transitions (D)**: Externally driven transitions (e.g., by microwave field)
 
 To carry out a detailed balance, "Mars" forces (see :ref:`detailed_balance`):
@@ -106,7 +106,9 @@ full :math:`N \times N` matrix per time point), would be expensive in both memor
 time. ``stationary_rate_solver`` avoids this entirely by using the eigen-decomposition of
 K to reduce the whole time-dependence to element-wise operations on vectors.
 
-**Derivation**
+Derivation
+^^^^^^^^^^^
+
 
 Let
 
@@ -147,62 +149,88 @@ the observed quantity is
    \Delta n(t) \;=\; n_{\text{lvl\_down}}(t) - n_{\text{lvl\_up}}(t)
               \;=\; \mathrm{Re}\left[\sum_{k=1}^{N} w_k\, c_k\, e^{\lambda_k t}\right]
 
-S⁻¹ is never explicitly formed. The coefficient vector :math:`c = S^{-1} n(0)` is
+The real part is extracted because the eigendecomposition of the kinetic matrix may involve complex eigenvalues and eigenvectors.
+In exact arithmetic the population difference is real, but finite-precision arithmetic can leave a small residual imaginary component.
+
+Aditionally, S⁻¹ is never explicitly formed. The coefficient vector :math:`c = S^{-1} n(0)` is
 obtained by solving the linear system
 
 .. math::
 
    S\, c = n(0)
 
-with ``torch.linalg.solve(eig_vecs, n0)``, instead of computing :math:`S^{-1}` and then
-multiplying by it. Solving the linear system (one LU factorization plus a
+with ``torch.linalg.solve(eig_vecs, n0)``. Solving the linear system (one LU factorization plus a
 back-substitution, :math:`\mathcal{O}(N^3)`) is cheaper and numerically better behaved
-than forming the inverse explicitly - and it is the only thing actually needed, since the
-inverse matrix itself is never used anywhere else in the computation.
+than forming the inverse explicitly.
 
-**No [T, ..., N, N] matrix is ever created.** Because :math:`\exp(Jt)` is diagonal, only
-its diagonal has to be evaluated. For a batch of time points this is a tensor of shape
-``[T, ..., N]`` (the eigenvalues broadcast against time), never the full
-``[T, ..., N, N]`` matrix that a direct evaluation of :math:`\exp(Kt)` would require. This
-is the source of the speed/memory advantage of this solver: evaluating
-``exp_factors = exp(t * eig_vals)`` and multiplying it element-wise by ``c`` costs
-:math:`\mathcal{O}(N)` per time point, versus :math:`\mathcal{O}(N^3)` for a dense matrix
-exponential per time point.
+Order of operations.
+^^^^^^^^^^^^^^^^^^^^
 
-.. _diagonalizability_order:
+The solver exploits the constancy of the rate matrix :math:`K`.  
+The population vector evolves as
 
-**Order of operations.** The implementation of
-``EvolutionPopulationSolver.stationary_rate_solver`` follows this order, and the order
-matters:
+.. math::
 
-1. Build ``M = K`` at ``time[0]`` (K is constant in time here, so a single evaluation
-   suffices).
-2. ``eig_vals, eig_vecs = torch.linalg.eig(M)`` - a single eigen-decomposition, shared by
-   every time point. ``eig_vals`` has shape ``[..., N]``, ``eig_vecs`` (= S) has shape
-   ``[..., N, N]``.
-3. Check the conditioning of ``eig_vecs`` (see :ref:`diagonalizability` below) before
-   trusting the decomposition.
-4. ``c = torch.linalg.solve(eig_vecs, n0)`` - the coefficients, obtained without forming
-   :math:`S^{-1}`.
-5. Broadcast ``eig_vals`` and ``eig_vecs`` to the batch shape of ``c`` if they don't
-   already match it.
-6. Reshape ``time`` so that it lines up with the trailing eigenmode axis of ``eig_vals``
-   for broadcasting. This has to happen *before* the exponential is taken, and the number
-   of singleton dimensions inserted must match the number of batch dimensions of M -
-   otherwise time ends up broadcast against the wrong axis and the result is silently
-   wrong rather than raising an error.
-7. ``exp_factors = exp(time * eig_vals)`` - shape ``[T, ..., N]``: only the diagonal
-   values, never a full matrix.
-8. Multiply in place by the coefficients: ``exp_factors *= c`` (fusing what corresponds to
-   step 4 and step 7 into the same tensor, avoiding an extra allocation).
-9. Compute the per-mode weight vectors, ``eig_vecs[..., lvl_down, :] - eig_vecs[..., lvl_up, :]``.
-10. Multiply by ``exp_factors``, sum over the eigenmode axis, and take the real part.
+   n(t) = \exp(Kt)\, n(0).
 
-Steps 2-4 do not depend on time, so they are computed once and reused for every time
-point, rather than being recomputed inside a loop over time - this is what makes the
-stationary solver much cheaper than repeatedly evaluating a matrix exponential.
+To avoid constructing the dense matrix exponential :math:`\exp(Kt)` (which would cost
+:math:`\mathcal{O}(N^3)` per time point and require :math:`\mathcal{O}(N^2)` storage),
+the algorithm uses the eigen‑decomposition of :math:`K`:
 
-.. _quasi_stationary_solution:
+.. math::
+
+   K = S\, J\, S^{-1}, \qquad J = \mathrm{diag}(\lambda_1, \dots, \lambda_N),
+
+where :math:`S` is the matrix of eigenvectors and :math:`\lambda_k` the eigenvalues.
+Then
+
+.. math::
+
+   n(t) = S \exp(Jt)\, S^{-1} n(0).
+
+Define :math:`c = S^{-1} n(0)`. The observable (population difference between the
+lower and upper level of a transition) is
+
+.. math::
+
+   \Delta n(t) \;=\; n_{\mathrm{lvl\_down}}(t) - n_{\mathrm{lvl\_up}}(t)
+   \;=\; \mathrm{Re}\left[\sum_{k=1}^N
+           \bigl(S_{\mathrm{lvl\_down},k} - S_{\mathrm{lvl\_up},k}\bigr)\,
+           c_k\, e^{\lambda_k t}\right].
+
+The computation proceeds as follows.
+
+1. **Build the rate matrix**  
+   Construct :math:`K` once (it is time‑independent).  
+   Cost: typically :math:`\mathcal{O}(N^2)`.
+
+2. **Eigen‑decomposition**  
+   Compute :math:`\lambda_k` and :math:`S` from :math:`K`.  
+   Cost: :math:`\mathcal{O}(N^3)` — the dominant step.  
+   Memory: :math:`\mathcal{O}(N^2)` for the eigenvector matrix.
+
+3. **Solve for coefficients**  
+   Obtain :math:`c` by solving the linear system :math:`S\,c = n(0)`.  
+   Solving the system (one LU factorisation) costs :math:`\mathcal{O}(N^3)`, but is done
+   only once.  It is numerically more stable and cheaper than explicitly forming :math:`S^{-1}`.  
+   Memory: :math:`\mathcal{O}(N)` for the coefficient vector.
+
+4. **Evolve coefficients in time**  
+   For each time point :math:`t` in the requested grid, compute the vector
+   :math:`e^{\lambda_k t}` for all :math:`k`.  This is an element‑wise operation of
+   length :math:`N`, repeated for :math:`T` time points.  
+   Cost: :math:`\mathcal{O}(T N)` in total.  
+   Memory: a tensor of shape :math:`[T, \ldots, N]` for the exponential factors,
+   i.e. :math:`\mathcal{O}(T N)` (not :math:`\mathcal{O}(T N^2)`).  
+
+5. **Assemble the observable**  
+   Compute the weight vector :math:`w_k = S_{\mathrm{lvl\_down},k} - S_{\mathrm{lvl\_up},k}`
+   (length :math:`N`).  Then form the dot product with the time‑evolved coefficients
+   and take the real part to obtain :math:`\Delta n(t)` for each time point.  
+   Cost: :math:`\mathcal{O}(T N)` (one dot product per time point).  
+   Memory: only the output signal of length :math:`T`.
+
+Steps 2–4 are independent of the time grid and are performed once
 
 Quasi-Stationary Solution
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -216,8 +244,7 @@ When K depends on time but not on populations, the solution can be computed iter
 
 The matrix exponentials for all intervals are precomputed and batched together
 (``torch.matrix_exp(M[:-1] * dt)``, shape ``[T-1, ..., N, N]``), rather than being
-recomputed one interval at a time - this is what makes the method fast, at the price of
-holding all of these matrices in memory simultaneously. This is a genuine time/memory
+recomputed one interval at a time. This is a genuine time/memory
 trade-off relative to ``odeint_solver``: it increases memory overhead (a full
 :math:`N \times N` matrix per time step is stored) but reduces total computation time,
 since a batched call to ``torch.matrix_exp`` replaces the many small adaptive
@@ -247,10 +274,10 @@ For the general case where K = K(n, t), the equation is solved using adaptive Ru
 
 
 The solver is automatically selected based on the Context:
-* **Stationary**: K constant → matrix exponential
-* **Time-dependent**: K(t) → adaptive ODE solver by default
 
-.. _diagonalizability:
+* **Stationary**: K constant → matrix exponential
+
+* **Time-dependent**: K(t) → adaptive ODE solver by default
 
 Diagonalizability of the Kinetic Matrix
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -261,78 +288,40 @@ complete set of N linearly independent eigenvectors so that S is invertible. Thi
 guaranteed for an arbitrary matrix, but it does hold in the two cases relevant to this
 library.
 
-**Symmetric matrices are always diagonalizable.** By the spectral theorem, any real
+Symmetric matrices are always diagonalizable. By the spectral theorem, any real
 symmetric matrix has a complete set of orthogonal eigenvectors and real eigenvalues, so S
 is not merely invertible but can be chosen orthogonal (:math:`S^{-1} = S^{T}`).
 
-**A thermalized rate matrix is diagonalizable.** The thermal part W of K is constructed
+A thermalized rate matrix is diagonalizable. The thermal part W of K is constructed
 to satisfy detailed balance with respect to the Boltzmann populations
 :math:`p_i^{\text{eq}} \propto \exp(-E_i / k_B T)`:
 
 .. math::
 
-   \frac{W_{ij}}{W_{ji}} = \exp\left(-\frac{E_i - E_j}{k_B T}\right)
+   \frac{w_{ij}}{w_{ji}} = \exp\left(-\frac{E_i - E_j}{k_B T}\right)
                           = \frac{p_i^{\text{eq}}}{p_j^{\text{eq}}}
 
 Define :math:`D = \mathrm{diag}\!\left(\sqrt{p_1^{\text{eq}}}, \ldots, \sqrt{p_N^{\text{eq}}}\right)`.
 A direct substitution shows that :math:`\hat{W} \equiv D^{-1} W D` is symmetric:
 
-.. math::
-
-   \hat{W}_{ij} = W_{ij}\,\frac{\sqrt{p_j^{\text{eq}}}}{\sqrt{p_i^{\text{eq}}}}
-   \qquad\Longrightarrow\qquad
-   \hat{W}_{ji} = W_{ji}\,\frac{\sqrt{p_i^{\text{eq}}}}{\sqrt{p_j^{\text{eq}}}}
-   = W_{ij}\,\frac{p_j^{\text{eq}}}{p_i^{\text{eq}}}\cdot\frac{\sqrt{p_i^{\text{eq}}}}{\sqrt{p_j^{\text{eq}}}}
-   = W_{ij}\,\frac{\sqrt{p_j^{\text{eq}}}}{\sqrt{p_i^{\text{eq}}}} = \hat{W}_{ij}
-
-using detailed balance in the second-to-last step. The diagonal loss and outflow terms
-(``diag(O)`` and the rest of the diagonal of K) are left unchanged by a diagonal
-similarity transform, :math:`D^{-1}\,\mathrm{diag}(\cdot)\,D = \mathrm{diag}(\cdot)`, so
-the full matrix :math:`\hat{K} = D^{-1} K D` is symmetric whenever the thermal part
-exactly satisfies detailed balance. Since K is similar to a symmetric matrix, it is
-diagonalizable, with the same real eigenvalues as :math:`\hat{K}` (its eigenvectors are D
-times those of :math:`\hat{K}`). Adding driven transitions D that break detailed balance,
-or highly asymmetric loss terms, can move K away from this regime and toward a defective
-(non-diagonalizable) matrix.
-
-**What happens if K is not diagonalizable.** If K is defective (a repeated eigenvalue
-without a matching number of independent eigenvectors, as near an exceptional point), S
-is singular in the exact limit; approaching that limit, S is merely ill-conditioned. This
-is what ``_warn_if_eig_basis_is_ill_conditioned`` checks for, by comparing
-``torch.linalg.cond(eig_vecs)`` against a threshold (:math:`10^6` for float32,
-:math:`10^{10}` for float64, :math:`10^{8}` otherwise). This matters because the error of
-any quantity computed from the decomposition - in particular :math:`c = S^{-1} n(0)` and
-therefore :math:`\exp(Kt)\, n(0)` - is amplified relative to machine precision roughly by
-the condition number of S:
-
-.. math::
-
-   \frac{\lVert \text{computed} - \text{exact} \rVert}{\lVert \text{exact} \rVert}
-   \;\sim\; \mathrm{cond}(S)\cdot \varepsilon_{\text{machine}}
-
-so as K approaches a defective matrix, :math:`\mathrm{cond}(S) \to \infty` and the
+If K is defective (not diagonizable) :math:`\mathrm{cond}(S) \to \infty`, the
 eigen-based solution can lose all significant digits even though the underlying floating
 point arithmetic itself is exact. Physically this also reflects a real property of the
-kinetic model, not just a numerical artifact: near an exceptional point, tiny changes in
-the rate constants can strongly change relaxation times and mode amplitudes, so the model
-itself is structurally sensitive to the (experimentally uncertain) rate parameters. In
-this regime, use ``EvolutionPopulationSolver.stationary_rate_solver_expm``, which computes
+kinetic model - tiny changes in the rate constants can strongly change relaxation times and mode amplitudes, so the model
+itself is structurally sensitive to the (experimentally uncertain) rate parameters.
+In this regime, use ``EvolutionPopulationSolver.stationary_rate_solver_expm``, which computes
 :math:`\exp(Kt)` directly (via matrix exponentiation, without eigen-decomposition) and
-remains mathematically valid for defective matrices, at the cost of being slower for many
-time points since a full :math:`N \times N` matrix exponential is evaluated per time
-point instead of an N-vector of eigenvalues.
+remains mathematically valid for defective matrices, at the cost of being slower.
 
 Usage Examples
 --------------
 
-Both classes referenced in this document can be imported from ``mars.population``: the
-solvers live in ``mars.population.tr_utils``, and the populator lives in
-``mars.population.populators.level_population``.
+Both classes referenced in this document can be imported from ``mars.population``:
 
 .. code-block:: python
 
    from mars.population import tr_utils
-   from mars.population.populators import level_population
+   from mars.population import LevelBasedPopulator
 
 Default solver
 ~~~~~~~~~~~~~~
@@ -348,7 +337,7 @@ automatically from the Context:
 .. code-block:: python
 
    # solver is chosen automatically based on the Context
-   populator = level_population.LevelBasedPopulator(
+   populator = LevelBasedPopulator(
        context=context,
        init_temperature=293.0,
    )
@@ -378,25 +367,11 @@ of the adaptive ODE integrator:
 
 .. code-block:: python
 
-   populator = level_population.LevelBasedPopulator(
+   populator = LevelBasedPopulator(
        context=context,
        solver=tr_utils.EvolutionPopulationSolver.exponential_solver,
        init_temperature=293.0,
    )
-
-This increases memory overhead, because the matrix exponentials for all time intervals are
-held in memory at once (shape ``[T-1, ..., N, N]``), but reduces total computation time
-compared to the adaptive ODE integrator, since it replaces many small adaptive steps with
-one batched matrix-exponential call. It is only a valid approximation while
-
-.. math::
-
-   \frac{1}{\lVert K \rVert}\left\lVert \frac{dK}{dt} \right\rVert
-   \;\ll\; \left|\mathrm{Re}(\lambda_{\min})\right|
-
-i.e. while the relaxation parameters change slowly compared to the relaxation process
-itself; if K varies on a timescale comparable to or faster than relaxation, use
-``odeint_solver`` instead, or refine the time grid.
 
 Limitations
 -----------

@@ -78,11 +78,12 @@ as
 .. math::
 
    H_{\mathrm{eff}}
-   = F + \Delta S_Z + \frac{B_1}{2}G_X,
+   = F + (B_0 g_{zz} \beta - h \omega_{\mathrm{rf}}) S_Z + \frac{B_1}{2}G_X,
 
-where :math:`F` is the static spin Hamiltonian in the eigenbasis used by the propagator,
-:math:`\Delta S_Z` is the rotating-frame detuning term, and the factor :math:`1/2` comes
+where :math:`F` is the static spin Hamiltonian in the eigenbasis used by the propagator, and the factor :math:`1/2` comes
 from the resonant component of a linearly oscillating field,
+
+Here and further: gxx, gyy, gzz are diagonal elements of g-tensor in the sample frame.
 
 .. math::
 
@@ -96,22 +97,20 @@ Constraints and Limitations
 
 The RWA requires the following structural conditions in the MaRs implementation.
 
-Zeeman operators and rotating-frame symmetry
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Zeeman operators
+~~~~~~~~~~~~~~~~~
 
-The Zeeman operators are represented as
+The Zeeman operators are represented as :math:`G_X`, :math:`G_Y`, and :math:`G_Z`.
+Under the rotating-wave approximation, these operators are forced to be proportional
+to the corresponding spin operators:
 
 .. math::
 
-   G_X,\qquad G_Y,\qquad G_Z,
+   G_X = g_{xx} S_X, \qquad G_Y = g_{yy} S_Y, \qquad G_Z = g_{zz} S_Z.
 
-and the RWA construction retains the components compatible with the chosen rotating
-axis. In the current implementation the Zeeman operators are transformed to the
-Hamiltonian eigenbasis and the transverse operators are scaled by the resonant
-microwave amplitude.
-
-The rotating-frame transformation must have a well-defined
-spin-rotation action. Strongly anisotropic or otherwise non-standard Zeeman structure can
+This corresponds to neglecting the off-diagonal elements of the :math:`g`-tensor.
+The RWA construction retains the components compatible with the chosen rotating
+axis. Strongly anisotropic or otherwise non-standard Zeeman structure can
 therefore make the RWA inaccurate. Such cases should be checked against a non-RWA
 calculation. Two possible checks are:
 
@@ -189,8 +188,7 @@ requires the relevant symmetry condition
    [F,S_Z]=0.
 
 Equivalently, :math:`F` must not acquire additional explicit time dependence under the
-rotation around the static-field axis. This is the key condition used below in the powder-
-averaging derivation.
+rotation around the static-field axis.
 
 Relaxation Superoperator Structure
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -220,22 +218,22 @@ Zeeman interaction, the transverse operators are
 
    G_X = g_{xx} S_X,\qquad G_Y = g_{yy} S_Y,
 
-where :math:`g_{xx}` and :math:`g_{yy}` are the corresponding components of the
+where :math:`g_{xx}` and :math:`g_{yy}` are the corresponding diagonal components of the
 g-tensor. The microwave field is linearly polarized along :math:`x` with
 amplitude :math:`B_1` and angular frequency :math:`\omega` (in frequency
 units), so
 
 .. math::
 
-   H_1(t) = -B_1 \cos(\omega t)\, G_X
-           = -B_1 g_{xx} \cos(\omega t)\, S_X.
+   H_1(t) = B_1 \cos(\omega t)\, G_X
+           = B_1 g_{xx} \cos(\omega t)\, S_X.
 
 The induced signal is
 
 .. math::
 
    I(t) = \operatorname{Tr}\!\left[\rho(t)\,\frac{dH_1}{dt}\right]
-        = B_1\,\omega\,g_{xx}\,\sin(\omega t)\,
+        = -B_1\,\omega\,g_{xx}\,\sin(\omega t)\,
           \operatorname{Tr}\!\left[\rho(t)\,S_X\right].
 
 We now express the laboratory-frame density matrix through the RWA frame. The
@@ -301,30 +299,23 @@ In terms of the Zeeman operator :math:`G_Y = g_{yy} S_Y`, this becomes
 
 In the isotropic case :math:`g_{xx}=g_{yy}`, the
 prefactor equals unity and the familiar result is recovered. In the MaRs implementation,
-for simplicity, this prefactor is not computed explicitly; it is considered approximately equal to 1.0. Since the RWA is already
+for simplicity, this prefactor is not computed explicitly. It is assumed to be equal to 1.0 for each orientation. For the crystalline sample it means the change of the total signal intenisty without change of the spectral form.
+For the powder spectrum it can lead to distoration.
+However, since the RWA is already
 applied in situations where the Zeeman interaction is nearly isotropic, this is
 a minor additional simplification and does not significantly affect the
 relative signal amplitudes, where RWA considiration is valid.
 
-For the Liouville-space implementation, the identity
-
-.. math::
-
-   \operatorname{Tr}(D\rho)
-   =
-   \operatorname{vec}(D^{\mathsf T})^{\mathsf T}\operatorname{vec}(\rho)
-
-is used. Hence the detection vector supplied to the solver is
-
-.. math::
-
-   \mathbf d = \operatorname{vec}(G_Y^{\mathsf T})
-               = g_{yy}\,\operatorname{vec}(S_Y^{\mathsf T}).
-
-
 Powder Averaging
 ----------------
-or disordered samples, spectra are averaged over molecular orientations
+
+For disordered samples, spectra are averaged over molecular orientations
+:math:`(\alpha,\beta,\gamma)` in Euler angle notation. The RWA method inherently
+assumes nearly isotropic :math:`g`-tensor, and for powder averaging
+we make a further simplification for each orientation: :math:`g_{xx} \approx g_{yy} = g_{\perp}`.
+This additional approximation affects the line intensities but not their positions.
+
+For disordered samples, spectra are averaged over molecular orientations
 :math:`(\alpha,\beta)` in Euler angle in ``"zyz'"`` notation. Averaging over
 :math:`\gamma` reduces to averaging the initial density matrix: under the RWA,
 this dependence can be represented by the unitary rotation
@@ -342,7 +333,7 @@ Let the reference RWA Hamiltonian be
 
 .. math::
 
-   H_X = F + \Delta S_Z + \frac{B_1}{2}G_X,
+   H_X = F + (B_0 g_{zz} \beta - h \omega_{\mathrm{rf}}) S_Z + \frac{B_1}{2}G_X,
 
 and let the orientation-dependent Hamiltonian be
 
@@ -450,15 +441,21 @@ The choice of numerical solver depends on the time dependence and numerical prop
 Adaptive ODE integration
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Use :meth:`EvolutionRWASolver.odeint_solver` when the relaxation matrix or any other part
-of :math:`M(t)` varies continuously with time and there is no convenient piecewise-constant
-approximation. The adaptive integrator controls its internal time step automatically.
-This is the default solver selected when the context is marked as time-dependent.
+For the general case where R = R(rho, t), the equation is solved using adaptive Runge-Kutta methods (via ``torchdiffeq``).
+This provides automatic time-step control but is computationally more expensive.
+
+The solver is automatically selected based on the Context:
+
+* **Stationary**: R constant → matrix exponential
+
+* **Time-dependent**: R(t) → adaptive ODE solver by default
+
+Additioanlly, it is possible, to configurate solver for the specific task:
 
 Piecewise matrix exponentiation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Use :meth:`EvolutionRWASolver.exponential_solver` when :math:`M(t)` is known at the requested
+Use :meth:`mars.population.tr_utils.EvolutionRWASolver.exponential_solver` when :math:`M(t)` is known at the requested
 time points and may be regarded as constant on each interval :math:`[t_i,t_{i+1}]`:
 
 .. math::
@@ -481,16 +478,15 @@ If :math:`M` is time-independent, then
    \mathbf n(t)=e^{Mt}\mathbf n_0.
 
 :meth:`EvolutionRWASolver.stationary_rate_solver` diagonalizes :math:`M` and evaluates the
-exponential through its eigenmodes. It is efficient when the superoperator is diagonalizable
-and the eigenvector basis is numerically well conditioned.
+exponential through its eigenmodes.
 
 Stationary matrix exponential
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-:meth:`EvolutionRWASolver.stationary_rate_solver_expm` evaluates
+:meth:`mars.population.tr_utils.EvolutionRWASolver.stationary_rate_solver_expm` evaluates
 :math:`e^{Mt}` directly. It avoids the diagonalizability assumption and is therefore the
 robust alternative when the eigenvector matrix is singular or poorly conditioned, at the
-cost of additional matrix-exponential computation. (see more in kinetic approach computation :ref:`level_based_kinetic_approach:`)
+cost of additional matrix-exponential computation. (see more in kinetic approach computation :ref:`level_based_kinetic_approach`)
 
 Solver configuration
 ~~~~~~~~~~~~~~~~~~~~~
@@ -504,7 +500,7 @@ For example:
 .. code-block:: python
 
    from mars.population.tr_utils import EvolutionRWASolver
-   from mars.population.populators.density_population import RWADensityPopulator
+   from mars.population import RWADensityPopulator
 
    # 1. General time-dependent relaxation: adaptive ODE integration
    populator = RWADensityPopulator(
@@ -530,19 +526,6 @@ For example:
        solver=EvolutionRWASolver.stationary_rate_solver_expm,
    )
 
-A practical selection rule is:
-
-* use ``odeint_solver`` when the generator changes smoothly in time and robustness is the
-  priority;
-* use ``exponential_solver`` when the generator is supplied on a time grid and is nearly
-  constant over each interval;
-* use ``stationary_rate_solver`` for a genuinely stationary, well-conditioned problem;
-* use ``stationary_rate_solver_expm`` when the problem is stationary but the eigenmode
-  representation is unreliable.
-
-The initial-state and powder-averaging logic is independent of the solver choice. In a powder
-calculation, the phase-averaged initial density is constructed first and the selected solver
-then propagates that single state.
 
 Applicability
 -------------
