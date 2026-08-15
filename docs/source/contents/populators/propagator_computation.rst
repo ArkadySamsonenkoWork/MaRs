@@ -132,7 +132,7 @@ This avoids repeated matrix multiplications, scaling with the number of *distinc
 Time Discretization
 ~~~~~~~~~~~~~~~~~~~
 
-Since the microwave period :math:`T \approx 0.1` ns is much shorter than typical detection timescales (hundreds of nanoseconds or longer), each requested output time is mapped to the smallest integer number of microwave periods that contains it, i.e. :math:`k = \lceil t / T \rceil` (rounded up to the next full period, not to the nearest one). This introduces negligible error for envelope detection while greatly simplifying calculations. Note that this method does not resolve signal variations *within* a single microwave cycle.
+Since the microwave period :math:`T \approx 0.1` ns is much shorter than typical detection timescales (hundreds of nanoseconds or longer), each requested output time is mapped to the smallest integer number of microwave periods that contains it, i.e. :math:`k = \lceil t / T \rceil` (rounded up to the next full period, not to the nearest one). This introduces negligible error for envelope detection while greatly simplifying calculations.
 
 Relaxation Parameter Constraints
 ---------------------------------
@@ -205,4 +205,4 @@ The propagator method is essential for simulating:
 * High-spin metal complexes.
 * Strongly coupled radical pairs with large anisotropic interactions.
 
-For simpler systems where the RWA is valid, use :class:`mars.population.stationary.StationaryPopulator` for significantly faster computation.
+For simpler systems where the RWA is valid, use :class:`mars.population.populators.density_population.RWADensityPopulator` for significantly faster computation.

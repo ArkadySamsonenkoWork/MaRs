@@ -206,25 +206,25 @@ The computation proceeds as follows.
 2. **Eigen‑decomposition**  
    Compute :math:`\lambda_k` and :math:`S` from :math:`K`.  
 
-   Cost: :math:`\mathcal{O}(N^3)` — the dominant step.  
+   * Cost: :math:`\mathcal{O}(N^3)` — the dominant step.  
 
-   Memory: :math:`\mathcal{O}(N^2)` for the eigenvector matrix.
+   * Memory: :math:`\mathcal{O}(N^2)` for the eigenvector matrix.
 
 3. **Solve for coefficients**  
    Obtain :math:`c` by solving the linear system :math:`S\,c = n(0)`.  
    Solving the system (one LU factorisation) costs :math:`\mathcal{O}(N^3)`, but is done
    only once.
 
-   Memory: :math:`\mathcal{O}(N)` for the coefficient vector.
+   * Memory: :math:`\mathcal{O}(N)` for the coefficient vector.
 
 4. **Evolve coefficients in time**  
    For each time point :math:`t` in the requested grid, compute the vector
    :math:`e^{\lambda_k t}` for all :math:`k`.  This is an element‑wise operation of
    length :math:`N`, repeated for :math:`T` time points.  
 
-   Cost: :math:`\mathcal{O}(T N)` in total.  
+   * Cost: :math:`\mathcal{O}(T N)` in total.  
 
-   Memory: a tensor of shape :math:`[T, \ldots, N]` for the exponential factors,
+   * Memory: a tensor of shape :math:`[T, \ldots, N]` for the exponential factors,
    i.e. :math:`\mathcal{O}(T N)` (not :math:`\mathcal{O}(T N^2)`).  
 
 5. **Assemble the observable**  
@@ -232,9 +232,9 @@ The computation proceeds as follows.
    (length :math:`N`).  Then form the dot product with the time‑evolved coefficients
    and take the real part to obtain :math:`\Delta n(t)` for each time point.  
 
-   Cost: :math:`\mathcal{O}(T N)` (one dot product per time point).  
+   * Cost: :math:`\mathcal{O}(T N)` (one dot product per time point).  
 
-   Memory: only the output signal of length :math:`T`.
+   * Memory: only the output signal of length :math:`T`.
 
 Steps 2–4 are independent of the time grid and are performed once
 
