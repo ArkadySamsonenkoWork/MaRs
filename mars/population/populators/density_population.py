@@ -619,7 +619,7 @@ class PropagatorDensityPopulator(RWADensityPopulator):
     such as in single-molecule magnets, metal complexes, or high-field EPR.
     """
     def __init__(self,
-                 b1_field: tp.Optional[tp.Union[torch.Tensor, float]] = 1e-7,
+                 b1_field: tp.Optional[tp.Union[torch.Tensor, float]] = 1e-8,
                  measurement_time: tp.Optional[float] = None,
                  context: tp.Optional[contexts.BaseContext] = None,
                  tr_matrix_generator_cls: tp.Type[matrix_generators.BaseGenerator] =
@@ -815,10 +815,12 @@ class PropagatorDensityPopulator(RWADensityPopulator):
         tau = 1 / resonance_frequency
         delta_time = time[..., 1] - time[..., 0]
         ratio = delta_time / tau
-        if (ratio < 100.0).any:
+        if (ratio < 10.0).any():
             warnings.warn(
-                f"Time discretization may become visible: min(dt/tau)={ratio.max().item():.3g}. "
-                "Increase the time step or use a coarser time grid if possible.",
+                f"Time discretization effects may become visible: min(dt/tau)={ratio.min().item():.3g}. "
+                f"Use a coarser time grid if possible. A finer time grid does not increase resolution, "
+                f"as your time step is already close to the oscillation period of the spectrometer. "
+                f"In MaRs, the simulated spectrum cannot be discretized at intervals finer than one oscillation period.",
                 stacklevel=2,
             )
 
@@ -881,10 +883,12 @@ class PropagatorDensityPopulator(RWADensityPopulator):
         tau = 1 / resonance_frequency
         delta_time = time[..., 1] - time[..., 0]
         ratio = delta_time / tau
-        if (ratio < 100.0).any:
+        if (ratio < 10.0).any():
             warnings.warn(
-                f"Time discretization may become visible: min(dt/tau)={ratio.max().item():.3g}. "
-                "Increase the time step or use a coarser time grid if possible.",
+                f"Time discretization effects may become visible: min(dt/tau)={ratio.min().item():.3g}. "
+                f"Use a coarser time grid if possible. A finer time grid does not increase resolution, "
+                f"as your time step is already close to the oscillation period of the spectrometer. "
+                f"In MaRs, the simulated spectrum cannot be discretized at intervals finer than one oscillation period.",
                 stacklevel=2,
             )
 

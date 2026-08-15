@@ -184,7 +184,7 @@ class RBFInterpolator(BaseInterpolator):
                  init_vertices: tp.Union[list[tuple[float, float]], np.ndarray],
                  extended_vertices: tp.Union[list[tuple[float, float]], np.ndarray],
                  kernel: str = "cubic",
-                 regularization="spherical",
+                 regularization="tikhonov",
                  jitter: float = 1e-5,
                  epsilon: float = 1e-8,
                  device: torch.device = torch.device("cpu"),
@@ -259,6 +259,8 @@ class RBFInterpolator(BaseInterpolator):
         R = np.zeros((n_points, n_points))
 
         for l in range(max_l + 1):
+            if l % 2 != 0:
+                continue
             for m in range(-l, l + 1):
                 Y_lm = sph_harm_y(m, l, phi, theta)
                 Y_col = Y_lm.reshape(-1, 1)

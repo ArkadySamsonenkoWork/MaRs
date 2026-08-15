@@ -1,5 +1,5 @@
 import math
-
+import warnings
 from abc import ABC, abstractmethod
 import torch
 from torchdiffeq import odeint
@@ -159,18 +159,22 @@ class EvolutionMatrix(EvolutionBase):
         """
         indices = torch.arange(self.spin_system_dim, device=self.device)
         mask = 1.0 - torch.eye(self.spin_system_dim, dtype=self.dtype, device=self.device)
-        if thermal_rates is not None:
-            probs_matrix = self.apply_thermal_correction(temperature, thermal_rates)
-            probs_matrix[..., indices, indices] -= (probs_matrix * mask).sum(dim=-2)
-            transition_matrix = probs_matrix
-        else:
-            transition_matrix = 0
 
+        if thermal_rates is not None:
+            transition_matrix = self.apply_thermal_correction(temperature, thermal_rates)
+            transition_matrix[..., indices, indices] -= (transition_matrix * mask).sum(dim=-2)
+        else:
+            ndim = len(self.config_dim)
+            transition_matrix = torch.zeros(
+                self.config_dim + (self.spin_system_dim, self.spin_system_dim),
+                dtype=self.dtype,
+                device=self.device
+            )
         if driven_rates is not None:
             driven_rates[..., indices, indices] -= (driven_rates * mask).sum(dim=-2)
-            transition_matrix += driven_rates
+            transition_matrix.add_(driven_rates)
         if decay_rates is not None:
-            transition_matrix -= torch.diag_embed(decay_rates)
+            transition_matrix.sub_(torch.diag_embed(decay_rates))
         return transition_matrix
 
 
@@ -226,15 +230,15 @@ class EvolutionSuper(EvolutionBase):
                  driven_superop: tp.Optional[torch.Tensor] = None,
                  ) -> torch.Tensor:
         """
-        Build full Liouvillian superoperator 𝓛 such that dρ/dt = 𝓛[ρ].
+        Build full Liouvillian superoperator L such that dρ/dt = L[ρ].
 
         The superoperator is assembled as:
-            𝓛 = ℒ_H + 𝓡_thermal + 𝓡_driven
+            L = L_H + R_thermal + R_driven
 
         where:
-          - ℒ_H[ρ] = -i[H, ρ] (coherent evolution)
-          - 𝓡_thermal: thermal relaxation with detailed balance (from thermal_superop)
-          - 𝓡_driven: user-provided relaxation (unchanged)
+          - L_H[ρ] = -i[H, ρ] (coherent evolution)
+          - R_thermal: thermal relaxation with detailed balance (from thermal_superop)
+          - R_driven: user-provided relaxation (unchanged)
 
         :param temp: Temperature(s).
         :param H: Hamiltonian operator. The shape is [..., N, N].
@@ -253,20 +257,66 @@ class EvolutionSuper(EvolutionBase):
         return super_op
 
 
+def _warn_if_eig_basis_is_ill_conditioned(
+    eig_vecs: torch.Tensor,
+    solver_name: str,
+    cond_threshold: tp.Optional[float] = None,
+) -> None:
+    """
+    Warn if the eigenvector matrix is ill-conditioned.
+
+    An ill-conditioned eigenvector matrix usually means that the matrix is
+    defective or very close to an exceptional point. In that regime the
+    eigen-decomposition is numerically fragile, but more importantly the
+    kinetic/evolution model itself is structurally sensitive: tiny changes
+    of rate constants can strongly change the relaxation behavior.
+    """
+    real_dtype = eig_vecs.real.dtype
+
+    if cond_threshold is None:
+        if real_dtype == torch.float32:
+            cond_threshold = 1.0e6
+        elif real_dtype == torch.float64:
+            cond_threshold = 1.0e10
+        else:
+            cond_threshold = 1.0e8
+
+    with torch.no_grad():
+        cond = torch.linalg.cond(eig_vecs)
+        max_cond = float(torch.max(cond).item())
+
+    if not math.isfinite(max_cond) or max_cond > cond_threshold:
+        cond_str = f"{max_cond:.3e}" if math.isfinite(max_cond) else "inf/nan"
+
+        warnings.warn(
+            (
+                f"{solver_name}: eigenvector matrix is ill-conditioned "
+                f"(cond={cond_str}, threshold={cond_threshold:.3e}). "
+                "This usually means that the kinetic/evolution matrix is defective "
+                "or very close to an exceptional point. In this regime even a very small "
+                "perturbation of the kinetic rates can dramatically change the relaxation process: "
+                "time constants, mode amplitudes and the observed signal shape may change strongly. "
+                "Therefore the kinetic model itself "
+                "is structurally unstable with respect to experimentally unavoidable parameter uncertainty. "
+                "The eigen-decomposition solver may give unreliable results. "
+                "Use an explicit matrix-exponential/power-based solver, or regularize/reconsider the kinetic model."
+            ),
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
+
 class EvolutionSolver(ABC):
-    @staticmethod
     @abstractmethod
-    def odeint_solver(*args, **kwargs):
+    def odeint_solver(self, *args, **kwargs):
         pass
 
-    @staticmethod
     @abstractmethod
-    def exponential_solver(*args, **kwargs):
+    def exponential_solver(self, *args, **kwargs):
         pass
 
-    @staticmethod
     @abstractmethod
-    def stationary_rate_solver(*args, **kwargs):
+    def stationary_rate_solver(self, *args, **kwargs):
         pass
 
 
@@ -373,19 +423,82 @@ class EvolutionPopulationSolver(EvolutionSolver):
         """
         M = evo(*matrix_generator(time[0]))
         eig_vals, eig_vecs = torch.linalg.eig(M)
-        indexes = torch.arange(lvl_up.shape[0], device=lvl_up.device)
-        intermediate = torch.linalg.solve(
+        _warn_if_eig_basis_is_ill_conditioned(
             eig_vecs,
-            initial_populations.unsqueeze(-1).to(eig_vecs.dtype)
-        ).squeeze(-1)
+            "EvolutionPopulationSolver.stationary_rate_solver",
+        )
+
+        indexes = torch.arange(lvl_up.shape[0], device=lvl_up.device)
+        try:
+            intermediate = torch.linalg.solve(
+                eig_vecs,
+                initial_populations.unsqueeze(-1).to(eig_vecs.dtype),
+            ).squeeze(-1)
+        except torch.linalg.LinAlgError as exc:
+            raise torch.linalg.LinAlgError(
+                "EvolutionPopulationSolver.stationary_rate_solver failed because the eigenvector matrix "
+                "is singular or numerically unusable. This usually indicates a defective or nearly defective "
+                "rate matrix. Use EvolutionPopulationSolver.stationary_rate_solver_expm for a robust "
+                "matrix-exponential solution."
+            ) from exc
+
         dims_to_add = M.dim() - 1
+        batch_shape = intermediate.shape[:-1]
+        if eig_vals.shape[:-1] != batch_shape:
+            eig_vals = eig_vals.expand(batch_shape + (eig_vals.shape[-1],))
+        if eig_vecs.shape[:-2] != batch_shape:
+            eig_vecs = eig_vecs.expand(batch_shape + eig_vecs.shape[-2:])
+
         reshape_dims = list(time.shape) + [1] * (dims_to_add - time.dim() + 1)
         time_reshaped = time.reshape(reshape_dims)
         exp_factors = torch.exp(time_reshaped * eig_vals.unsqueeze(-4))
-
         torch.mul(intermediate.unsqueeze(-4), exp_factors, out=exp_factors)
         eig_vecs = eig_vecs[..., indexes, lvl_down, :] - eig_vecs[..., indexes, lvl_up, :]
         return (eig_vecs.unsqueeze(-4) * exp_factors).real.sum(-1)
+
+    @staticmethod
+    def stationary_rate_solver_expm(
+        time: torch.Tensor,
+        initial_populations: torch.Tensor,
+        evo: EvolutionMatrix,
+        matrix_generator: matrix_generators.LevelBasedGenerator,
+        lvl_down: torch.Tensor,
+        lvl_up: torch.Tensor,
+        chunk_size: tp.Optional[int] = 64
+    ):
+        """
+        Robust stationary solver using explicit matrix exponentiation.
+
+        This method does not use an eigenvector decomposition and therefore
+        remains mathematically valid for defective/non-diagonalizable matrices.
+
+        The price is that it is usually slower than the eigen-decomposition
+        solver, especially for many time points.
+
+        :param chunk_size:
+            If not None, time points are processed in chunks to avoid
+            allocating a very large batched matrix exponential.
+        """
+        M = evo(*matrix_generator(time[0]))
+        time = time.to(M.dtype)
+        p0 = initial_populations.to(M.dtype)
+        indexes = torch.arange(lvl_up.shape[0], device=lvl_up.device)
+
+        def _eval_chunk(t_chunk: torch.Tensor) -> torch.Tensor:
+            t = t_chunk.reshape((-1,) + (1,) * M.dim())
+            U = torch.linalg.matrix_exp(M.unsqueeze(0) * t)
+            pt = torch.matmul(U, p0.unsqueeze(-1).unsqueeze(0)).squeeze(-1)
+            signal = pt[..., indexes, lvl_down] - pt[..., indexes, lvl_up]
+
+            return signal.real
+
+        if chunk_size is None:
+            return _eval_chunk(time)
+
+        outs = []
+        for t_chunk in time.split(chunk_size):
+            outs.append(_eval_chunk(t_chunk))
+        return torch.cat(outs, dim=0)
 
 
 class EvolutionRWASolver(EvolutionSolver):
@@ -483,22 +596,73 @@ class EvolutionRWASolver(EvolutionSolver):
         where the first ... is batch dimensions, the next ... is orientations, resonance and so on
         """
         M = evo(*matrix_generator(time[0]))
-
         eig_vals, eig_vecs = torch.linalg.eig(M)
 
-        intermediate = torch.linalg.solve(
+        _warn_if_eig_basis_is_ill_conditioned(
             eig_vecs,
-            initial_density.unsqueeze(-1).to(eig_vecs.dtype)
-        ).squeeze(-1)
+            "EvolutionRWASolver.stationary_rate_solver",
+        )
+
+        try:
+            intermediate = torch.linalg.solve(
+                eig_vecs,
+                initial_density.unsqueeze(-1).to(eig_vecs.dtype),
+            ).squeeze(-1)
+        except torch.linalg.LinAlgError as exc:
+            raise torch.linalg.LinAlgError(
+                "EvolutionRWASolver.stationary_rate_solver failed because the eigenvector matrix "
+                "is singular or numerically unusable. This usually indicates a defective or nearly defective "
+                "superoperator. Use EvolutionRWASolver.stationary_rate_solver_expm for a robust "
+                "matrix-exponential solution."
+            ) from exc
 
         dims_to_add = M.dim() - 1
         reshape_dims = list(time.shape) + [1] * (dims_to_add - time.dim() + 1)
         time_reshaped = time.reshape(reshape_dims)
         exp_factors = torch.exp(time_reshaped * eig_vals.unsqueeze(-4))
         torch.mul(intermediate.unsqueeze(-4), exp_factors, out=exp_factors)
-        #eig_vecs = eig_vecs[..., indexes, lvl_down, :] - eig_vecs[..., indexes, lvl_up, :]
+
         out = torch.matmul(detection_vector.unsqueeze(-2), eig_vecs).squeeze(-2)
         return (out.unsqueeze(-4) * exp_factors).real.sum(dim=-1)
+
+    @staticmethod
+    def stationary_rate_solver_expm(
+        time: torch.Tensor,
+        initial_density: torch.Tensor,
+        evo: EvolutionMatrix,
+        matrix_generator: matrix_generators.LevelBasedGenerator,
+        detection_vector: torch.Tensor,
+        chunk_size: tp.Optional[int] = 64,
+    ):
+        """
+        Robust stationary solver using explicit matrix exponentiation.
+
+        This method does not use an eigenvector decomposition and therefore
+        remains mathematically valid for defective/non-diagonalizable superoperators.
+
+        The price is that it is usually slower than the eigen-decomposition solver.
+        """
+        M = evo(*matrix_generator(time[0]))
+        time = time.to(M.dtype)
+
+        rho0 = initial_density.to(M.dtype)
+        det = detection_vector.to(M.dtype)
+
+        def _eval_chunk(t_chunk: torch.Tensor) -> torch.Tensor:
+            t = t_chunk.reshape((-1,) + (1,) * M.dim())
+            U = torch.linalg.matrix_exp(M.unsqueeze(0) * t)
+
+            rho_t = torch.matmul(U, rho0.unsqueeze(-1).unsqueeze(0)).squeeze(-1)
+
+            return (det.unsqueeze(0) * rho_t).real.sum(dim=-1)
+
+        if chunk_size is None:
+            return _eval_chunk(time)
+
+        outs = []
+        for t_chunk in time.split(chunk_size):
+            outs.append(_eval_chunk(t_chunk))
+        return torch.cat(outs, dim=0)
 
 
 class EvolutionPropagatorSolver(EvolutionSolver):
@@ -580,7 +744,11 @@ class EvolutionPropagatorSolver(EvolutionSolver):
         :return:
         """
         eigvel, eigbasis = torch.linalg.eig(U_2pi)
-        #embedings = torch.stack([torch.pow(eigvel, m) for m in powers], dim=-2)
+
+        _warn_if_eig_basis_is_ill_conditioned(
+            eigbasis,
+            "EvolutionPropagatorSolver._U_N_batched",
+        )
 
         dims_to_add = U_2pi.dim() - 1
         reshape_dims = list(powers.shape) + [1] * (dims_to_add - powers.dim() + 1)
@@ -664,6 +832,66 @@ class EvolutionPropagatorSolver(EvolutionSolver):
             liouvilleator.vec(hamiltonain_time_dep.transpose(-2, -1)),
             integral, direct, eigen_values, inverse, liouvilleator.vec(initial_density)
         )
+
+    def stationary_rate_solver_power(
+            self,
+            time: torch.Tensor,
+            initial_density: torch.Tensor,
+            hamiltonain_time_dep: torch.Tensor,
+            superop_static: torch.Tensor,
+            res_omega: torch.Tensor,
+            period_time: torch.Tensor,
+            delta_phi: torch.Tensor,
+            measurement_time: tp.Optional[torch.Tensor],
+            n_steps: int,
+    ):
+        """
+        Robust Floquet solver using explicit integer powers of U_2pi.
+
+        This method does not diagonalize U_2pi. It is therefore valid even if
+        U_2pi is defective/non-diagonalizable.
+
+        It is usually slower than the eigen-based solver, especially if many
+        distinct powers are required.
+        """
+        liouvilleator = transform.Liouvilleator
+
+        superop_dynamic = liouvilleator.hamiltonian_superop(hamiltonain_time_dep)
+
+        U_2pi, integral = rk4.solve_matrix_ode_rk4(
+            superop_static / res_omega,
+            superop_dynamic / res_omega,
+            n_steps,
+        )
+
+        if measurement_time is not None:
+            M_power = int(torch.ceil(measurement_time / period_time).item())
+            integral = self._modify_integral_term(integral, U_2pi, M_power, delta_phi)
+        else:
+            integral = self._modify_integral_term_single_period(integral, U_2pi, None, delta_phi)
+
+        detective_vector = liouvilleator.vec(hamiltonain_time_dep.transpose(-2, -1))
+        density_vector = liouvilleator.vec(initial_density)
+
+        detective_vector = detective_vector.to(U_2pi.dtype)
+        density_vector = density_vector.to(U_2pi.dtype)
+        integral = integral.to(U_2pi.dtype)
+
+        powers = torch.ceil(time / period_time).to(torch.int64)
+        outs = []
+
+        for p in powers:
+            p_int = int(p.item())
+
+            U_p = torch.linalg.matrix_power(U_2pi, p_int)
+            rho_p = torch.matmul(U_p, density_vector.unsqueeze(-1)).squeeze(-1)
+            y = torch.matmul(integral, rho_p.unsqueeze(-1)).squeeze(-1)
+            sig = -torch.einsum("...i,...i->...", detective_vector, y).real
+
+            outs.append(sig)
+
+        stacked = torch.stack(outs, dim=0)
+        return stacked
 
     @staticmethod
     def odeint_solver(*args, **kwargs):

@@ -2,6 +2,7 @@ import itertools
 import math
 import pathlib
 from dataclasses import dataclass
+import warnings
 
 import typing as tp
 import numpy as np
@@ -13,6 +14,19 @@ from ..spin_model import BaseSample, SpinSystem, Interaction, MultiOrientedSampl
 from ..spectra_manager import BaseResSpectra, StationarySpectra
 
 from ..serialization import serialization
+
+
+_EASYSPIN_SAVE_WARNING = (
+    "Not all MaRs objects can be saved to EasySpin format. "
+    "Computational parameters (e.g. thresholds, EasySpin Opt) are not saved. "
+    "Such save support will not continue to develop in MaRs"
+)
+
+_EASYSPIN_LOAD_WARNING = (
+    "Not all EasySpin objects can be loaded into MaRs. "
+    "Computational parameters (e.g. thresholds, EasySpin Opt) are not loaded. "
+    "Such load support will not continue to develop in MaRs"
+)
 
 
 class EasySpinSaverSampleDict:
@@ -276,6 +290,8 @@ def save_easyspin(filepath: str, sample: tp.Optional[BaseSample], spectra_creato
     :param spectra_creator: SpectraCreator instance.
     :param field: The magnetic field tensor in Tesla units.
     """
+    warnings.warn(_EASYSPIN_SAVE_WARNING, UserWarning, stacklevel=2)
+
     T_to_mT = 1e3
     sample_dict = EasySpinSaverSampleDict().get_dict(sample) if sample is not None else {}
     creator_dict = EasySpinCreatorDict().get_dict(spectra_creator) if spectra_creator is not None else {}
@@ -487,6 +503,8 @@ def _parse_easyspin_core(filepath: tp.Union[str, pathlib.Path],
                          device: torch.device,
                          dtype: torch.dtype) -> _EasySpinParsedData:
     """Core parsing logic for EasySpin MATLAB files."""
+    warnings.warn(_EASYSPIN_LOAD_WARNING, UserWarning, stacklevel=2)
+
     data = load_mat_file(filepath)
     ghz_to_hz = 1e9
 

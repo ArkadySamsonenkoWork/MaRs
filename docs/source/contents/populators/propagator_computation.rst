@@ -6,7 +6,7 @@ Propagator-Based Density Matrix Evolution
 Overview
 --------
 
-The :class:`mars.population.density_population.PropagatorDensityPopulator` class computes time-resolved EPR signals by explicitly calculating the full time-evolution propagator :math:`\hat{U}(t, 0)` of the density matrix.
+The :class:`mars.population.populators.density_population.PropagatorDensityPopulator` class computes time-resolved EPR signals by explicitly calculating the full time-evolution propagator :math:`\hat{U}(t, 0)` of the density matrix.
 This method imposes no approximations on the g-tensor, zero-field splitting, or relaxation superoperator, making it the most general approach for time-dependent density matrix evolution.
 
 Theory
@@ -30,7 +30,7 @@ where :math:`\vec{\rho}` is the vectorized density matrix and :math:`\hat{\mathc
 
 where :math:`H` is the spin Hamiltonian in Hilbert space (in frequency units, Hz) and :math:`I` is the identity matrix. The factor of :math:`2\pi` is implicitly included in the definition of :math:`H` within MaRs to match angular frequency conventions in the exponent.
 
-To solve this equation, we introduce the **propagator** :math:`\hat{U}(t, 0)`, which maps the initial state to the state at time :math:`t`:
+To solve this equation, we introduce the propagator :math:`\hat{U}(t, 0)`, which maps the initial state to the state at time :math:`t`:
 
 .. math::
 
@@ -43,6 +43,17 @@ The propagator satisfies the differential equation:
    \frac{d\hat{U}(t, 0)}{dt} = \hat{\mathcal{L}}(t)\hat{U}(t, 0)
 
 with the initial condition :math:`\hat{U}(0, 0) = \hat{I}` (the identity superoperator).
+
+Driving Amplitude
+~~~~~~~~~~~~~~~~~~
+
+The oscillating microwave field is applied along the laboratory-frame x-axis:
+
+.. math::
+
+   B_1(t) = b_1 \cos(\omega t)
+
+where :math:`b_1` is the ``b1_field`` parameter of :class:`~mars.population.populators.density_population.PropagatorDensityPopulator` (the full peak amplitude of the oscillating field, not a rotating-frame half-amplitude). Internally this is converted to an angular Rabi coupling scale :math:`2\pi b_1` before being combined with the transformed Zeeman operators :math:`\hat{G}_x, \hat{G}_y` to build the time-dependent part of the Liouvillian.
 
 Floquet Theory for Periodic Hamiltonians
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -59,25 +70,25 @@ Thus, the propagator need only be computed numerically over one microwave period
 
 Implementation Notes
 ~~~~~~~~~~~~~~~~~~~~
-The populator uses a Runge–Kutta method to **compute** :math:`\hat{U}(T, 0)`. This requires the parameter ``n_steps`` (see :meth:`mars.population.density_population.PropagatorDensityPopulator.__init__`).
+The populator uses a 4th-order Runge–Kutta method to compute :math:`\hat{U}(T, 0)` and the associated phase-weighted integral in a single loop. This requires the parameter ``n_steps`` (see :meth:`mars.population.populators.density_population.PropagatorDensityPopulator.__init__`).
 This parameter is crucial; for systems with fast oscillating terms or strong coupling, ``n_steps`` must be increased to avoid numerical instability.
 
 Signal Detection
 ~~~~~~~~~~~~~~~~
 
-The observable EPR signal is proportional to the transverse magnetization. In the vectorized formalism, this is calculated as:
+The observable EPR signal is proportional to the transverse magnetization. In the vectorized formalism, the "detective" vector is built from the (transposed) Zeeman operator :math:`\hat{G}_X`, and the signal at time :math:`t` is obtained by contracting it with the propagated, phase-weighted density vector:
 
 .. math::
 
-   S(t) \propto \text{Tr}[\hat{S}_x \hat{\rho}(t)] = \mathbf{s}_x^\dagger \hat{U}(t,0) \vec{\rho}(0)
+   S(t) \propto -\,\mathrm{Re}\Big[\,\mathrm{vec}(\hat{G}_X^T)^{\dagger} \cdot \hat{J}(t)\, \vec{\rho}(0)\,\Big]
 
-where :math:`\hat{S}_x` is the x-component of the total spin angular momentum operator.
+where :math:`\hat{J}(t)` is the accumulated phase-weighted integral described below, evaluated at the propagator power corresponding to :math:`t`. Only the real part of this contraction is physically observable and is returned as the signal.
 
-For phase-sensitive detection locked to the microwave frequency, the integrated signal :math:`I(t)` is:
+The continuous-time integrated signal that this discretized construction approximates is:
 
 .. math::
 
-   I(t) = \int_0^t \text{Tr}[\hat{S}_x \hat{\rho}(\tau)] \sin(\omega\tau) d\tau
+   I(t) = \int_0^t \text{Tr}[\hat{G}_X \hat{\rho}(\tau)] \sin(\omega\tau) d\tau
 
 Computational Implementation
 ----------------------------
@@ -94,12 +105,12 @@ Rather than storing the full propagator :math:`\hat{U}(\tau, 0)` for all :math:`
 
       \hat{J} = \int_0^T \hat{U}(\tau, 0) \sin(\omega\tau) d\tau
 
-These matrices are sufficient to reconstruct the detected signal at any time :math:`t` using the Floquet expansion.
+These matrices are sufficient to reconstruct the detected signal at any time :math:`t` using the Floquet expansion. When a finite ``measurement_time`` is supplied (rather than the default single-period detection), this integral is further corrected to account for the sum of contributions over all :math:`M` microwave periods contained in the measurement window.
 
 Matrix Power via Diagonalization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To compute :math:`[\hat{U}(T, 0)]^k` efficiently, the single-period propagator is diagonalized once:
+To compute :math:`[\hat{U}(T, 0)]^k` efficiently, the single-period propagator is diagonalized once (via a general, non-symmetric eigendecomposition, since :math:`\hat{U}(T,0)` is not Hermitian):
 
 .. math::
 
@@ -112,18 +123,21 @@ Then:
    [\hat{U}(T, 0)]^k = S \Lambda^k S^{-1}
 
 where :math:`\Lambda^k` is a diagonal matrix obtained by raising the eigenvalues to the :math:`k`-th power.
-This avoids repeated matrix multiplications, scaling linearly with :math:`k` rather than quadratically.
+This avoids repeated matrix multiplications, scaling with the number of *distinct* requested powers rather than with :math:`k` itself.
+
+.. note::
+
+   If :math:`\hat{U}(T, 0)` is (near-)defective, its eigenbasis can become ill-conditioned, which is flagged internally with a warning. In that regime, prefer the slower but diagonalization-free power iteration provided as a fallback (see below).
 
 Time Discretization
 ~~~~~~~~~~~~~~~~~~~
 
-Since the microwave period :math:`T \approx 0.1` ns is much shorter than typical detection timescales (hundreds of nanoseconds or longer), output time points are rounded to the nearest integer multiple of :math:`T`.
-This introduces negligible error for envelope detection while greatly simplifying calculations. Note that this method does not resolve signal variations *within* a single microwave cycle.
+Since the microwave period :math:`T \approx 0.1` ns is much shorter than typical detection timescales (hundreds of nanoseconds or longer), each requested output time is mapped to the smallest integer number of microwave periods that contains it, i.e. :math:`k = \lceil t / T \rceil` (rounded up to the next full period, not to the nearest one). This introduces negligible error for envelope detection while greatly simplifying calculations. Note that this method does not resolve signal variations *within* a single microwave cycle.
 
 Relaxation Parameter Constraints
 ---------------------------------
 
-For the propagator method, all relaxation parameters in the Context **must be time-independent**.
+For the propagator method, all relaxation parameters in the Context must be time-independent.
 The Floquet approach relies on the strict periodicity of the Liouvillian. If the relaxation superoperator :math:`\hat{R}` depends on time (e.g., due to rapid temperature jumps or time-dependent fields), the propagator loses its periodic structure and cannot be computed via :math:`[\hat{U}(T, 0)]^k`.
 
 If relaxation parameters vary with time, use the kinetic approach or RWA with adaptive ODE integration instead.
@@ -136,13 +150,15 @@ Unlike the RWA method, the propagator approach makes no simplifying assumptions 
 Consequently, the signal depends on all three Euler angles, and the :math:`\gamma` integration must be performed numerically.
 
 Full numerical integration over :math:`\gamma \in [0,2\pi]` is therefore the
-default. The number of :math:`\gamma` points can be controlled via the
+default, implemented as a Riemann sum over polarizations :math:`\hat{G}_\perp = \hat{G}_x\cos\phi + \hat{G}_y\sin\phi`. The number of :math:`\gamma` points can be controlled via the
 ``angle_average_steps`` parameter of
-:class:`mars.population.density_population.PropagatorDensityPopulator`:
+:class:`mars.population.populators.density_population.PropagatorDensityPopulator`:
 
 .. code-block:: python
 
-   populator_prop = population.PropagatorDensityPopulator(
+   from mars.population.populators.density_population import PropagatorDensityPopulator
+
+   populator_prop = PropagatorDensityPopulator(
        angle_average_steps=4,         # Number of γ‑integration points
        context=context,
        measurement_time=None,         # Default: one microwave period
@@ -151,6 +167,8 @@ default. The number of :math:`\gamma` points can be controlled via the
 
 Alternatively, ``angle_average_steps`` can be set globally via
 :class:`mars.spectra_manager.spectra_manager.ComputationalDetails`.
+
+For ordered (single-crystal) samples, set ``disordered=False``; in that case only the fixed :math:`\hat{G}_x` polarization is used and no :math:`\gamma` averaging is performed.
 
 Advantages
 ----------
@@ -167,7 +185,7 @@ Computational Cost
 
 This method is more demanding than the RWA approach because:
 
-* It operates on the full Liouville space propagator (dimension :math:`N^2 \times N^2` versus versus :math:`N^2` for density vector evolution).
+* It operates on the full Liouville space propagator (dimension :math:`N^2 \times N^2` versus :math:`N^2` for density vector evolution).
 * It requires high-resolution integration over the fast microwave period :math:`T`.
 
 Applicability

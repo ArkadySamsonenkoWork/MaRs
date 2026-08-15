@@ -439,7 +439,7 @@ class UncertaintyAnalyzer:
     The confidence intervals have correct statistical meaning only when the loss
     is proportional to SSE or MSE:
 
-        loss ~ Σ (yᵢ - f(xᵢ; θ))²   or   loss ~ (1/N) Σ (yᵢ - f(xᵢ; θ))²
+        loss ~ Σ (yᵢ - f(xᵢ; θ))^2   or   loss ~ (1/N) Σ (yᵢ - f(xᵢ; θ))²
 
     This is the default loss in MaRs. Under this assumption the loss surface is
     proportional to -2 log L of a Gaussian model, and the chi-squared threshold
@@ -447,29 +447,32 @@ class UncertaintyAnalyzer:
 
         delta_thresh = chi2.ppf(confidence_level, df=1) / 2
 
-    A parameter value is *inside* the confidence interval when:
-        loss(θ) - loss(θ*) ≤ delta_thresh * scale_factor
+    A parameter value is inside the confidence interval when:
+        loss(θ) - loss(θ*) ≤ delta_thresh * normalized_scale_factor
 
-    where ``scale_factor = loss* / (N - P)`` estimates the residual variance σ².
+     where ``normalized_scale_factor = loss* / (N - P)`` and ``loss*`` is the
+    raw best-fit loss
 
     ...
     Variance estimation procedures
     The definition of σ² depends on the uncertainty method:
 
     - ``"hessian"``, ``"profile"``, ``"mcmc"``
-      Use the residual variance from the best fit:
-      ``σ̂² = loss* / (N − P)`` (scale_factor).
-      This is an unbiased estimate of the true noise variance **only when the loss
-      is SSE or MSE** (the default in MaRS).  For other losses the value is not a
-      valid variance, and confidence intervals lose their statistical interpretation.
+      Use ``normalized_scale_factor = loss* / (N - P)``.
+      For a pure SSE loss this is the unbiased residual variance σ̂².
+      For a pure MSE loss it is σ̂²/N. The extra ``1/N`` factor cancels in the
+      final CI formulas, so SSE and MSE losses give identical intervals.
+      For non-MSE losses the normalised scale is not a valid variance and the
+      intervals lose their statistical interpretation.
+
     - ``"bootstrap"``
       Does not require an explicit σ² – uncertainty is derived directly from
       empirical refits on resampled data.
     - ``"trials"``
       No σ²; bounds are taken from the optimiser’s own trial history.
     - ``get_chi_square()`` (from ``ChiSquareComputer``)
-      Estimates σ² **independently** from the baseline (signal‑free) regions of the
-      experimental spectrum, avoiding the trivial χ²/dof = 1 that would occur if
+      Estimates σ^2 **independently** from the baseline (signal‑free) regions of the
+      experimental spectrum, avoiding the trivial χ^2/dof = 1 that would occur if
       the loss‑based σ² were used.  This is only meaningful for SSE/MSE losses.
     ...
     """
@@ -529,12 +532,16 @@ class UncertaintyAnalyzer:
         """Compute and return confidence intervals using the chosen method.
 
         Noise variance σ² definition
-        For ``"hessian"``, ``"profile"``, and ``"mcmc"``, the estimated variance used
-        to scale thresholds and covariance matrices is
+        ---------------------------
+        :meth:`get_scale_factor` returns ``N · L(θ*) / (N - P)``:
 
-            .. math::
+        * MSE-like loss: this equals the unbiased residual variance σ̂².
+        * SSE-like loss: this equals ``N σ̂²``.
 
-                \hat\sigma^2 = \frac{L(\theta^*)}{N - P}
+        The CI methods internally use the normalised loss scale
+        ``L(θ*) / (N - P)``, which equals σ̂² for an SSE loss and σ̂² / N for
+        an MSE loss. This keeps the final intervals identical for both loss
+        conventions.
 
         where :math:`L(\theta^*)` is the best‑fit loss, :math:`N` is the number of
         data points, and :math:`P` is the number of varying parameters.
@@ -737,18 +744,12 @@ class UncertaintyAnalyzer:
 
         Computes the unbiased estimator:
 
-            scale_factor = loss* / (N - P)
+            scale_factor = loss*  * N /(N - P)
 
-        This equals σ̂² when ``loss = SSE = Σr_i^2``, and equals σ̂^2/N when
-        ``loss = MSE = SSE/N``. In both cases the factor appears consistently
-        in both the covariance formula and the profile threshold, so the 1/N
-        difference between SSE and MSE cancels and the resulting CIs are identical.
-
-        The returned value has correct statistical meaning as a variance estimate
-        only when the loss is proportional to SSE or MSE, which is the default
-        in MaRs. For other losses (e.g. NLL, weighted, composite) the value is
-        numerically meaningless as a variance and will produce incorrectly
-        scaled CIs.
+        For an MSE loss, ``loss* = (1/N) Σ rᵢ²`` is the maximum-likelihood
+        residual variance, so this value equals the unbiased residual variance
+        σ̂². For an SSE-like loss, ``loss* = Σ rᵢ²``, so this value equals
+        ``N σ̂²``, i.e. the unbiased variance multiplied by N.
 
         :param n_params: Number of free (varying) parameters P.
         :return: Estimated residual variance σ̂^2 (for SSE loss) or σ̂^2/N (for MSE loss).
@@ -764,7 +765,32 @@ class UncertaintyAnalyzer:
                 f"Degrees of freedom <= 0: {self._n_data_points} data points, "
                 f"{n_params} varying parameters."
             )
-        return self.best_loss / max(self._n_data_points - n_params, 1)
+        return self._n_data_points * self.best_loss / max(self._n_data_points - n_params, 1)
+
+    def _get_normalised_scale_factor(self, n_params: tp.Optional[int] = None) -> float:
+        """Return the normalised loss scale used by CI algorithms.
+
+        This is always ``loss* / (N - P)``.
+
+        For an SSE loss this equals the unbiased residual variance σ̂².
+        For an MSE loss it equals σ̂² / N. Using this value keeps the covariance
+        and profile threshold formulas identical for SSE and MSE losses.
+
+        :param n_params: Number of free parameters. Defaults to all varying
+            parameters.
+        :raises ValueError: If residual degrees of freedom are ≤ 0.
+        """
+        if n_params is None:
+            n_params = len(self.fitter.param_space.varying_names)
+
+        dof = self._n_data_points - n_params
+        if dof <= 0:
+            raise ValueError(
+                f"Degrees of freedom <= 0: {self._n_data_points} data points, "
+                f"{n_params} varying parameters."
+            )
+
+        return self.best_loss / dof
 
     def hessian_ci(
             self,
@@ -776,11 +802,15 @@ class UncertaintyAnalyzer:
         Approximates the loss as quadratic near the optimum and derives symmetric
         intervals from the curvature. The covariance is estimated as:
 
-            Cov(θ̂) = 2 · σ̂^2 · H^-1
+            Cov(θ̂) = 2 · S · H^-1
 
-        where ``H = ∂^2L/∂θ^2`` at ``θ*`` and ``σ̂^2 = loss* / (N - P)``.
-        The factor of 2 arises from the least-squares identity ``H ≈ 2 JᵀJ / σ²``,
-        so that ``2σ̂²H^-1 ≈ σ²(JᵀJ)^-1 = Cov(θ̂)``.
+        where ``H = ∂²L/∂θ²`` at ``θ*`` and ``S = loss* / (N - P)`` is the
+        internal CI loss scale. For an SSE loss, ``S`` is the unbiased residual
+        variance; for an MSE loss, ``S`` is the unbiased variance divided by
+        ``N``. The final intervals are therefore identical for SSE and MSE loss
+        conventions.
+
+
         The CI half-width for parameter i is then:
 
             Δθ_i = sqrt(2 · delta_thresh · Cov_ii)
@@ -862,7 +892,9 @@ class UncertaintyAnalyzer:
             inv_H = np.linalg.pinv(H)
 
         scale_factor = self.get_scale_factor()
-        cov = 2.0 * scale_factor * inv_H
+        ci_scale_factor = self._get_normalised_scale_factor()
+
+        cov = 2.0 * ci_scale_factor * inv_H
 
         intervals = {}
         for name in names:
@@ -893,6 +925,8 @@ class UncertaintyAnalyzer:
                 "covariance": cov,
                 "delta_thresh": self._delta_thresh,
                 "scale_factor": scale_factor,
+                "normalized_scale_factor": ci_scale_factor,
+
             },
         )
 
@@ -910,9 +944,9 @@ class UncertaintyAnalyzer:
            (nuisance) parameters using L-BFGS-B.
         3. Finds the two crossings of the scaled threshold:
 
-               loss_profile(θᵢ) - loss*  ≤  delta_thresh · σ̂^2
+               loss_profile(θ_i) - loss*  ≤  delta_thresh · S
 
-        where ``σ̂^2 = loss* / (N - P)`` scales the threshold into the
+        where ``S = loss* / (N - P)`` scales the threshold into the
         same units as the loss.
 
         The intervals have correct statistical meaning only when the loss is
@@ -949,8 +983,8 @@ class UncertaintyAnalyzer:
         x0 = self._best_vector()
         n_varying = len(self._varying_names)
 
-        scale_factor = self.get_scale_factor()
-        thresh = self._delta_thresh * scale_factor
+        ci_scale_factor = self._get_normalised_scale_factor()
+        thresh = self._delta_thresh * ci_scale_factor
 
         intervals = {}
         profiles = {}
@@ -1015,7 +1049,7 @@ class UncertaintyAnalyzer:
 
         Constructs a pseudo-posterior with flat priors within parameter bounds:
 
-            log p(θ) = -loss(θ) / (2 · σ̂²),   σ̂² = loss* / (N - P)
+            log p(θ) = -loss(θ) / (2 · S),   S = loss* / (N - P)
 
         Walkers are initialised in a tight Gaussian ball of radius
         ``spread * (high - low)`` around the best-fit point, then run for
@@ -1059,7 +1093,8 @@ class UncertaintyAnalyzer:
         lows, highs = self._bounds_arrays()
         x0 = self._best_vector()
         n_dim = len(x0)
-        scale_factor = self.get_scale_factor()
+
+        ci_loss_scale = self._get_normalised_scale_factor()
 
         n_walkers = max(n_walkers, 2 * n_dim + 2)
         if n_walkers % 2 != 0:
@@ -1068,7 +1103,7 @@ class UncertaintyAnalyzer:
         def log_prob(vec: np.ndarray) -> float:
             if np.any(vec < lows) or np.any(vec > highs):
                 return -np.inf
-            return -self._loss_from_vector(vec) / (2.0 * scale_factor)
+            return -self._loss_from_vector(vec) / (2.0 * ci_loss_scale)
 
         rng = np.random.default_rng(seed)
         p0 = x0 + spread * rng.standard_normal((n_walkers, n_dim)) * (highs - lows)

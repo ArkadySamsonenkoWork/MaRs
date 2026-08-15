@@ -1352,7 +1352,7 @@ class MultiOrientedInteraction(BaseInteraction):
 class SpinSystem(nn.Module):
     """Represents a spin system with electrons, nuclei, and interactions."""
     def __init__(self, electrons: tp.Union[list[particles.Electron], list[float]],
-                 g_tensors: list[BaseInteraction],
+                 g_tensors: tp.Optional[list[BaseInteraction]] = None,
                  nuclei: tp.Optional[tp.Union[list[particles.Nucleus], list[str]]] = None,
                  electron_nuclei: tp.Optional[list[tuple[int, int, BaseInteraction]]] = None,
                  electron_electron: tp.Optional[list[tuple[int, int, BaseInteraction]]] = None,
@@ -1373,6 +1373,7 @@ class SpinSystem(nn.Module):
         list[BaseInteraction]
             g-tensors corresponding to each electron in `electrons`.
             Each element must be an instance of `BaseInteraction` (e.g., `Interaction`).
+            Also, for a singlet state it can be passed as None. Default is None
 
         :param nuclei:
         list[Nucleus] | list[str], optional
@@ -1425,14 +1426,8 @@ class SpinSystem(nn.Module):
         complex_dtype = utils.float_to_complex_dtype(dtype)
 
         self.electrons = self._init_electrons(electrons, device, complex_dtype)
+        self.g_tensors = self._init_g_tensors(g_tensors, device, dtype)
 
-        if len(g_tensors) != len(self.electrons):
-            if len(self.electrons) == 1 and not self.electrons[0].spin:
-                pass
-            else:
-                raise ValueError("the number of g tensors must be equal to the number of electrons")
-
-        self.g_tensors = nn.ModuleList(g_tensors)
 
         self.nuclei = self._init_nuclei(nuclei, device, complex_dtype) if nuclei else []
         self.electron_nuclei_interactions = nn.ModuleList()
@@ -1467,6 +1462,39 @@ class SpinSystem(nn.Module):
 
         self.to(device)
         self.to(dtype)
+
+    def _init_g_tensors(self,
+                        g_tensors: tp.Optional[list[BaseInteraction]],
+                        device: torch.device, dtype: torch.dtype) -> nn.ModuleList:
+        """Initialize and validate electron g-tensors.
+
+        For a singlet-state system (a single spin-0 electron), `g_tensors`
+        may be `None` or an arbitrary g-tensor, and a warning is emitted.
+        """
+        is_singlet = len(self.electrons) == 1 and self.electrons[0].spin == 0
+
+        if is_singlet:
+            warnings.warn(
+                "A spin-0 electron creates a singlet-state system. "
+                "g-tensors are not physically meaningful for this system.",
+                UserWarning,
+            )
+
+        if g_tensors is None:
+            if is_singlet:
+                g_tensors = [Interaction(0.0, device=device, dtype=dtype)]
+                return nn.ModuleList(g_tensors)
+            raise ValueError("g_tensors must be provided for electrons with non-zero spin")
+
+        if len(g_tensors) != len(self.electrons):
+            if is_singlet:
+                raise ValueError(
+                    "For a singlet-state system (electrons=[0]), g_tensors must be "
+                    "None or a single arbitrary g-tensor (wrapped in a list)."
+                )
+            raise ValueError("the number of g tensors must be equal to the number of electrons")
+
+        return nn.ModuleList(g_tensors)
 
     def _register_interactions(self,
                                interactions: list[tuple[int, int, BaseInteraction]] | None,

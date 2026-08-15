@@ -51,6 +51,7 @@ autodoc_mock_imports = [
     "torchdiffeq",
     "safetensors",
     "pywt",
+    "emcee",
     
     # Visualization
     "seaborn",

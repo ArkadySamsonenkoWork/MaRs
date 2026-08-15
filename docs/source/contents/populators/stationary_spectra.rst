@@ -4,7 +4,7 @@ Stationary Spectra Population
 Overview
 --------
 
-The :class:`mars.population.stationary.StationaryPopulator` computes the population-dependent contribution to transition intensities for continuous-wave (CW) EPR spectroscopy.
+The :class:`mars.population.populators.stationary.StationaryPopulator` computes the population-dependent contribution to transition intensities for continuous-wave (CW) EPR spectroscopy.
 This populator calculates the population difference between upper and lower resonant levels, which determines the net absorption or emission intensity.
 
 Theory

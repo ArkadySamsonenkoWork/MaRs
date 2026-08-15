@@ -577,6 +577,7 @@ class BaseSpectraIntegrator(nn.Module):
                  natural_width: float = 1e-6, chunk_size=128, integration_level: int = 0,
                  clamp_width_factor: tp.Optional[float] = None,
                  computation_method: str = "mean",
+                 field_factor: float = 3.0,
                  device: torch.device = torch.device("cpu"), dtype: torch.dtype = torch.float32
                  ):
         """
@@ -602,6 +603,15 @@ class BaseSpectraIntegrator(nn.Module):
                    - 'mean' → evaluates line shape at effective field (centroid)
                    - 'analytical' → uses exact antiderivative over triangle or segment
         :type computation_method: str
+
+        :param field_factor: Scaling factor that controls the minimum contribution of the
+            spectral field resolution to the effective line width. Inside
+            ``_compute_effective_width`` the condition
+            ``width_eff² ≥ (field_factor * ΔB)²`` is enforced, where ΔB is the difference
+            between consecutive spectral field points. Default is 3.0, which ensures that
+            the effective width is at least three times the field step.
+        :type field_factor: float
+
         :param device: Computation device
         :type device: torch.device
         :param dtype: Floating point precision for computations
@@ -617,6 +627,7 @@ class BaseSpectraIntegrator(nn.Module):
             integration_level, computation_method, clamp_width_factor, device, dtype
         )
 
+        self.register_buffer("field_factor", torch.tensor(field_factor, device=device, dtype=dtype))
         self.register_buffer("pi_sqrt", torch.tensor(math.sqrt(math.pi), device=device, dtype=dtype))
         self.register_buffer("two_sqrt", torch.tensor(math.sqrt(2.0), device=device, dtype=dtype))
         self.register_buffer("three", torch.tensor(3.0, device=device, dtype=dtype))
@@ -716,6 +727,7 @@ class SphereSpectraIntegrator(BaseSpectraIntegrator):
                  integration_level: int = 0,
                  clamp_width_factor: tp.Optional[torch.Tensor] = None,
                  computation_method: str = "mean",
+                 field_factor: float = 3.0,
                  device: torch.device = torch.device("cpu"), dtype: torch.dtype = torch.float32):
         """
         Spectral integrator for general powder using triangle-based integration.
@@ -741,6 +753,15 @@ class SphereSpectraIntegrator(BaseSpectraIntegrator):
                    - 'mean' → evaluates line shape at effective field (centroid)
                    - 'analytical' → uses exact antiderivative over triangle or segment
         :type computation_method: str
+
+        :param field_factor: Scaling factor that controls the minimum contribution of the
+            spectral field resolution to the effective line width. Inside
+            ``_compute_effective_width`` the condition
+            ``width_eff² ≥ (field_factor * ΔB)²`` is enforced, where ΔB is the difference
+            between consecutive spectral field points. Default is 3.0, which ensures that
+            the effective width is at least three times the field step.
+        :type field_factor: float
+
         :param device: Computation device
         :type device: torch.device
         :param dtype: Floating point precision for computations
@@ -759,6 +780,7 @@ class SphereSpectraIntegrator(BaseSpectraIntegrator):
             torch.tensor(math.pow(1 / 3, integration_level), device=device, dtype=dtype)
         )
 
+        self.register_buffer("field_factor", torch.tensor(field_factor, device=device, dtype=dtype))
         self.multipliers, self.denominator = self._build_barycentric_numerators(integration_level)
 
     def _infty_ratio_factory(self, harmonic: int,
@@ -1049,7 +1071,7 @@ class SphereSpectraIntegrator(BaseSpectraIntegrator):
         :param spectral_field: The magnetic fields where spectra should be created. The shape is [...., N]
         :return: result: Tensor of shape (..., N) with the value of the integral for each B
         """
-        spectral_width = (spectral_field[..., 1] - spectral_field[..., 0]).mul_(3.0)
+        spectral_width = (spectral_field[..., 1] - spectral_field[..., 0]) * self.field_factor
         A_mean = A_mean * area
         B1, B2, B3 = torch.unbind(res_fields, dim=-1)
 
@@ -1102,6 +1124,7 @@ class AxialSpectraIntegrator(BaseSpectraIntegrator):
                  integration_level: int = 0,
                  clamp_width_factor: tp.Optional[torch.Tensor] = None,
                  computation_method: str = "mean",
+                 field_factor: float = 3.0,
                  device: torch.device = torch.device("cpu"), dtype: torch.dtype = torch.float32):
         """
         Spectral integrator for axial symmetry powder patterns using bi-centric integration.
@@ -1127,6 +1150,15 @@ class AxialSpectraIntegrator(BaseSpectraIntegrator):
                    - 'mean' → evaluates line shape at effective field (centroid)
                    - 'analytical' → uses exact antiderivative over triangle or segment
         :type computation_method: str
+
+        :param field_factor: Scaling factor that controls the minimum contribution of the
+            spectral field resolution to the effective line width. Inside
+            ``_compute_effective_width`` the condition
+            ``width_eff² ≥ (field_factor * ΔB)²`` is enforced, where ΔB is the difference
+            between consecutive spectral field points. Default is 3.0, which ensures that
+            the effective width is at least three times the field step.
+        :type field_factor: float
+
         :param device: Computation device
         :type device: torch.device
         :param dtype: Floating point precision for computations
@@ -1140,6 +1172,8 @@ class AxialSpectraIntegrator(BaseSpectraIntegrator):
         )
         self.register_buffer("two", torch.tensor(2.0, device=device, dtype=dtype))
         self.register_buffer("field_to_width", torch.tensor(3.0, device=device, dtype=dtype))
+
+        self.register_buffer("field_factor", torch.tensor(field_factor, device=device, dtype=dtype))
 
     def _infty_ratio_factory(self, harmonic: int,
                              gaussian_method: str,
@@ -1286,7 +1320,7 @@ class AxialSpectraIntegrator(BaseSpectraIntegrator):
         """
         A_mean = A_mean * area
         B1, B2 = torch.unbind(res_fields, dim=-1)
-        spectral_width = (spectral_field[..., 1] - spectral_field[..., 0]).mul_(3.0)
+        spectral_width = (spectral_field[..., 1] - spectral_field[..., 0]) * self.field_factor
 
         width = self._compute_effective_width(width, B1, B2, spectral_width)
         c_extended = self._width_to_gaussian_scale(width)
@@ -1388,7 +1422,7 @@ class MeanIntegrator(BaseSpectraIntegrator):
         :rtype: torch.Tensor
         """
         res_fields = res_fields.squeeze(-1)
-        spectral_width = (spectral_field[..., 1] - spectral_field[..., 0]).mul_(3.0)
+        spectral_width = (spectral_field[..., 1] - spectral_field[..., 0]) * self.field_factor
         width = self._compute_effective_width(width, spectral_width)
         A_mean = A_mean * area
         c_extended = self._width_to_gaussian_scale(width)

@@ -276,6 +276,13 @@ class ComputationalDetails:
         Prevents division-by-zero or extreme sharpening when user-provided widths are
         very small or zero. Also it can be used as substitution for ordinary gaussian broadaning in the sample.
 
+    field_factor: Scaling factor that controls the minimum contribution of the
+            spectral field resolution to the effective line width. Inside
+            ``_compute_effective_width`` the condition
+            ``width_eff² ≥ (field_factor * dB)^2`` is enforced, where ΔB is the difference
+            between consecutive spectral field points. Default is 3.0, which ensures that
+            the effective width is at least three times the field step.
+
     integration_clamp_width_factor : float or None, optional
         Controls how strongly geometric broadening is enforced in the effective linewidth.
         The effective width combines natural width and field spread across orientations.
@@ -312,13 +319,14 @@ class ComputationalDetails:
         The number of discretization steps used in the propagator computation to
         average the signal over rotations around the z-axis. This parameter controls
         the sampling density of the third Euler angle (γ) during orientational averaging.
-
     """
     integration_chunk_size: int = 128
     integration_gaussian_cutoff: float = 2.24
     integration_gaussian_method: str = "exp"
     integration_level: int = 0
     integration_natural_width: float = 1e-5
+    field_factor: int = 3
+
     integration_clamp_width_factor: tp.Optional[float] = None
     integration_computation_method: str = "mean"
     res_field_r_tol: float = 1e-5
@@ -768,6 +776,7 @@ class PowderStationaryProcessing(BaseResProcessing):
                                               integration_level=computational_details.integration_level,
                                               clamp_width_factor=computational_details.integration_clamp_width_factor,
                                               computation_method=computational_details.integration_computation_method,
+                                              field_factor=computational_details.field_factor,
                                               device=device, dtype=dtype)
             return SphereSpectraIntegrator(
                 harmonic,
@@ -777,6 +786,7 @@ class PowderStationaryProcessing(BaseResProcessing):
                 integration_level=computational_details.integration_level,
                 clamp_width_factor=computational_details.integration_clamp_width_factor,
                 computation_method=computational_details.integration_computation_method,
+                field_factor=computational_details.field_factor,
                 device=device, dtype=dtype)
         return spectra_integrator
 
@@ -941,6 +951,7 @@ class CrystalStationaryProcessing(BaseResProcessing):
                                   natural_width=computational_details.integration_natural_width,
                                   clamp_width_factor=computational_details.integration_clamp_width_factor,
                                   computation_method=computational_details.integration_computation_method,
+                                  field_factor=computational_details.field_factor,
                                   device=device)
         else:
             return spectra_integrator

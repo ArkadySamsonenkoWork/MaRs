@@ -263,3 +263,100 @@ def normalize_spectrum2d(
             return safe_copy(y)
         return y / denom
     raise ValueError(f"Unknown norm mode: {mode}")
+
+
+import numpy as np
+import torch
+from typing import Union
+
+def fourier_transform_time(
+    time: Union[np.ndarray, torch.Tensor],
+    signal: Union[np.ndarray, torch.Tensor],
+    axis: int = 0,
+    return_angular: bool = True,
+    shift: bool = False,
+    positive_only: bool = False
+):
+    """
+    Compute Fourier transform of a time-domain signal.
+
+    :param time: 1D array of uniformly spaced time points.
+                 Can be numpy.ndarray or torch.Tensor.
+    :param signal: Signal to transform. Can be real or complex.
+                   For 1D: shape (n_time,).
+                   For 2D EPR data with time as first dimension: shape (n_time, n_field).
+                   The time dimension is specified by `axis`.
+                   Can be numpy.ndarray or torch.Tensor.
+    :param axis: Axis along which the time dimension lies.
+                 Default is 0.
+    :param return_angular: If True, return angular frequencies in rad/s (ω = 2πf).
+                           If False, return frequencies in Hz.
+                           Default is True.
+    :param shift: If True, apply `fftshift` to both frequencies and the transform,
+                  so that zero frequency is at the centre.
+                  Default is False.
+    :param positive_only: If True, return only non‑negative frequencies
+                          (0 … Nyquist). For real signals this halves the data;
+                          for complex signals it discards negative frequencies.
+                          Default is False.
+
+    :return: A tuple (freqs, ft)
+             - freqs : frequency array (1D). Shape is M = n_time (full)
+                       or M = n_time//2+1 (positive only).
+             - ft    : Fourier transform of `signal` along the time axis.
+                       Complex‑valued. Shape is the same as `signal` but with
+                       the time dimension replaced by the frequency dimension.
+                       For your 2D data (n_time, n_field) with axis=0,
+                       ft shape becomes (M, n_field).
+    """
+    is_torch = isinstance(signal, torch.Tensor)
+    if is_torch:
+        fft = torch.fft
+        if not isinstance(time, torch.Tensor):
+            time = torch.as_tensor(time, dtype=torch.float)
+    else:
+        fft = np.fft
+
+    N = signal.shape[axis]
+    dt = float((time[1] - time[0]).item() if is_torch else time[1] - time[0])
+
+    if positive_only:
+        freqs = fft.rfftfreq(N, d=dt)
+    else:
+        freqs = fft.fftfreq(N, d=dt)
+
+    if return_angular:
+        freqs = freqs * (2 * np.pi)
+
+    if positive_only:
+        if is_torch:
+            if signal.ndim > 1:
+                ft = fft.rfftn(signal, dim=(axis,))
+            else:
+                ft = fft.rfft(signal, dim=axis)
+        else:
+            if signal.ndim > 1:
+                ft = fft.rfftn(signal, axes=(axis,))
+            else:
+                ft = fft.rfft(signal, axis=axis)
+    else:
+        if is_torch:
+            if signal.ndim > 1:
+                ft = fft.fftn(signal, dim=(axis,))
+            else:
+                ft = fft.fft(signal, dim=axis)
+        else:
+            if signal.ndim > 1:
+                ft = fft.fftn(signal, axes=(axis,))
+            else:
+                ft = fft.fft(signal, axis=axis)
+
+    if shift:
+        if is_torch:
+            freqs = fft.fftshift(freqs)
+            ft = fft.fftshift(ft, dim=axis)
+        else:
+            freqs = fft.fftshift(freqs)
+            ft = fft.fftshift(ft, axes=axis)
+
+    return freqs, ft
