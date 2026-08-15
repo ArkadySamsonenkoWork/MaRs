@@ -200,43 +200,49 @@ lower and upper level of a transition) is
 
 The computation proceeds as follows.
 
-1. **Build the rate matrix**  
-   Construct :math:`K` once (it is time‑independent).  
+1. **Build the rate matrix**
 
-2. **Eigen‑decomposition**  
-   Compute :math:`\lambda_k` and :math:`S` from :math:`K`.  
+   Construct :math:`K` once (it is time-independent).
 
-   * Cost: :math:`\mathcal{O}(N^3)` — the dominant step.  
+2. **Eigen-decomposition**
+
+   Compute :math:`\lambda_k` and :math:`S` from :math:`K`.
+
+   * Cost: :math:`\mathcal{O}(N^3)` — the dominant step.
 
    * Memory: :math:`\mathcal{O}(N^2)` for the eigenvector matrix.
 
-3. **Solve for coefficients**  
-   Obtain :math:`c` by solving the linear system :math:`S\,c = n(0)`.  
+3. **Solve for coefficients**
+
+   Obtain :math:`c` by solving the linear system :math:`S\,c = n(0)`.
    Solving the system (one LU factorisation) costs :math:`\mathcal{O}(N^3)`, but is done
    only once.
 
    * Memory: :math:`\mathcal{O}(N)` for the coefficient vector.
 
-4. **Evolve coefficients in time**  
-   For each time point :math:`t` in the requested grid, compute the vector
-   :math:`e^{\lambda_k t}` for all :math:`k`.  This is an element‑wise operation of
-   length :math:`N`, repeated for :math:`T` time points.  
+4. **Evolve coefficients in time**
 
-   * Cost: :math:`\mathcal{O}(T N)` in total.  
+   For each time point :math:`t` in the requested grid, compute the vector
+   :math:`e^{\lambda_k t}` for all :math:`k`. This is an element-wise operation of
+   length :math:`N`, repeated for :math:`T` time points.
+
+   * Cost: :math:`\mathcal{O}(T N)` in total.
 
    * Memory: a tensor of shape :math:`[T, \ldots, N]` for the exponential factors,
-   i.e. :math:`\mathcal{O}(T N)` (not :math:`\mathcal{O}(T N^2)`).  
+     i.e. :math:`\mathcal{O}(T N)` (not :math:`\mathcal{O}(T N^2)`).
 
-5. **Assemble the observable**  
-   Compute the weight vector :math:`w_k = S_{\mathrm{lvl\_down},k} - S_{\mathrm{lvl\_up},k}`
-   (length :math:`N`).  Then form the dot product with the time‑evolved coefficients
-   and take the real part to obtain :math:`\Delta n(t)` for each time point.  
+5. **Assemble the observable**
 
-   * Cost: :math:`\mathcal{O}(T N)` (one dot product per time point).  
+   Compute the weight vector
+   :math:`w_k = S_{\mathrm{lvl\_down},k} - S_{\mathrm{lvl\_up},k}`
+   (length :math:`N`). Then form the dot product with the time-evolved coefficients
+   and take the real part to obtain :math:`\Delta n(t)` for each time point.
+
+   * Cost: :math:`\mathcal{O}(T N)` (one dot product per time point).
 
    * Memory: only the output signal of length :math:`T`.
 
-Steps 2–4 are independent of the time grid and are performed once
+Steps 2-4 are independent of the time grid and are performed once.
 
 Quasi-Stationary Solution
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -292,30 +298,32 @@ The eigen-decomposition used by ``stationary_rate_solver`` (see
 :ref:`diagonalizability_order` above) requires K to be diagonalizable, i.e. to have a
 complete set of N linearly independent eigenvectors so that S is invertible. This is not
 guaranteed for an arbitrary matrix, but it does hold in the two cases relevant to this
-library.
+library:
 
 * Symmetric matrices are always diagonalizable. By the spectral theorem, any real
-symmetric matrix has a complete set of orthogonal eigenvectors and real eigenvalues, so S
-is not merely invertible but can be chosen orthogonal (:math:`S^{-1} = S^{T}`).
+  symmetric matrix has a complete set of orthogonal eigenvectors and real eigenvalues,
+  so S is not merely invertible but can be chosen orthogonal
+  (:math:`S^{-1} = S^{T}`).
 
 * A thermalized rate matrix is diagonalizable. The thermal part W of K is constructed
-to satisfy detailed balance with respect to the Boltzmann populations
-:math:`p_i^{\text{eq}} \propto \exp(-E_i / k_B T)`:
+  to satisfy detailed balance with respect to the Boltzmann populations
+  :math:`p_i^{\text{eq}} \propto \exp(-E_i / k_B T)`:
 
-.. math::
+  .. math::
 
-   \frac{w_{ij}}{w_{ji}} = \exp\left(-\frac{E_i - E_j}{k_B T}\right)
-                          = \frac{p_i^{\text{eq}}}{p_j^{\text{eq}}}
+     \frac{w_{ij}}{w_{ji}} = \exp\left(-\frac{E_i - E_j}{k_B T}\right)
+                            = \frac{p_i^{\text{eq}}}{p_j^{\text{eq}}}
 
-Define :math:`D = \mathrm{diag}\!\left(\sqrt{p_1^{\text{eq}}}, \ldots, \sqrt{p_N^{\text{eq}}}\right)`.
-A direct substitution shows that :math:`\hat{W} \equiv D^{-1} W D` is symmetric:
+  Define :math:`D = \mathrm{diag}\!\left(\sqrt{p_1^{\text{eq}}}, \ldots, \sqrt{p_N^{\text{eq}}}\right)`.
+  A direct substitution shows that :math:`\hat{W} \equiv D^{-1} W D` is symmetric.
 
-* If K is defective (not diagonizable) :math:`\mathrm{cond}(S) \to \infty`, the
+If K is defective (not diagonalizable), :math:`\mathrm{cond}(S) \to \infty`, the
 eigen-based solution can lose all significant digits even though the underlying floating
 point arithmetic itself is exact. Physically this also reflects a real property of the
-kinetic model - tiny changes in the rate constants can strongly change relaxation times and mode amplitudes, so the model
-itself is structurally sensitive to the (experimentally uncertain) rate parameters.
-In this regime, use ``EvolutionPopulationSolver.stationary_rate_solver_expm``, which computes
+kinetic model - tiny changes in the rate constants can strongly change relaxation times
+and mode amplitudes, so the model itself is structurally sensitive to the
+(experimentally uncertain) rate parameters. In this regime, use
+``EvolutionPopulationSolver.stationary_rate_solver_expm``, which computes
 :math:`\exp(Kt)` directly (via matrix exponentiation, without eigen-decomposition) and
 remains mathematically valid for defective matrices, at the cost of being slower.
 
