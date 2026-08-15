@@ -81,16 +81,11 @@ as
    = F + (B_0 g_{zz} \beta - h \omega_{\mathrm{rf}}) S_Z + \frac{B_1}{2}G_X,
 
 where :math:`F` is the static spin Hamiltonian in the eigenbasis used by the propagator, and the factor :math:`1/2` comes
-from the resonant component of a linearly oscillating field,
-
-Here and further: gxx, gyy, gzz are diagonal elements of g-tensor in the sample frame.
+from the resonant component of a linearly oscillating field. Here and further: gxx, gyy, gzz are diagonal elements of g-tensor in the sample frame.
 
 .. math::
 
    \cos(\omega t)=\frac{e^{i\omega t}+e^{-i\omega t}}{2}.
-
-The implementation makes this scaling explicit in
-:meth:`RWADensityPopulator._compute_rabi_magnetic_scale`.
 
 Constraints and Limitations
 ----------------------------
@@ -173,15 +168,13 @@ linearly polarized field contains two counter-rotating components:
    = \frac{B_1}{2}e^{i\omega t}+\frac{B_1}{2}e^{-i\omega t}.
 
 The RWA keeps the component rotating in the resonant direction. The omitted term rotates
-at approximately :math:`2\omega` in the chosen frame. The approximation is therefore
-controlled by the separation between the fast counter-rotating motion and the dynamical
-scales resolved by the simulation.
+at approximately :math:`2\omega` in the chosen frame.
 
 Commutation with the static Hamiltonian
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For the rotating transformation to leave the static part invariant, the implementation
-requires the relevant symmetry condition
+requires the relevant condition
 
 .. math::
 
@@ -316,7 +309,7 @@ we make a further simplification for each orientation: :math:`g_{xx} \approx g_{
 This additional approximation affects the line intensities but not their positions.
 
 For disordered samples, spectra are averaged over molecular orientations
-:math:`(\alpha,\beta)` in Euler angle in ``"zyz'"`` notation. Averaging over
+:math:`(\alpha,\beta)` in Euler angle in :math:`zyz'` notation. Averaging over
 :math:`\gamma` reduces to averaging the initial density matrix: under the RWA,
 this dependence can be represented by the unitary rotation
 :math:`e^{i\gamma S_Z}` applied to the initial density matrix. Consequently,
@@ -329,7 +322,7 @@ Let consider it:
 
    W_\gamma=e^{iS_Z\gamma}.
 
-Let the reference RWA Hamiltonian be
+Let the reference RWA Hamiltonian be:
 
 .. math::
 
@@ -477,7 +470,7 @@ If :math:`M` is time-independent, then
 
    \mathbf n(t)=e^{Mt}\mathbf n_0.
 
-:meth:`EvolutionRWASolver.stationary_rate_solver` diagonalizes :math:`M` and evaluates the
+:meth:`mars.population.tr_utils.EvolutionRWASolver.stationary_rate_solver` diagonalizes :math:`M` and evaluates the
 exponential through its eigenmodes.
 
 Stationary matrix exponential
