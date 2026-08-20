@@ -225,7 +225,7 @@ class DensityRWAGenerator(BaseGenerator):
 
     The full Liouvillian is L = -i[H, ·] + R_thermal + R_driven, where [·,·] is the commutator,
     and R terms are relaxation superoperators.
-    H is defined in rotating frame and equel to H =
+    H is defined in rotating frame and equel to H = H0 - wGz + gxx * B1 * GX/2
 
     Unlike population-based models, this class preserves quantum coherences and operates on vectorized
     density matrices of size N^2 x N^2.

@@ -258,7 +258,6 @@ class TrialsTracker:
         self._penalized_losses.append(loss)
         self.step += 1
 
-        # Optional: print progress
         if self.step % 10 == 0:
             print(f"Step {self.step}: Loss = {loss:.6f}")
 
@@ -280,9 +279,9 @@ class TrialsTracker:
         losses = self._get_losses_for_output()
         best_idx = np.argmin(losses)
         return {
-            '_trial_id': best_idx + 1,
-            'params': self.trials[best_idx],
-            'value': losses[best_idx]
+            "_trial_id": best_idx + 1,
+            "params": self.trials[best_idx],
+            "value": losses[best_idx]
         }
 
     def get_all_trials(self):
@@ -290,20 +289,28 @@ class TrialsTracker:
         losses = self._get_losses_for_output()
         return [
             {
-                '_trial_id': i + 1,
-                'params': trial,
-                'value': loss
+                "_trial_id": i + 1,
+                "params": trial,
+                "value": loss
             }
             for i, (trial, loss) in enumerate(zip(self.trials, losses))
         ]
 
 
-class LogTransform:
+class Transform(tp.Protocol):
     def __call__(self, x: float) -> float:
-        return math.pow(10, x)
+        pass
 
     def inverse(self, y: float) -> float:
-        return math.log(y)
+        pass
+
+
+class LogTransform(Transform):
+    def __call__(self, x: float) -> float:
+        return math.log10(x)
+
+    def inverse(self, y: float) -> float:
+        return math.pow(10, y)
 
 
 @dataclass
@@ -317,8 +324,8 @@ class ParamSpec:
 
         default: optional default value to use for initialization
 
-        transform: optional callable applied to a raw optimizer value to map
-                   it to the physical parameter (for example, log-scales)
+        transform: optional callable applied to a physical values to map them with optimizer/raw values
+                   (for example, log-scales)
 
         vary: bool: Whether the parameter should vary or not.
         In the latter case, this is equivalent to specifying the parameter in fixed_parameters.
@@ -327,7 +334,7 @@ class ParamSpec:
     name: str
     bounds: tp.Tuple[float, float]
     default: tp.Optional[float] = None
-    transform: tp.Optional[tp.Callable[[float], float]] = None
+    transform: tp.Optional[Transform] = None
     vary: bool = True
 
     def clip(self, x: float) -> float:
@@ -340,19 +347,70 @@ class ParamSpec:
 
     def apply(self, x: float) -> float:
         """
-        Gives the real value if transformed is skipped or return trasformed value
-        :param x:
+        Gives the real value if transformed is skipped or return value transformed from raw/optimizer to physical space
+        :param x: the vales given in optimizer space that should be transformed into physical space
         :return:
         """
-        x = self.clip(x)
-        return self.transform(x) if self.transform is not None else x
+        x = self.transform.inverse(x) if self.transform is not None else x
+        return self.clip(x)
 
     def set_bounds(self, bounds: tp.Tuple[float, float]):
         """Update the bounds for this parameter spec."""
         self.bounds = bounds
 
+    def raw_bounds(self) -> tp.Tuple[float, float]:
+        """Bounds in the raw/search space that optimizers should sample from.
+        Equal to `bounds` unless a transform is set, in which case they are
+        the inverse-transformed physical bounds."""
+        lo, hi = self.bounds
+        if self.transform is not None:
+            lo, hi = self.transform(lo), self.transform(hi)
+        return lo, hi
+
+    def raw_default(self) -> float:
+        """Starting point in raw/search space corresponding to `default`
+        (or the midpoint of `bounds` if no default was given)."""
+        if self.default is not None:
+            val = float(self.default)
+        else:
+            lo, hi = self.bounds
+            val = 0.5 * (lo + hi)
+        if self.transform is not None:
+            val = self.transform(val)
+        return val
+
 
 class ParameterSpace:
+    """
+    A collection of fixed and varying scalar parameters.
+
+    Each varying parameter is described by a :class:`ParamSpec`. Bounds and
+    default values are always specified in the final (physical) space,
+    regardless of whether a parameter has a transform attached — a
+    transform only changes the space an optimizer searches internally.
+
+    Example
+    -------
+    Define a space with two varying parameters: ``g_factor`` with plain
+    bounds, and ``gauss`` with bounds searched  in log-space internally::
+
+        specs = [
+            ParamSpec(name="g_factor", bounds=(2.00, 2.01), default=2.005),
+            ParamSpec(
+                name="gauss",
+                bounds=(1e-4, 1e-3),
+                default=5e-4,
+                transform=LogTransform(),
+            ),
+        ]
+        space = ParameterSpace(specs)
+
+        space["g_factor"]   # 2.005
+        space["gauss"]      # 0.0005
+
+    Both parameters are read and written in physical units; the log-space
+    handling for ``gauss`` happens internally.
+    """
     print_precision: int = 4
 
     def __init__(self, specs: tp.Sequence[ParamSpec],
@@ -413,25 +471,6 @@ class ParameterSpace:
     def __dict__(self) -> dict[str, float]:
         return {**self.varying_params, **self.fixed_params}
 
-    @classmethod
-    def from_json_dict(cls, data: dict) -> "ParameterSpace":
-        """Reconstruct a ParameterSpace from a dictionary."""
-        specs = []
-        transform_registry = {"LogTransform": LogTransform()}
-        for s_dict in data["specs"]:
-            transform = None
-            if "transform" in s_dict:
-                transform = transform_registry.get(s_dict["transform"])
-            spec = ParamSpec(
-                name=s_dict["name"],
-                bounds=tuple(s_dict["bounds"]),
-                default=s_dict.get("default"),
-                transform=transform,
-                vary=s_dict.get("vary", True),
-            )
-            specs.append(spec)
-        return cls(specs, fixed_params=data.get("fixed_params"))
-
     def __iter__(self):
         return iter(self.__dict__().items())
 
@@ -491,6 +530,56 @@ class ParameterSpace:
 
         return text
 
+    @classmethod
+    def from_json_dict(cls, data: dict) -> "ParameterSpace":
+        """Reconstruct a ParameterSpace from a dictionary."""
+        specs = []
+        transform_registry = {"LogTransform": LogTransform()}
+        for s_dict in data["specs"]:
+            transform = None
+            if "transform" in s_dict:
+                transform = transform_registry.get(s_dict["transform"])
+            spec = ParamSpec(
+                name=s_dict["name"],
+                bounds=tuple(s_dict["bounds"]),
+                default=s_dict.get("default"),
+                transform=transform,
+                vary=s_dict.get("vary", True),
+            )
+            specs.append(spec)
+        return cls(specs, fixed_params=data.get("fixed_params"))
+
+    def to_json_dict(self) -> dict:
+        """Convert ParameterSpace to a JSON-serializable dictionary."""
+        specs_data = []
+        for s in self.specs:
+            spec_dict = {
+                "name": s.name,
+                "bounds": list(s.bounds),
+                "default": s.default,
+                "vary": getattr(s, "vary", True),
+            }
+            if s.transform is not None:
+                spec_dict["transform"] = s.transform.__class__.__name__
+            specs_data.append(spec_dict)
+
+        return {
+            "specs": specs_data,
+            "fixed_params": self.fixed_params,
+        }
+
+    def save(self, path: tp.Union[str, pathlib.Path]) -> None:
+        """Save the parameter space to a JSON file."""
+        with open(path, "w") as f:
+            json.dump(self.to_json_dict(), f, indent=2)
+
+    @classmethod
+    def load(cls, path: str) -> "ParameterSpace":
+        """Load a parameter space from a JSON file."""
+        with open(path, "r") as f:
+            data = json.load(f)
+        return cls.from_json_dict(data)
+
     def copy(self):
         return copy.deepcopy(self)
 
@@ -529,7 +618,8 @@ class ParameterSpace:
         self.varying_params = {s.name: s.default for s in self._varying_specs}
 
     def vector_to_dict(self, vec: tp.Sequence[float]) -> tp.Dict[str, float]:
-        """Convert an optimizer vector (ordered only over *varying* params).
+        """Convert an optimizer vector of raw/optimizer space values
+        (ordered only over *varying* params).
 
         into a full parameter dict that includes fixed parameters.
         """
@@ -541,7 +631,8 @@ class ParameterSpace:
         return out
 
     def varying_vector_to_dict(self, vec: tp.Sequence[float]) -> tp.Dict[str, float]:
-        """Convert an optimizer vector (ordered only over *varying* params).
+        """Convert an optimizer vector raw/optimizer space values
+        (ordered only over *varying* params).
 
         into a full parameter dict that includes fixed parameters.
         """
@@ -554,16 +645,6 @@ class ParameterSpace:
 
     def dict_to_vector(self, params: tp.Dict[str, float]) -> np.ndarray:
         return np.array([params[n] for n in self.varying_names], dtype=float)
-
-    def defaults_vector(self) -> np.ndarray:
-        vals = []
-        for s in self._varying_specs:
-            if s.default is not None:
-                vals.append(float(s.default))
-            else:
-                lo, hi = s.bounds
-                vals.append(0.5 * (lo + hi))
-        return np.array(vals, dtype=float)
 
     def _set_single_bounds(self, param_name: str, bounds: tp.Tuple[float, float]):
         """
@@ -637,53 +718,23 @@ class ParameterSpace:
             self._set_single_bounds(param_name, bounds)
 
     def suggest_optuna(self, trial) -> tp.Dict[str, float]:
-        out = dict(self.fixed_params)  # start with fixed
+        out = dict(self.fixed_params)
         for s in self._varying_specs:
-            lo, hi = s.bounds
+            lo, hi = s.raw_bounds()
             val = trial.suggest_float(s.name, lo, hi)
             out[s.name] = s.apply(val)
         return out
 
     def get_optuna_distributions(self) -> tp.Dict[str, optuna.distributions.FloatDistribution]:
-        return {s.name: optuna.distributions.FloatDistribution(*s.bounds) for s in self._varying_specs}
+        return {s.name: optuna.distributions.FloatDistribution(*s.raw_bounds())
+                for s in self._varying_specs}
 
     def instrument_nevergrad(self) -> ng.p.Instrumentation:
         params = []
         for s in self._varying_specs:
-            lo, hi = s.bounds
-            params.append(ng.p.Scalar(lower=lo, upper=hi))
+            lo, hi = s.raw_bounds()
+            params.append(ng.p.Scalar(lower=lo, upper=hi, init=s.raw_default()))
         return ng.p.Instrumentation(*params)
-
-    def to_json_dict(self) -> dict:
-        """Convert ParameterSpace to a JSON-serializable dictionary."""
-        specs_data = []
-        for s in self.specs:
-            spec_dict = {
-                "name": s.name,
-                "bounds": list(s.bounds),
-                "default": s.default,
-                "vary": getattr(s, "vary", True),
-            }
-            if s.transform is not None:
-                spec_dict["transform"] = s.transform.__class__.__name__
-            specs_data.append(spec_dict)
-
-        return {
-            "specs": specs_data,
-            "fixed_params": self.fixed_params,
-        }
-
-    def save(self, path: tp.Union[str, pathlib.Path]) -> None:
-        """Save the parameter space to a JSON file."""
-        with open(path, "w") as f:
-            json.dump(self.to_json_dict(), f, indent=2)
-
-    @classmethod
-    def load(cls, path: str) -> "ParameterSpace":
-        """Load a parameter space from a JSON file."""
-        with open(path, "r") as f:
-            data = json.load(f)
-        return cls.from_json_dict(data)
 
 
 def convert_backend_kwargs(

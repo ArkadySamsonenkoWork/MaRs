@@ -64,7 +64,7 @@ def _radii_loss_based(
         - L_min is the loss at the minimum.
         - α (>0) is a local curvature (steepness) parameter.
 
-    The curvature α is estimated from the k_neighbors nearest neighbours
+    The curvature α is estimated from the k nearest neighbours
     (among all recorded points) using least squares forced through zero:
 
         α = Σ(Δ_j * d_j^2) / Σ(d_j^4)
@@ -218,7 +218,7 @@ class RepulsivePenalty:
     detecting local minima, and recomputing their basin radii.
 
     The penalty for a candidate point x is:
-        penalty = strength * Σ_i exp( -||x_scaled - center_i||² / (2 * σ_i²) )
+        penalty = strength * Σ_i exp( -||x_scaled - center_i||^2 / (2 * σ_i^2) )
 
     where center_i and σ_i are the scaled coordinates and radius of the i‑th minimum.
     """

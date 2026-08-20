@@ -1,4 +1,5 @@
 import typing as tp
+import warnings
 from functools import wraps
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
@@ -3411,8 +3412,17 @@ class DensityTimeSpectra(CoupledTimeSpectra):
         lvl_down, lvl_up, resonance_energies, vector_down, vectors_up, *extras = extras
         Sz = sample.base_spin_system.get_electron_z_operator()
 
-        res_fields, resonance_energies = self._nan_to_zeros(res_fields, resonance_energies)
+        if resonance_energies.dtype == torch.float32:
+            warnings.warn(
+                "Using float32 for density-matrix population computations can lead to "
+                "incorrect results, especially for long evolution times and when using "
+                "propagator-based methods. We  recommend using float64 precision, "
+                "or at least verify your results against a double-precision calculation.",
+                RuntimeWarning,
+                stacklevel=2
+            )
 
+        res_fields, resonance_energies = self._nan_to_zeros(res_fields, resonance_energies)
         population = self.intensity_calculator.compute_population(
             time, res_fields, lvl_down, lvl_up,
             resonance_energies, vector_down, vectors_up,

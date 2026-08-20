@@ -150,7 +150,7 @@ Unlike the RWA method, the propagator approach makes no simplifying assumptions 
 Consequently, the signal depends on all three Euler angles, and the :math:`\gamma` integration must be performed numerically.
 
 Full numerical integration over :math:`\gamma \in [0,2\pi]` is therefore the
-default, implemented as a Riemann sum over polarizations :math:`\hat{G}_\perp = \hat{G}_x\cos\phi + \hat{G}_y\sin\phi`. The number of :math:`\gamma` points can be controlled via the
+default, implemented as a Riemann sum over polarizations :math:`\hat{G}_\perp = \hat{G}_x\cos\gamma + \hat{G}_y\sin\gamma`. The number of :math:`\gamma` points can be controlled via the
 ``angle_average_steps`` parameter of
 :class:`mars.population.populators.density_population.PropagatorDensityPopulator`:
 

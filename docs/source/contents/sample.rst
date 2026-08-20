@@ -93,11 +93,11 @@ Explicitly, these operators are defined as:
 .. math::
 
    \begin{aligned}
-   G_x &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,xx} \hat{S}_i^{(x)} + g_{i,xy} \hat{S}_i^{(y)} + g_{i,xz} \hat{S}_i^{(z)} \right)
+   G_X &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,xx} \hat{S}_i^{(x)} + g_{i,xy} \hat{S}_i^{(y)} + g_{i,xz} \hat{S}_i^{(z)} \right)
          + \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(x)}, \\
-   G_y &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,yx} \hat{S}_i^{(x)} + g_{i,yy} \hat{S}_i^{(y)} + g_{i,yz} \hat{S}_i^{(z)} \right)
+   G_Y &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,yx} \hat{S}_i^{(x)} + g_{i,yy} \hat{S}_i^{(y)} + g_{i,yz} \hat{S}_i^{(z)} \right)
          + \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(y)}, \\
-   G_z &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,zx} \hat{S}_i^{(x)} + g_{i,zy} \hat{S}_i^{(y)} + g_{i,zz} \hat{S}_i^{(z)} \right)
+   G_Z &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,zx} \hat{S}_i^{(x)} + g_{i,zy} \hat{S}_i^{(y)} + g_{i,zz} \hat{S}_i^{(z)} \right)
          + \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(z)},
    \end{aligned}
 
@@ -118,17 +118,17 @@ You can retrieve them directly:
 .. code-block:: python
 
    # Full Hamiltonian decomposition
-   F, Gx, Gy, Gz = sample.get_hamiltonian_terms()
+   F, G_X, G_Y, G_Z = sample.get_hamiltonian_terms()
 
    # Secular approximation: only retain elements of F that commute with Gz.
    #   1. Zero non-commuting elements in Zeeman terms (Gx/Gy/Gz) with respect to spin projections, making Gx,y,z[Sx,y,z == 0] = 0
    #   2. Zero non-commuting elements in F with respect to Gz, making F[Gz == 0] = 0
-   F_sec, Gx, Gy, Gz = sample.get_hamiltonian_terms_secular()
+   F_sec, G_X, G_Y, G_Z sample.get_hamiltonian_terms_secular()
 
 The secular approximation modifies the Hamiltonian terms in two steps:
 
 1. Zeeman term modification  
-   For each component :math:`\alpha \in \{x, y, z\}`, matrix elements of :math:`G_\alpha` are zeroed where the corresponding spin projection operator :math:`S_\alpha` has negligible magnitude:
+   For each component :math:`\alpha \in \{X, Y, Z\}`, matrix elements of :math:`G_\alpha` are zeroed where the corresponding spin projection operator :math:`S_\alpha` has negligible magnitude:
    
    .. math::
    
@@ -141,7 +141,7 @@ The secular approximation modifies the Hamiltonian terms in two steps:
    This enforces approximate commutation :math:`[G_\alpha, S_\alpha] \approx 0`. For single spins with isotropic g-tensors this is exact. For anisotropic cases it retains only the diagonal part of the g-tensor.
 
 2. Zero-field term modification 
-   Matrix elements of :math:`F` are zeroed where diagonal elements of :math:`G_z` differ:
+   Matrix elements of :math:`F` are zeroed where diagonal elements of :math:`G_Z` differ:
    
    .. math::
    

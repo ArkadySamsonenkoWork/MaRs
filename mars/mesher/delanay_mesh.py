@@ -421,9 +421,9 @@ class BarycentricInterpolator(BaseInterpolator):
 
         P_bt = P[:, None, :]
 
-        d1 = np.einsum('mij,tj->mt', P_bt, n_ab)
-        d2 = np.einsum('mij,tj->mt', P_bt, n_bc)
-        d3 = np.einsum('mij,tj->mt', P_bt, n_ca)
+        d1 = np.einsum("mij,tj->mt", P_bt, n_ab)
+        d2 = np.einsum("mij,tj->mt", P_bt, n_bc)
+        d3 = np.einsum("mij,tj->mt", P_bt, n_ca)
 
         tol = self.tol
         inside_mask = (d1 >= -tol) & (d2 >= -tol) & (d3 >= -tol)  # (M, T)
@@ -472,10 +472,10 @@ class BarycentricInterpolator(BaseInterpolator):
         """
 
         cross_vw = np.cross(v, w)
-        num = np.abs(np.einsum('...i,...i->...', u, cross_vw))
-        dot_uv = np.einsum('...i,...i->...', u, v)
-        dot_vw = np.einsum('...i,...i->...', v, w)
-        dot_wu = np.einsum('...i,...i->...', w, u)
+        num = np.abs(np.einsum("...i,...i->...", u, cross_vw))
+        dot_uv = np.einsum("...i,...i->...", u, v)
+        dot_vw = np.einsum("...i,...i->...", v, w)
+        dot_wu = np.einsum("...i,...i->...", w, u)
         denom = 1.0 + dot_uv + dot_vw + dot_wu
         return 2.0 * np.arctan2(num, denom)
 

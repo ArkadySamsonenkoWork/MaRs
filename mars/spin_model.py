@@ -253,7 +253,7 @@ def concat_multioriented_samples(samples: tp.Sequence[MultiOrientedSample], mode
     Concatenate multiple powder-averaged spin samples into a single block-diagonal sample.
 
     Each input sample is first rotated from its molecular frame to the lab frame using its
-    `spin_system_frame`, then all are combined into a block-diagonal spin system.
+    `molecular_frame`, then all are combined into a block-diagonal spin system.
     The resulting sample shares the same broadening parameters (`lorentz`, `gauss`, `ham_strain`)
     and orientation mesh as the reference sample.
 
@@ -297,8 +297,8 @@ def concat_multioriented_samples(samples: tp.Sequence[MultiOrientedSample], mode
     spin_systems = []
     for sample in samples:
         spin_system = copy.deepcopy(sample.base_spin_system)
-        if sample.spin_system_rot_matrix is not None:
-            spin_system.apply_rotation(sample.spin_system_rot_matrix)
+        if sample.molecular_rot_matrix is not None:
+            spin_system.apply_rotation(sample.molecular_rot_matrix)
         spin_systems.append(spin_system)
 
     concatenated_spin_system = concat_spin_systems(spin_systems)
@@ -307,7 +307,7 @@ def concat_multioriented_samples(samples: tp.Sequence[MultiOrientedSample], mode
         lorentz=ref_sample.lorentz,
         gauss=ref_sample.gauss,
         mesh=ref_sample.mesh,
-        spin_system_frame=None,  # Because I have already rotated spin systems
+        molecular_frame=None,  # Because I have already rotated spin systems. The relative oreintation of bases is not possible here
         device=ref_sample.device,
         dtype=ref_sample.dtype
         )
@@ -533,10 +533,15 @@ class BaseInteraction(nn.Module, ABC):
     @property
     @abstractmethod
     def tensor(self) -> torch.Tensor:
-        """Return the full interaction tensor in the lab frame.
+        """Return the full interaction tensor expressed in set frame.
+
+        The tensor is obtained by rotating the diagonal principal-axis
+        representation into the molecular frame.
+        For orientation-averaged samples, this tensor is later rotated into
+        the laboratory frame by the orientation mesh.
 
         :return: Tensor of shape ``[..., 3, 3]`` representing the interaction
-                 (e.g., g-tensor, D-tensor) after applying molecular orientation.
+                 (e.g., g-tensor, D-tensor) in the molecular frame.
         """
         pass
 
@@ -563,10 +568,12 @@ class BaseInteraction(nn.Module, ABC):
 
     @property
     def frame(self) -> tp.Optional[torch.Tensor]:
-        """Return molecular orientation as Euler angles (ZYZ' convention).
+        """Return the Euler angles (ZYZ' convention) that rotate the interactions
+        principal-axis frame into the molecular frame.
 
-        :return: Tensor of shape ``[..., 3]`` with angles [α, β, γ] in radians,
-                 or ``None`` if the interaction is isotropic or fixed in lab frame.
+        This is an internal orientation of the interaction within the spin system.
+        :return: Tensor of shape ``[..., 3]`` with angles [alpha, beta, gamma] in radians,
+                 or ``None``
         """
         return None
 
@@ -726,10 +733,13 @@ class Interaction(BaseInteraction):
 
         :param frame:
         torch.Tensor | Sequence[float] optional
-            Orientation of the tensor. Can be provided as:
+            Orientation of the interaction tensor within the spin system frame.
+            Can be provided as:
               - A 1D tensor of shape (3,) representing Euler angles in ZYZ' convention.
               - A 2D tensor of shape (3, 3) representing a rotation matrix.
-            Default is `None`, meaning lab frame.
+            The rotation transforms the principal-axis frame of the interaction
+            into the molecular frame. Default is ``None``, meaning the principal
+            axes are aligned with the spin system frame.
 
         :param strain:
         torch.Tensor| Sequence[float] | float, optional
@@ -813,6 +823,9 @@ class Interaction(BaseInteraction):
           - None -> identity rotation (lab frame)
           - Sequence of 3 Euler angles (ZYZ' convention)
           - Rotation matrix (3×3)
+
+        The rotation matrix transforms the interactions principal-axis frame
+        into the molecular frame.
 
         Internally stores both Euler angles (_frame) and rotation matrix (_rot_matrix).
 
@@ -909,7 +922,7 @@ class Interaction(BaseInteraction):
 
     @property
     def tensor(self) -> torch.Tensor:
-        """:return: the full tensor of interaction with shape [..., 3, 3] with applied rotation."""
+        """:return: the full tensor of interaction with shape [..., 3, 3] with applied rotation given by frame."""
         return self._tensor()
 
     @property
@@ -945,12 +958,15 @@ class Interaction(BaseInteraction):
 
     @property
     def frame(self) -> tp.Optional[torch.Tensor]:
-        """:return: angles with ZYZ' notation."""
+        """:return:  Euler angles (ZYZ' convention) from the interaction
+         principal-axis frame to the molecular frame.
+         """
         return self._frame
 
     @frame.setter
     def frame(self, frame: tp.Optional[torch.Tensor]) -> None:
-        """Set new frame for computations"""
+        """Set a new internal orientation of the interaction within the
+         molecular frame."""
         if frame is None:
             self._frame = torch.tensor(
                 [0.0, 0.0, 0.0], device=self.components.device, dtype=self.components.dtype
@@ -1078,10 +1094,10 @@ class Interaction(BaseInteraction):
         This method operates on the interaction-frame tensor, which is constructed from
         internal state variables defined earlier in the class:
 
-        • self.components  : Principal values [λ₁, λ₂, λ₃] in the principal frame
+        • self.components  : Principal values [λ1, λ2, λ3] in the principal frame
                              (diagonal tensor representation).
         • self._frame      : Euler angles [α, β, γ] (ZYZ' convention) defining
-                             the rotation from principal frame to interaction frame.
+                             the rotation from principal frame to the molecular frame.
         • self._rot_matrix : Rotation matrix R derived from self._frame.
         • self.tensor      : Full tensor Q = R · diag(components) · Rᵀ in the
                              interaction frame.
@@ -1304,9 +1320,9 @@ class MultiOrientedInteraction(BaseInteraction):
 
     def apply_rotation(self, rotation_matrix: torch.Tensor) -> None:
         """
-        This method change the interaction frame rotating it with given rotation matrix:
-
-        Rotate _oriented_tensor and _strained_derivatives with according to rotation_matrix
+        Rotate the interaction within the molecular frame by the given rotation matrix.
+        The new orientation is obtained by ``new_rotation = rotation_matrix @ old_rotation``.
+        This updates the internal frame and rotation matrix accordingly.
 
         :param rotation_matrix: [..., 3, 3] rotation matrix.
         :return: None
@@ -1675,13 +1691,24 @@ class SpinSystem(nn.Module):
         return True
 
     def apply_rotation(self, rotation_matrix: torch.Tensor):
-        """
-        This method change the frame for each interaction in the spin system.
-        new_frame = rotation_matrix @ old_frame
-        Update each interaction frame and rotation_matrix (or tensor for multi oriented interactions)
-        :param rotation_matrix: [..., 3, 3] rotation matrix.
+        """Rotate the internal orientation of each interaction within the molecular frame.
+
+        This method updates the orientation of the interaction tensors stored in
+        the spin system. For each affected interaction, the rotation is applied as
+        ``new_rotation = rotation_matrix @ old_rotation``, which changes how the
+        interaction principal axes are oriented relative to the common molecular
+        frame.
+
+        It does not rotate the sample-level ``molecular_frame`` (used in
+        ``BaseSample`` to orient the whole molecule in the laboratory). Instead,
+        it changes the internal ``frame`` of individual interactions within the
+        molecular frame.
+
+        :param rotation_matrix: [..., 3, 3] rotation matrix applied to each interaction.
         :return: None
         """
+        for i in range(len(self.electrons)):
+            self.g_tensors[i].apply_rotation(rotation_matrix)
         for i in range(len(self.electron_nuclei_interactions)):
             self.electron_nuclei_interactions[i].apply_rotation(rotation_matrix)
         for i in range(len(self.electron_electron_interactions)):
@@ -2165,8 +2192,9 @@ class SpinSystemOrientator:
     """Transforms spin systems to multiple molecular orientations.
 
     Generates orientation-dependent versions of all interactions (g-tensors, hyperfine, ZFS)
-    by applying rotation matrices. Used for powder-averaged simulations where spectra
-    are averaged over many molecular orientations relative to the magnetic field.
+    by applying rotation matrices that rotate the molecular frame into the laboratory frame.
+    Used for powder-averaged simulations where spectra are averaged over many molecular
+    orientations relative to the magnetic field.
 
     The output is a modified :class:`SpinSystem` where each interaction is replaced by
     a :class:`MultiOrientedInteraction` containing precomputed tensors for all orientations.
@@ -2183,7 +2211,7 @@ class SpinSystemOrientator:
         """
         :param spin_system: spin_system with interactions.
 
-        :param rotation_matrices: rotation_matrices that rotate spin system
+        :param rotation_matrices: rotation_matrices that rotate each interaction of a spin system
         :return: modified spin system with all rotated interactions
         """
         spin_system = self.transform_spin_system_to_oriented(copy.deepcopy(spin_system), rotation_matrices)
@@ -2259,7 +2287,7 @@ class SpinSystemOrientator:
         :param spin_system:  SpinSystem
             Original spin system with interactions in molecular frame.
         :param rotation_matrices:  torch.Tensor
-            Rotation matrices for each orientation. Shape: ``(n_orientations, 3, 3)``.
+            Rotation matrices for each single orientation. Shape: ``(n_orientations, 3, 3)``.
 
         :return:
         SpinSystem
@@ -2314,7 +2342,7 @@ class BaseSample(nn.Module):
                  ham_strain: tp.Optional[tp.Union[torch.Tensor, float]] = None,
                  gauss: tp.Optional[tp.Union[torch.Tensor, float]] = None,
                  lorentz: tp.Optional[tp.Union[torch.Tensor, float]] = None,
-                 spin_system_frame: tp.Optional[tp.Union[torch.Tensor, list[float]]] = None,
+                 molecular_frame: tp.Optional[tp.Union[torch.Tensor, list[float]]] = None,
                  device=torch.device("cpu"), dtype: torch.dtype = torch.float32,
                  *args, **kwargs):
         """
@@ -2341,16 +2369,24 @@ class BaseSample(nn.Module):
             Lorentzian broadening parameter(s). Defines homogeneous linewidth
             contributions (e.g., due to relaxation). Default is `None`
 
-        :param spin_system_frame:
+        :param molecular_frame:
         torch.Tensor | Sequence[float] optional
-            Orientation of the spin system. Can be provided as:
+            Optional rigid rotation of the entire molecular frame into the
+            laboratory frame. It can be provided as:
               - A 1D tensor of shape (3,) representing Euler angles in ZYZ' convention.
               - A 2D tensor of shape (3, 3) representing a rotation matrix.
-            Default is `None`, meaning lab frame.
+            Default is ``None``, meaning the molecular frame coincides with the
+            laboratory frame.
 
-        This parameter is set the orientation of the spin system relative to the molecular frame
-
-        This parameters save base_spin_system not rotated while it rotates multioriented modified_spin_system
+            For orientation-averaged samples, the powder mesh generates a set of
+            rotations ``R_mesh`` that sample different molecular orientations.
+            If ``molecular_frame`` is also given, the effective rotation used for
+            every mesh point is:
+                R_eff = R_mesh @ R_molecular_frame
+            Therefore:
+              - ``R_mesh`` produces the distribution of molecular orientations.
+              - ``molecular_frame`` applies an additional fixed alignment or offset
+                of that molecular frame before the powder averaging.
 
         :param device: device to compute (cpu / gpu)
         :param dtype: dtype
@@ -2358,8 +2394,8 @@ class BaseSample(nn.Module):
         :param kwargs:
         """
         super().__init__()
-        self._construct_spin_system_rot_matrix(frame=spin_system_frame,
-                                               config_shape=base_spin_system.config_shape, dtype=dtype, device=device)
+        self._construct_molecular_rot_matrix(frame=molecular_frame,
+                                             config_shape=base_spin_system.config_shape, dtype=dtype, device=device)
         self.base_spin_system = base_spin_system
         self.modified_spin_system = copy.deepcopy(base_spin_system)
         self.register_buffer("_ham_strain", self._init_ham_str(ham_strain, device, dtype))
@@ -2441,17 +2477,21 @@ class BaseSample(nn.Module):
                 raise ValueError(f"ham_strain batch shape must be equel to base_spin_system config shape")
         return ham_strain
 
-    def _construct_spin_system_rot_matrix(
+    def _construct_molecular_rot_matrix(
             self, frame: tp.Optional[torch.tensor],
             config_shape: tp.Iterable,
             device: torch.device,
             dtype: torch.dtype
     ):
-        """
-        :param frame: spin system euler angles or full frame
-        :param config_shape:
-        :param device:
-        :param dtype:
+        """Construct the rotation matrix associated with the sample-level molecular frame.
+
+        :param frame: Orientation of the molecular frame relative to the laboratory
+                      frame. Accepts ``None`` (identity), Euler angles in ZYZ'
+                      convention, or a 3x3 rotation matrix.
+        :param config_shape: Batch shape of the spin system, used for broadcasting
+                             the orientation.
+        :param device: Computation device.
+        :param dtype: Floating-point precision.
         :return: None
         """
         if frame is None:
@@ -2482,17 +2522,17 @@ class BaseSample(nn.Module):
             else:
                 raise ValueError("frame must be a Sequence of 3 values, a torch.Tensor, or None.")
 
-        self.register_buffer("_spin_system_frame", _frame)
-        self.register_buffer("_spin_system_rot_matrix", _rot_matrix)
+        self.register_buffer("_molecular_frame", _frame)
+        self.register_buffer("_molecular_rot_matrix", _rot_matrix)
 
     @property
-    def spin_system_rot_matrix(self) -> tp.Optional[torch.Tensor]:
+    def molecular_rot_matrix(self) -> tp.Optional[torch.Tensor]:
         """
         Return the rotation matrix which rotate spin system relative to frame
 
         :return: rotation matrix for the spin system
         """
-        return self._spin_system_rot_matrix
+        return self._molecular_rot_matrix
 
     def is_equivalent(self, other: BaseSample, rtol: float = 1e-5, atol: float = 1e-6) -> bool:
         """Check equality of two BaseSample instances.
@@ -2513,7 +2553,7 @@ class BaseSample(nn.Module):
             utils.are_optional_tensors_close(self.base_ham_strain, other.base_ham_strain, rtol, atol),
             utils.are_optional_tensors_close(self.gauss, other.gauss, rtol, atol),
             utils.are_optional_tensors_close(self.lorentz, other.lorentz, rtol, atol),
-            utils.are_optional_tensors_close(self._spin_system_frame, other._spin_system_frame, rtol, atol),
+            utils.are_optional_tensors_close(self._molecular_frame, other._molecular_frame, rtol, atol),
         ])
 
     def update(self,
@@ -2943,8 +2983,8 @@ class BaseSample(nn.Module):
             ham_components = [f"{val:.4e}" if abs(val) >= 1e4 else f"{val:.4f}"
                               for val in ham_str.tolist()]
             lines.append(f"ham_str: {ham_components} Hz")
-        if self._spin_system_frame is not None:
-            lines.append(f"spin system frame: {self._spin_system_frame.tolist()} rad")
+        if self._molecular_frame is not None:
+            lines.append(f"spin system frame: {self._molecular_frame.tolist()} rad")
         return '\n'.join(lines)
 
     @classmethod
@@ -2994,7 +3034,7 @@ class MultiOrientedSample(BaseSample):
                  ham_strain: tp.Optional[tp.Union[torch.Tensor, float]] = None,
                  gauss: tp.Optional[tp.Union[torch.Tensor, float]] = None,
                  lorentz: tp.Optional[tp.Union[torch.Tensor, float]] = None,
-                 spin_system_frame: tp.Optional[tp.Union[torch.Tensor, list[float]]] = None,
+                 molecular_frame: tp.Optional[tp.Union[torch.Tensor, list[float]]] = None,
                  mesh: tp.Optional[tp.Union[BaseMesh, tuple[int, int]]] = None,
                  device: torch.device = torch.device("cpu"),
                  dtype: torch.dtype = torch.float32,
@@ -3030,14 +3070,22 @@ class MultiOrientedSample(BaseSample):
             - tesla (T) for field-dependent spectra,
             - hertz (Hz) for frequency-dependent spectra.
 
-        :param spin_system_frame:
+        :param molecular_frame:
         torch.Tensor | Sequence[float] optional
-            Orientation of the spin system. Can be provided as:
+            Orientation of the molecular frame. Can be provided as:
               - A 1D tensor of shape (3,) representing Euler angles in ZYZ' convention.
               - A 2D tensor of shape (3, 3) representing a rotation matrix.
             Default is `None`, meaning lab frame.
 
-        This parameter is set the orientation of the spin system relative to the molecular frame
+            For orientation-averaged samples, the powder mesh generates a set of
+            rotations ``R_mesh`` that sample different molecular orientations.
+            If ``molecular_frame`` is also given, the effective rotation used for
+            every mesh point is:
+                R_eff = R_mesh @ R_molecular_frame
+            Therefore:
+              - ``R_mesh`` produces the distribution of molecular orientations.
+              - ``molecular_frame`` applies an additional fixed alignment or offset
+                of that molecular frame before the powder averaging.
 
         :param mesh: The mesh to perform rotations for powder samples. It can be:
            -tuple[initial_grid_frequency, interpolation_grid_frequency],
@@ -3051,20 +3099,18 @@ class MultiOrientedSample(BaseSample):
 
         :param device: device to compute (cpu / gpu)
         """
-        super().__init__(base_spin_system, ham_strain, gauss, lorentz, spin_system_frame, device=device, dtype=dtype)
+        super().__init__(base_spin_system, ham_strain, gauss, lorentz, molecular_frame, device=device, dtype=dtype)
         self.mesh = self._init_mesh(mesh, device=device, dtype=dtype)
         rotation_matrices = self.mesh.rotation_matrices
+
+        if self._molecular_frame is not None:
+            rotation_matrices = torch.matmul(rotation_matrices, self._molecular_rot_matrix)
 
         self._ham_strain = self._expand_hamiltonian_strain(
             self.base_ham_strain,
             self.orientation_vector(rotation_matrices)
         )
-        if self._spin_system_frame is None:
-            self.modified_spin_system = SpinSystemOrientator()(base_spin_system, rotation_matrices)
-        else:
-            self.modified_spin_system = SpinSystemOrientator()(
-                base_spin_system, torch.matmul(rotation_matrices, self._spin_system_rot_matrix)
-            )
+        self.modified_spin_system = SpinSystemOrientator()(base_spin_system, rotation_matrices)
 
     @classmethod
     def _get_cached_mesh(
@@ -3166,20 +3212,21 @@ class MultiOrientedSample(BaseSample):
 
     def orientation_vector(self, rotation_matrices: torch.Tensor) -> torch.Tensor:
         """
-        :param rotation_matrices: The matrix of rotations to rotate of the sample
+        :param rotation_matrices: The matrix of rotations to rotate of the molecular
         :return:
         """
         return rotation_matrices[..., -1, :]
 
-    def _get_effective_rotation_matrices(self) -> torch.Tensor:
+    def get_effective_molecular_rotation_matrices(self) -> torch.Tensor:
         """
-        Get the effective rotation matrices combining mesh orientation and spin system frame.
+        Return the effective rotation matrices that transform the molecular frame
+        into the laboratory frame for every orientation.
 
         :return: Rotation matrices of shape [..., orientations, 3, 3].
         """
         rotation_matrices = self.mesh.rotation_matrices
-        if self._spin_system_frame is not None:
-            rotation_matrices = torch.matmul(rotation_matrices, self._spin_system_rot_matrix)
+        if self._molecular_frame is not None:
+            rotation_matrices = torch.matmul(rotation_matrices, self._molecular_rot_matrix)
         return rotation_matrices
 
     def is_equivalent(self, other: BaseSample, rtol: float = 1e-5, atol: float = 1e-6) -> bool:
@@ -3228,12 +3275,12 @@ class MultiOrientedSample(BaseSample):
             Tz = T[..., 2]  # shape ``[..., orientations, 3]``
         """
         triplet_basis = self.base_spin_system.get_xyz_basis()
-        molecule_rotation_matrices = self._get_effective_rotation_matrices().to(triplet_basis.dtype)
+        molecule_rotation_matrices = self.get_effective_molecular_rotation_matrices().to(triplet_basis.dtype)
         return torch.matmul(triplet_basis, molecule_rotation_matrices)
 
     def _get_xyz_basis_two_half_spins(self) -> torch.Tensor:
-        """Get basis vectors S, Tx, Ty, Tz for two spin-1/2
-        electrons in the frame of the molecule.
+        """Get the basis vectors S, Tx, Ty, Tz for two spin-1/2 electrons in the
+        laboratory frame for every molecular orientation.
 
         The full basis is obtained from
         :meth:`base_spin_system.get_xyz_basis`, which returns a ``(4, 4)``
@@ -3267,15 +3314,15 @@ class MultiOrientedSample(BaseSample):
         triplet_basis = full_basis[:, 1:]
         singlet_basis = full_basis[:, :1]
 
-        molecule_rotation_matrices = self._get_effective_rotation_matrices().to(triplet_basis.dtype)
+        molecule_rotation_matrices = self.get_effective_molecular_rotation_matrices().to(triplet_basis.dtype)
         rotated_triplet = torch.matmul(triplet_basis, molecule_rotation_matrices)
 
         singlet_expanded = singlet_basis.expand(*rotated_triplet.shape[:-1], 1)
         return torch.cat([singlet_expanded, rotated_triplet], dim=-1)
 
     def get_xyz_basis(self) -> torch.Tensor:
-        """Get basis vectors Tx, Ty, Tz (and S) for a spin
-        system in the frame of the molecule.
+        """Get the basis vectors Tx, Ty, Tz (and S) for a spin system in the
+           laboratory frame for every molecular orientation.
 
         Dispatches to the appropriate rotation logic depending on the spin
         configuration of the base system:
@@ -3383,6 +3430,10 @@ class MultiOrientedSample(BaseSample):
         rotation_matrices = self.mesh.rotation_matrices
         self.base_spin_system.update(g_tensors, electron_nuclei, electron_electron, nuclei_nuclei)
 
+        if self._molecular_frame is not None:
+            rotation_matrices = torch.matmul(rotation_matrices, self._molecular_rot_matrix)
+
+
         if ham_strain is not None:
             self.base_ham_strain = self._init_ham_str(ham_strain, self.device, self.dtype)
             self._ham_strain = self._expand_hamiltonian_strain(
@@ -3391,12 +3442,8 @@ class MultiOrientedSample(BaseSample):
             )
         self.gauss = self._init_gauss_lorentz(gauss, self.device, self.dtype)
         self.lorentz = self._init_gauss_lorentz(lorentz, self.device, self.dtype)
-        if self._spin_system_frame is None:
-            self.modified_spin_system = SpinSystemOrientator()(self.base_spin_system, rotation_matrices)
-        else:
-            self.modified_spin_system = SpinSystemOrientator()(
-                self.base_spin_system, torch.matmul(rotation_matrices, self._spin_system_rot_matrix)
-        )
+        self.modified_spin_system = SpinSystemOrientator()(
+                self.base_spin_system, rotation_matrices)
 
     def get_oriented_electron_electron_interaction(self, interaction: torch.Tensor, el_idx_1: int, el_idx_2: int) ->\
             torch.Tensor:
@@ -3404,7 +3451,7 @@ class MultiOrientedSample(BaseSample):
         Compute the electron-electron operator term for all orientations.
 
         This method rotates the interaction tensor (e.g., dipolar or exchange coupling)
-        from interaction tensor frame to the laboratory frame for each orientation in the
+        from molecular frame to the laboratory frame for each orientation in the
         mesh, then contracts it with the corresponding spin operators.
 
         The resulting Hamiltonian term is: ``H = S_1 · Q · S_2``, where Q is the rotated
@@ -3417,7 +3464,7 @@ class MultiOrientedSample(BaseSample):
         :return: operator of shape ``[..., orientations, dim, dim]`` in the
                 complex dtype
         """
-        rotation_matrices = self._get_effective_rotation_matrices()
+        rotation_matrices = self.get_effective_molecular_rotation_matrices()
         interaction_rotated = utils.apply_expanded_rotations(rotation_matrices, interaction).to(self.complex_dtype)
         S1 = self.base_spin_system.operator_cache[el_idx_1]
         S2 = self.base_spin_system.operator_cache[el_idx_2]
@@ -3428,9 +3475,10 @@ class MultiOrientedSample(BaseSample):
         """
         Compute the electron-nucleus hyperfine operator term for all orientations.
 
-        This method rotates the hyperfine tensor (A-tensor) from its interaction tensor frame
+        This method rotates the hyperfine tensor (A-tensor) from its molecular frame
         to the laboratory frame for each orientation in the mesh, then contracts it
         with the electron and nucleus spin operators.
+
 
         The resulting Hamiltonian term is: ``H = S · A · I``, where A is the rotated
         hyperfine tensor.
@@ -3442,7 +3490,7 @@ class MultiOrientedSample(BaseSample):
         :return: operator of shape ``[..., orientations, dim, dim]`` in the
                  complex dtype
         """
-        rotation_matrices = self._get_effective_rotation_matrices()
+        rotation_matrices = self.get_effective_molecular_rotation_matrices()
         interaction_rotated = utils.apply_expanded_rotations(rotation_matrices, interaction).to(self.complex_dtype)
 
         S = self.base_spin_system.operator_cache[el_idx]
@@ -3455,7 +3503,7 @@ class MultiOrientedSample(BaseSample):
         Compute the nucleus-nucleus interaction operator for all orientations.
 
         This method rotates the interaction tensor (e.g., nuclear dipolar)
-        from its interaction tensor frame to the laboratory frame for each orientation in the
+        from its molecular frame to the laboratory frame for each orientation in the
         mesh, then contracts it with the corresponding nucleus spin operators.
 
         The resulting Hamiltonian term is: ``H = I_1 · Q · I_2``, where Q is the rotated
@@ -3468,7 +3516,7 @@ class MultiOrientedSample(BaseSample):
         :return: operator of shape ``[..., orientations, dim, dim]`` in the
                  complex dtype.
         """
-        rotation_matrices = self._get_effective_rotation_matrices()
+        rotation_matrices = self.get_effective_molecular_rotation_matrices()
         interaction_rotated = utils.apply_expanded_rotations(rotation_matrices, interaction).to(self.complex_dtype)
 
         offset = len(self.modified_spin_system.electrons)
@@ -3481,7 +3529,7 @@ class MultiOrientedSample(BaseSample):
         Compute the electron Zeeman interaction operator for all orientations.
 
         Compute the electron Zeeman interaction operator for all orientations.
-        This method rotates the g-tensor from its interaction tensor frame to the laboratory
+        This method rotates the g-tensor from its molecular frame to the laboratory
         frame for each orientation in the mesh, then contracts it with the electron
         spin operator z-projection
 
@@ -3506,7 +3554,7 @@ class MultiOrientedSample(BaseSample):
             The result is scaled by μ_B/h to convert to frequency units (Hz) for
             spectral simulation.
         """
-        rotation_matrices = self._get_effective_rotation_matrices()
+        rotation_matrices = self.get_effective_molecular_rotation_matrices()
         interaction_rotated = utils.apply_expanded_rotations(rotation_matrices, interaction).to(self.complex_dtype)
 
         S = self.base_spin_system.operator_cache[el_idx]
@@ -3614,5 +3662,3 @@ class MultiOrientedSampleExpandedStrain(MultiOrientedSample):
         else:
             ham_strain = init_tensor(ham_strain, device=device, dtype=dtype)
         return ham_strain
-
-

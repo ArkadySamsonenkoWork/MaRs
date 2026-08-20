@@ -32,7 +32,7 @@ class BaseMesh(nn.Module, ABC):
     @property
     @abstractmethod
     def rotation_matrices(self) -> torch.Tensor:
-        """Rotation matrices mapping laboratory frame to molecular frame.
+        """Rotation matrices mapping laboratory frame to the frame of each molecular withing all given orientations.
 
         :return: Tensor of shape (..., 3, 3) containing rotation matrices
         :rtype: torch.Tensor

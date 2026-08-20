@@ -288,19 +288,28 @@ def _warn_if_eig_basis_is_ill_conditioned(
     if not math.isfinite(max_cond) or max_cond > cond_threshold:
         cond_str = f"{max_cond:.3e}" if math.isfinite(max_cond) else "inf/nan"
 
+        warning_msg = (
+            f"{solver_name}: eigenvector matrix is ill-conditioned "
+            f"(cond={cond_str}, threshold={cond_threshold:.3e}). "
+            "This usually means that the kinetic/evolution matrix is defective "
+            "or very close to an exceptional point. In this regime even a very small "
+            "perturbation of the kinetic rates can dramatically change the relaxation process: "
+            "time constants, mode amplitudes and the observed signal shape may change strongly. "
+            "Therefore the kinetic model itself "
+            "is structurally unstable with respect to experimentally unavoidable parameter uncertainty. "
+            "The eigen-decomposition solver may give unreliable results. "
+            "Use an explicit matrix-exponential/power-based solver, or regularize/reconsider the kinetic model."
+        )
+
+        if eig_vecs.dtype == torch.float32:
+            warning_msg += (
+                " Note that you are using float32 precision, which can further amplify numerical instability. "
+                "Consider switching to float64 to improve numerical stability and potentially obtain"
+                "more reliable results."
+            )
+
         warnings.warn(
-            (
-                f"{solver_name}: eigenvector matrix is ill-conditioned "
-                f"(cond={cond_str}, threshold={cond_threshold:.3e}). "
-                "This usually means that the kinetic/evolution matrix is defective "
-                "or very close to an exceptional point. In this regime even a very small "
-                "perturbation of the kinetic rates can dramatically change the relaxation process: "
-                "time constants, mode amplitudes and the observed signal shape may change strongly. "
-                "Therefore the kinetic model itself "
-                "is structurally unstable with respect to experimentally unavoidable parameter uncertainty. "
-                "The eigen-decomposition solver may give unreliable results. "
-                "Use an explicit matrix-exponential/power-based solver, or regularize/reconsider the kinetic model."
-            ),
+            warning_msg,
             RuntimeWarning,
             stacklevel=3,
         )

@@ -678,7 +678,7 @@ class SampleVary:
             self._process_nuc_nuc(spin_system_nuc_nuc, nuclei_nuclei, vary_parameters, fixed_parameters)
 
 
-    def _parse_frame(self, spin_system_frame, vary_frame,
+    def _parse_frame(self, molecular_frame, vary_frame,
                      vary_parameters: list[ParamSpec], fixed_parameters: dict[str, float],
                      base_name: str):
 
@@ -687,10 +687,10 @@ class SampleVary:
             default_beta = 0.0
             default_gamma = 0.0
 
-            if spin_system_frame is not None:
-                default_alpha = float(spin_system_frame[0].item())
-                default_beta = float(spin_system_frame[1].item())
-                default_gamma = float(spin_system_frame[2].item())
+            if molecular_frame is not None:
+                default_alpha = float(molecular_frame[0].item())
+                default_beta = float(molecular_frame[1].item())
+                default_gamma = float(molecular_frame[2].item())
 
             if isinstance(vary_frame, (float, int)):
                 half = float(vary_frame)
@@ -730,12 +730,12 @@ class SampleVary:
                 fixed_parameters[f"{base_name}_beta"] = float(default_beta)
                 fixed_parameters[f"{base_name}_gamma"] = float(default_gamma)
         else:
-            if (spin_system_frame == 0.0).all():
+            if (molecular_frame == 0.0).all():
                 pass
             else:
-                fixed_parameters[f"{base_name}_alpha"] = float(spin_system_frame[0].item())
-                fixed_parameters[f"{base_name}_beta"] = float(spin_system_frame[1].item())
-                fixed_parameters[f"{base_name}_gamma"] = float(spin_system_frame[2].item())
+                fixed_parameters[f"{base_name}_alpha"] = float(molecular_frame[0].item())
+                fixed_parameters[f"{base_name}_beta"] = float(molecular_frame[1].item())
+                fixed_parameters[f"{base_name}_gamma"] = float(molecular_frame[2].item())
 
     def _parse_interaction(self, spin_system_interaction: spin_model.Interaction,
                            vary_interaction: tp.Union[VaryDEInteraction, VaryInteraction],
