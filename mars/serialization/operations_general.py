@@ -763,6 +763,10 @@ def aggregate_experimental_parameters(
         [p.resonance_parameter for p in instances], op, dim=dim, protected_tail_dims=0, **kwargs
     )
 
+    position_shift = _aggregate_optional_tensors(
+        [p.position_shift for p in instances], op, dim=dim, protected_tail_dims=0, **kwargs
+    )
+
     time_params_list = [p.time_params for p in instances]
     if all(t is None for t in time_params_list):
         time_params = None
@@ -776,7 +780,8 @@ def aggregate_experimental_parameters(
         max_pos=max_pos,
         num_points=num_points_list[0],
         resonance_parameter=resonance_parameter,
-        time_params=time_params
+        time_params=time_params,
+        position_shift=position_shift
     )
 
 
@@ -805,6 +810,10 @@ def transform_experimental_parameters(
         instance.resonance_parameter, op, dim=dim, protected_tail_dims=0, **kwargs
     )
 
+    position_shift = _transform_optional_tensor(
+        instance.position_shift, op, dim=dim, protected_tail_dims=0, **kwargs
+    )
+
     time_params = transform_time_parameters(instance.time_params, op=op, dim=dim,
                                             **kwargs) if instance.time_params is not None else None
 
@@ -813,7 +822,8 @@ def transform_experimental_parameters(
         max_pos=max_pos,
         num_points=instance.num_points,
         resonance_parameter=resonance_parameter,
-        time_params=time_params
+        time_params=time_params,
+        position_shift=position_shift
     )
 
 
