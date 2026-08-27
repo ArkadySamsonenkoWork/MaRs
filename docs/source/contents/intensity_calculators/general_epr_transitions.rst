@@ -83,12 +83,9 @@ For disordered samples, angular integration yields closed forms involving :math:
 .. math::
    D^{\text{powder}} = \tfrac{1}{4} \left( |\boldsymbol{\mu}_{ij}|^2 + |\mathbf{n}_0^\top \boldsymbol{\mu}_{ij}|^2 \right).
 
-Usage Examples
-
-
 
 Example: Unpolarized radiation in a powder sample (Voigt geometry)
-------------------------------------------------------------------
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 For an incident electromagnetic wave, define the radiation geometry with
 ``WaveMagnetizationConfig`` and pass it to the spectra calculator.

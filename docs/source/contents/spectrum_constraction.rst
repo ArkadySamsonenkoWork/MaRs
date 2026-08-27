@@ -27,7 +27,7 @@ The construction of an EPR spectrum in MaRs follows a sequence of computational 
    MaRs computes four matrices that define the spin Hamiltonian under an external magnetic field **B** = (Bx, By, Bz):
 
    .. math::
-      \hat{H} = \hat{F} + B_x \hat{G}_x + B_y \hat{G}_y + B_z \hat{G}_z
+      \hat{H} = \hat{F} + B_x \hat{G}_X + B_y \hat{G}_Y + B_z \hat{G}_Z
 
    - **F**: Field-independent term (zero-field splitting, hyperfine, nuclear couplings, etc.)
    - **Gx, Gy, Gz**: Zeeman coupling operators, defined explicitly as:

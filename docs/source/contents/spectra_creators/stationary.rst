@@ -21,7 +21,7 @@ Key Features
 
 Mathematical Foundation
 -----------------------
-   Intensities are computed by :class:`mars.spectra_manager.spectra_manager.BaseResIntensityCalculator`.
+   Intensities are computed by :class:`mars.spectra_manager.intensity_base.BaseResIntensityCalculator`.
 
    Assuming the quantization axis aligns with the magnetic field direction (e.g., :math:`\mathbf{B} \parallel z`), the intensity of a transition between eigenstates :math:`|i\rangle` and :math:`|j\rangle` is:
 

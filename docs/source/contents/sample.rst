@@ -25,7 +25,7 @@ The total broadening of each spectral line is constructed from four components:
 
 1. **Homogeneous Lorentzian broadening**, which is applied after the spectrum is constructed.
 2. **Inhomogeneous Gaussian broadening**, which is applied after the spectrum is constructed.  
-   More information about final spectrum postprocessing can be found in :class:`mars.spectra_manager.spectra_manager.PostSpectraProcessing`.
+   More information about final spectrum postprocessing can be found in :class:`mars.spectra_manager.spectra_processing_base.PostSpectraProcessing`.
 3. **Residual spectrum broadening** caused by unresolved interactions. This is specified by a parameter ``ham_strain`` and can be anisotropic.
 4. **Broadening caused by the presence of a Hamiltonian parameter distribution**. This parameters is specified during :class:`mars.spin_model.Interaction` creation.
 
@@ -81,12 +81,12 @@ The total spin Hamiltonian in the presence of a magnetic field **B** = (B_x, B_y
 
 .. math::
 
-   \mathcal{H}(\mathbf{B}) = F + B_x G_x + B_y G_y + B_z G_z
+   \mathcal{H}(\mathbf{B}) = F + B_x G_X + B_y G_Y + B_z G_Z
 
 where:
 
 - **F** is the field-independent (zero-field) part of the Hamiltonian,
-- **G_z**, **G_y**, **G_z** are the Zeeman coupling operators that encode the system’s response to the external magnetic field via electron and nuclear g‑tensors.
+- **G_X**, **G_Y**, **G_Z** are the Zeeman coupling operators that encode the system’s response to the external magnetic field via electron and nuclear g‑tensors.
 
 Explicitly, these operators are defined as:
 

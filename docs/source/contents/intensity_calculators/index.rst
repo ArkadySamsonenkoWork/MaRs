@@ -33,10 +33,10 @@ where :math:`\hat{G}_{\perp}` is the detected transverse spin component (e.g., :
 Intensity Calculator Classes
 -----------------------------
 
-MaRs provides several intensity calculator implementations through :class:`mars.spectra_manager.spectra_manager.BaseResIntensityCalculator` and its subclasses:
+MaRs provides several intensity calculator implementations through :class:`mars.spectra_manager.intensity_base.BaseResIntensityCalculator` and its subclasses:
 
 **StationaryIntensityCalculator**
-   For continuous-wave (CW) EPR experiments 	with thermal equilibrium populations. Uses Boltzmann distributions or context-defined populations.
+   For continuous-wave (CW) EPR experiments with thermal equilibrium populations. Uses Boltzmann distributions or context-defined populations.
    Reference: :class:`mars.spectra_manager.spectra_manager.StationaryIntensityCalculator`
 
 **TimeIntensityCalculator**
@@ -49,7 +49,7 @@ MaRs provides several intensity calculator implementations through :class:`mars.
 
 **WaveIntensityCalculator**
    For EPR experiments with non-standard excitation geometries and polarizations (circular, linear, unpolarized). Accounts for arbitrary orientation of radiation relative to the magnetic field.
-   Reference: :class:`mars.spectra_manager.intesnity_wave.WaveIntensityCalculator`
+   Reference: :class:`mars.spectra_manager.intensity_wave.WaveIntensityCalculator`
 
 
 Computational Workflow
