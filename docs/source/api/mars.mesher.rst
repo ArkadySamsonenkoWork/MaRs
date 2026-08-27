@@ -4,37 +4,13 @@ mars.mesher package
 Submodules
 ----------
 
-mars.mesher.axial\_mesh module
-------------------------------
+.. toctree::
+   :maxdepth: 4
 
-.. automodule:: mars.mesher.axial_mesh
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.mesher.delanay\_mesh module
---------------------------------
-
-.. automodule:: mars.mesher.delanay_mesh
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.mesher.experimental module
--------------------------------
-
-.. automodule:: mars.mesher.experimental
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.mesher.general\_mesh module
---------------------------------
-
-.. automodule:: mars.mesher.general_mesh
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   mars.mesher.axial_mesh
+   mars.mesher.delanay_mesh
+   mars.mesher.experimental
+   mars.mesher.general_mesh
 
 Module contents
 ---------------

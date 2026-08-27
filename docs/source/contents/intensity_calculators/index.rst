@@ -49,7 +49,7 @@ MaRs provides several intensity calculator implementations through :class:`mars.
 
 **WaveIntensityCalculator**
    For EPR experiments with non-standard excitation geometries and polarizations (circular, linear, unpolarized). Accounts for arbitrary orientation of radiation relative to the magnetic field.
-   Reference: :class:`mars.spectra_manager.wave_calculator.WaveIntensityCalculator`
+   Reference: :class:`mars.spectra_manager.intesnity_wave.WaveIntensityCalculator`
 
 
 Computational Workflow
@@ -59,7 +59,7 @@ Computational Workflow
 
 1. **Receive transition parameters**
    
-   - Zeeman operator components **G_x**, **G_y**, **G_z**
+   - Zeeman operator components **G_X**, **G_Y**, **G_Z**
    - Eigenvectors of lower (:math:`|\psi_\mathrm{down}\rangle`) and upper (:math:`|\psi_\mathrm{up}\rangle`) states
    - Energy level indices of transition levels and eigenvalues of spin Hamiltonian
    - Resonance manifold values (fields or frequencies)

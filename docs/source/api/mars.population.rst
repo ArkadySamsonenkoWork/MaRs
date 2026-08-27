@@ -7,66 +7,23 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
+   mars.population.parametric_dependance
    mars.population.populators
+   mars.population.relaxation_channels
 
 Submodules
 ----------
 
-mars.population.concatination module
-------------------------------------
+.. toctree::
+   :maxdepth: 4
 
-.. automodule:: mars.population.concatination
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.population.contexts module
--------------------------------
-
-.. automodule:: mars.population.contexts
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.population.matrix\_generators module
------------------------------------------
-
-.. automodule:: mars.population.matrix_generators
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.population.rk4 module
---------------------------
-
-.. automodule:: mars.population.rk4
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.population.thermal\_corrections module
--------------------------------------------
-
-.. automodule:: mars.population.thermal_corrections
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.population.tr\_utils module
---------------------------------
-
-.. automodule:: mars.population.tr_utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.population.transform module
---------------------------------
-
-.. automodule:: mars.population.transform
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   mars.population.concatination
+   mars.population.contexts
+   mars.population.matrix_generators
+   mars.population.rk4
+   mars.population.thermal_corrections
+   mars.population.tr_utils
+   mars.population.transform
 
 Module contents
 ---------------

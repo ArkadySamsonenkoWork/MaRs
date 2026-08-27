@@ -93,8 +93,20 @@ Examples
 
 from .spectra_manager import *
 from .spectra_manager_expanded import StationarySpectraExpanded
-from .wave_calculator import *
-from .direct_managers import *
+from .intensity_wave import *
+from .spectra_manager_direct import *
+from .intensity_wave import WaveIntensityCalculator, WaveTimeIntensityCalculator
 
 from .res_line_solvers import res_field_algorithm, res_freq_algorithm,\
     secular_approximation_algorithm, fixed_fields_algorithm
+from .utils import compute_matrix_element, ComputationalDetails, OutputSpectraMode, ExpandedComputationalDetails
+
+from .spectra_processing_base import PostSpectraProcessing, BaseResProcessing,\
+    PowderStationaryProcessing, CrystalStationaryProcessing,\
+    PowderTimeProcessing, CrystalTimeProcessing
+
+from .spectra_processing_direct import CrystalDirectProcessing, PowderDirectProcessing, BaseDirectProcessing
+from .spectra_processing_expanded import CrystalStationaryProcessingExpanded, PowderStationaryProcessingExpanded, \
+    CrystalTimeProcessingExpanded, PowderTimeProcessingExpanded
+from .magnetization_mode import MagnetizationConfig, ResonatorMagnetizationConfig,\
+    WaveMagnetizationConfig, Polarization, ResonatorMode

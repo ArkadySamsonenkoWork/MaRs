@@ -59,7 +59,7 @@ The construction of an EPR spectrum in MaRs follows a sequence of computational 
         
         This method is udsed by default in :class:`mars.spectra_manager.spectra_manager.DensityTimeSpectra` for time-resolved EPR.
    
-   5.3. **Resonance-frequency search** (:class:`mars.res_freq_algorithm.ResFreq`)  
+   5.3. **Resonance-frequency search** (:class:`mars.spectra_manager.res_freq_algorithm.ResFreq`)  
         This method finds resonant frequencies in a given interval at fixed magnetic field. It requires only one matrix eigenvalues and eigenvectors computation
 
 6. **Compute transition intensities**  

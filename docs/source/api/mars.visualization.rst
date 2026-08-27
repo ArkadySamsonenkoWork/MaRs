@@ -4,37 +4,13 @@ mars.visualization package
 Submodules
 ----------
 
-mars.visualization.analysis module
-----------------------------------
+.. toctree::
+   :maxdepth: 4
 
-.. automodule:: mars.visualization.analysis
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.visualization.levels\_plot module
---------------------------------------
-
-.. automodule:: mars.visualization.levels_plot
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.visualization.time\_resolved module
-----------------------------------------
-
-.. automodule:: mars.visualization.time_resolved
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.visualization.transitions\_plot module
--------------------------------------------
-
-.. automodule:: mars.visualization.transitions_plot
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   mars.visualization.analysis
+   mars.visualization.levels_plot
+   mars.visualization.time_resolved
+   mars.visualization.transitions_plot
 
 Module contents
 ---------------

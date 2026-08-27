@@ -1,56 +1,32 @@
 mars.spectra\_manager package
 =============================
 
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   mars.spectra_manager.res_line_solvers
+
 Submodules
 ----------
 
-mars.spectra\_manager.direct\_managers module
----------------------------------------------
+.. toctree::
+   :maxdepth: 4
 
-.. automodule:: mars.spectra_manager.direct_managers
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.spectra\_manager.spectra\_manager module
----------------------------------------------
-
-.. automodule:: mars.spectra_manager.spectra_manager
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.spectra\_manager.spectra\_manager\_expanded module
--------------------------------------------------------
-
-.. automodule:: mars.spectra_manager.spectra_manager_expanded
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.spectra\_manager.spectral\_integration module
---------------------------------------------------
-
-.. automodule:: mars.spectra_manager.spectral_integration
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.spectra\_manager.spectral\_line\_combiner module
------------------------------------------------------
-
-.. automodule:: mars.spectra_manager.spectral_line_combiner
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.spectra\_manager.wave\_calculator module
----------------------------------------------
-
-.. automodule:: mars.spectra_manager.wave_calculator
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   mars.spectra_manager.intensity_base
+   mars.spectra_manager.intensity_wave
+   mars.spectra_manager.magnetization_mode
+   mars.spectra_manager.spectra_manager
+   mars.spectra_manager.spectra_manager_direct
+   mars.spectra_manager.spectra_manager_expanded
+   mars.spectra_manager.spectra_processing_base
+   mars.spectra_manager.spectra_processing_direct
+   mars.spectra_manager.spectra_processing_expanded
+   mars.spectra_manager.spectral_integration
+   mars.spectra_manager.spectral_line_combiner
+   mars.spectra_manager.utils
 
 Module contents
 ---------------

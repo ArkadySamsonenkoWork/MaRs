@@ -4,13 +4,10 @@ mars.reader package
 Submodules
 ----------
 
-mars.reader.bruker\_reader module
----------------------------------
+.. toctree::
+   :maxdepth: 4
 
-.. automodule:: mars.reader.bruker_reader
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   mars.reader.bruker_reader
 
 Module contents
 ---------------

@@ -4,69 +4,17 @@ mars.optimization package
 Submodules
 ----------
 
-mars.optimization.fitter module
--------------------------------
+.. toctree::
+   :maxdepth: 4
 
-.. automodule:: mars.optimization.fitter
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.optimization.interactions module
--------------------------------------
-
-.. automodule:: mars.optimization.interactions
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.optimization.objectives module
------------------------------------
-
-.. automodule:: mars.optimization.objectives
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.optimization.penalty\_computations module
-----------------------------------------------
-
-.. automodule:: mars.optimization.penalty_computations
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.optimization.recreate\_samplers module
--------------------------------------------
-
-.. automodule:: mars.optimization.recreate_samplers
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.optimization.searcher module
----------------------------------
-
-.. automodule:: mars.optimization.searcher
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.optimization.spece\_searcher\_plot module
-----------------------------------------------
-
-.. automodule:: mars.optimization.spece_searcher_plot
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.optimization.uncertanity\_analyzer module
-----------------------------------------------
-
-.. automodule:: mars.optimization.uncertanity_analyzer
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   mars.optimization.fitter
+   mars.optimization.interactions
+   mars.optimization.objectives
+   mars.optimization.penalty_computations
+   mars.optimization.recreate_samplers
+   mars.optimization.searcher
+   mars.optimization.spece_searcher_plot
+   mars.optimization.uncertanity_analyzer
 
 Module contents
 ---------------

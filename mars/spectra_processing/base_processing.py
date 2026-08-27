@@ -265,13 +265,9 @@ def normalize_spectrum2d(
     raise ValueError(f"Unknown norm mode: {mode}")
 
 
-import numpy as np
-import torch
-from typing import Union
-
 def fourier_transform_time(
-    time: Union[np.ndarray, torch.Tensor],
-    signal: Union[np.ndarray, torch.Tensor],
+    time: tp.Union[np.ndarray, torch.Tensor],
+    signal: tp.Union[np.ndarray, torch.Tensor],
     axis: int = 0,
     return_angular: bool = True,
     shift: bool = False,

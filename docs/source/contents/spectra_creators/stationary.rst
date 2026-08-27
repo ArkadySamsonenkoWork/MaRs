@@ -26,7 +26,7 @@ Mathematical Foundation
    Assuming the quantization axis aligns with the magnetic field direction (e.g., :math:`\mathbf{B} \parallel z`), the intensity of a transition between eigenstates :math:`|i\rangle` and :math:`|j\rangle` is:
 
    .. math::
-      I_{ij} \propto \left( |\langle i | \hat{G}_x | j \rangle|^2 + |\langle i | \hat{G}_y | j \rangle|^2 \right) \cdot (p_j - p_i)
+      I_{ij} \propto |\langle i | \hat{G}_\perp | j \rangle|^2 \cdot (p_j - p_i)
 
    where the population of state *k* for the equilibrium case is:
 

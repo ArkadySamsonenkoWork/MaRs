@@ -26,12 +26,31 @@ This complex vector fully characterizes the transition coupling to electromagnet
 Standard Resonator Geometry
 ---------------------------
 
-In conventional EPR (:math:`\mathbf{B}_1 \perp \mathbf{B}_0`, linear polarization), the relevant quantity is:
+In a conventional EPR resonator, the oscillating microwave magnetic field
+:math:`\mathbf{B}_1` can be oriented either perpendicular or parallel to the
+static magnetic field :math:`\mathbf{B}_0`.
+
+For the standard perpendicular mode
+(:math:`\mathbf{B}_1 \perp \mathbf{B}_0`), the relevant transition
+magnetization is obtained from the transverse components:
 
 .. math::
-   D = |\langle j | \hat{G}_x | i \rangle|^2 + |\langle j | \hat{G}_y | i \rangle|^2,
 
-which equals :math:`|\mathbf{n}_1^\top \boldsymbol{\mu}_{ij}|^2` for :math:`\mathbf{n}_1 \perp \mathbf{n}_0`.
+   D_{\perp}
+   =
+   |\langle j | \hat{G}_X | i \rangle|^2
+
+or for powder this expresssion is averaged for the all orientations among 3 euler angles.
+
+For the parallel mode
+(:math:`\mathbf{B}_1 \parallel \mathbf{B}_0`), the longitudinal component is
+used:
+
+.. math::
+
+   D_{\parallel}
+   =
+   |\langle j | \hat{G}_Z | i \rangle|^2.
 
 General Excitation Geometry (Beam EPR)
 --------------------------------------
@@ -53,7 +72,7 @@ Following Nehrkorn *et al.* [PRL 114, 010801 (2015)], for arbitrary polarization
   .. math::
      D^\pm = D^{\text{un}} \pm 2\, \mathbf{n}_k^\top \left( \mathrm{Im}\,\boldsymbol{\mu}_{ij} \times \mathrm{Re}\,\boldsymbol{\mu}_{ij} \right).
 
-These expressions are used by :class:`mars.spectra_manager.wave_calculator.WaveIntensityCalculator`.
+These expressions are used by :class:`mars.spectra_manager.intensity_wave.WaveIntensityCalculator`.
 The population difference multiplies :math:`D` as a separate prefactor, preserving the two-factor structure as long as coherences are neglected.
 
 Powder Averaging
@@ -66,17 +85,29 @@ For disordered samples, angular integration yields closed forms involving :math:
 
 Usage Examples
 
+
+
 Example: Unpolarized radiation in a powder sample (Voigt geometry)
---------------------------------------------------------------------
+------------------------------------------------------------------
+
+For an incident electromagnetic wave, define the radiation geometry with
+``WaveMagnetizationConfig`` and pass it to the spectra calculator.
+
+In Voigt geometry, the wave propagation direction is perpendicular to the
+static magnetic field B0, so ``theta = pi / 2``.
 
 .. code-block:: python
 
-   calculator = specta_manager.WaveIntensityCalculator(
+   magnetization_config = spectra_manager.WaveMagnetizationConfig(
+       polarization=spectra_manager.Polarization.UNPOLARIZED,
+       theta=math.pi / 2,  # k perpendicular to B0: Voigt geometry
+   )
+
+   intensity_calculator = spectra_manager.WaveIntensityCalculator(
        spin_system_dim=sample.spin_system_dim,
-       disordered=True,                  # powder sample or sample.mesh.disordered,
-       polarization='un',                # unpolarized
-       theta=math.pi / 2,                # propagation perpendicular to B0
-       temperature=300.0,                # room temperature
+       disordered=True, # powder sample or sample.mesh.disordered,
+       magnetization_config=magnetization_config,
+       temperature=300.0,
        device=device,
-       dtype=dtype
+       dtype=dtype,
    )

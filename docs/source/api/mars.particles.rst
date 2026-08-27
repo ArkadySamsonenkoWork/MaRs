@@ -4,13 +4,10 @@ mars.particles package
 Submodules
 ----------
 
-mars.particles.typed\_particles module
---------------------------------------
+.. toctree::
+   :maxdepth: 4
 
-.. automodule:: mars.particles.typed_particles
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   mars.particles.typed_particles
 
 Module contents
 ---------------

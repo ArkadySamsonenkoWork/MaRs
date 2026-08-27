@@ -13,6 +13,8 @@ Subpackages
    mars.particles
    mars.population
    mars.reader
+   mars.save_procedures
+   mars.serialization
    mars.spectra_manager
    mars.spectra_processing
    mars.visualization
@@ -20,37 +22,13 @@ Subpackages
 Submodules
 ----------
 
-mars.constants module
----------------------
+.. toctree::
+   :maxdepth: 4
 
-.. automodule:: mars.constants
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.multiplication module
---------------------------
-
-.. automodule:: mars.multiplication
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.spin\_model module
------------------------
-
-.. automodule:: mars.spin_model
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-mars.utils module
------------------
-
-.. automodule:: mars.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   mars.constants
+   mars.multiplication
+   mars.spin_model
+   mars.utils
 
 Module contents
 ---------------

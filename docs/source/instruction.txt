@@ -1,3 +1,8 @@
 From project root:
 
 sphinx-apidoc -o docs/source/api mars
+
+
+or
+
+sphinx-apidoc --implicit-namespaces -f -e -o docs/source/api mars
