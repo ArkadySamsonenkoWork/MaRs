@@ -63,7 +63,7 @@ The construction of an EPR spectrum in MaRs follows a sequence of computational 
         This method finds resonant frequencies in a given interval at fixed magnetic field. It requires only one matrix eigenvalues and eigenvectors computation
 
 6. **Compute transition intensities**  
-   Intensities are computed by :class:`mars.spectra_manager.spectra_manager.BaseResIntensityCalculator`.
+   Intensities are computed by :class:`mars.spectra_manager.intensity_base.BaseResIntensityCalculator`.
 
    Assuming the quantization axis aligns with the magnetic field direction (e.g., :math:`\mathbf{B} \parallel z`), the intensity of a transition in stationart EPR spectroscopy between eigenstates :math:`|i\rangle` and :math:`|j\rangle` is:
 
