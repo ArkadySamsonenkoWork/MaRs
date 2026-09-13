@@ -7,7 +7,7 @@ Overview
 --------
 
 The :class:`mars.population.populators.density_population.RWADensityPopulator` computes
-time-dependent EPR signals using the density-matrix formalism in a rotating reference
+time-dependent EPR signals using the density-matrix formalism in a rotating
 frame. The implementation keeps the full density matrix and solves its Liouville-space
 equation, while using the rotating-wave approximation (RWA) to remove the fast
 counter-rotating terms.
@@ -78,10 +78,10 @@ as
 .. math::
 
    H_{\mathrm{eff}}
-   = F + (B_0 g_{zz} \beta - h \omega_{\mathrm{rf}}) S_Z + \frac{B_1}{2}G_X,
+   = F + (B_0 g_{ZZ} \beta - h \omega_{\mathrm{rf}}) S_Z + \frac{B_1}{2}G_X,
 
 where :math:`F` is the static spin Hamiltonian in the eigenbasis used by the propagator, and the factor :math:`1/2` comes
-from the resonant component of a linearly oscillating field. Here and further: gxx, gyy, gzz are diagonal elements of g-tensor in the sample frame.
+from the resonant component of a linearly oscillating field. Here and further: g_XX, g_YY, g_ZZ are diagonal elements of g-tensor in the sample frame.
 
 .. math::
 
@@ -101,7 +101,7 @@ to the corresponding spin operators:
 
 .. math::
 
-   G_X = g_{xx} S_X, \qquad G_Y = g_{yy} S_Y, \qquad G_Z = g_{zz} S_Z.
+   G_X = g_{XX} S_X, \qquad G_Y = g_{YY} S_Y, \qquad G_Z = g_{ZZ} S_Z.
 
 This corresponds to neglecting the off-diagonal elements of the :math:`g`-tensor.
 The RWA construction retains the components compatible with the chosen rotating
@@ -209,24 +209,24 @@ Zeeman interaction, the transverse operators are
 
 .. math::
 
-   G_X = g_{xx} S_X,\qquad G_Y = g_{yy} S_Y,
+   G_X = g_{XX} S_X,\qquad G_Y = g_{YY} S_Y,
 
-where :math:`g_{xx}` and :math:`g_{yy}` are the corresponding diagonal components of the
-g-tensor. The microwave field is linearly polarized along :math:`x` with
+where :math:`g_{XX}` and :math:`g_{YY}` are the corresponding diagonal components of the
+g-tensor. The microwave field is linearly polarized along :math:`X` with
 amplitude :math:`B_1` and angular frequency :math:`\omega` (in frequency
 units), so
 
 .. math::
 
    H_1(t) = B_1 \cos(\omega t)\, G_X
-           = B_1 g_{xx} \cos(\omega t)\, S_X.
+           = B_1 g_{XX} \cos(\omega t)\, S_X.
 
 The induced signal is
 
 .. math::
 
    I(t) = \operatorname{Tr}\!\left[\rho(t)\,\frac{dH_1}{dt}\right]
-        = -B_1\,\omega\,g_{xx}\,\sin(\omega t)\,
+        = -B_1\,\omega\,g_{XX}\,\sin(\omega t)\,
           \operatorname{Tr}\!\left[\rho(t)\,S_X\right].
 
 We now express the laboratory-frame density matrix through the RWA frame. The
@@ -260,7 +260,7 @@ Substituting into the signal expression yields
 
    I(t)
    =
-   B_1\,\omega\,g_{xx}
+   B_1\,\omega\,g_{XX}
    \Bigl[
      \sin(\omega t)\cos(\omega t)\,
      \operatorname{Tr}\!\left[\tilde{\rho}(t)\,S_X\right]
@@ -276,21 +276,21 @@ of the first term is zero, and the second term averages to one-half:
 
    \langle I(t)\rangle_T
    =
-   -\frac{B_1\,\omega\,g_{xx}}{2}\,
+   -\frac{B_1\,\omega\,g_{XX}}{2}\,
    \operatorname{Tr}\!\left[\tilde{\rho}(t)\,S_Y\right].
 
-In terms of the Zeeman operator :math:`G_Y = g_{yy} S_Y`, this becomes
+In terms of the Zeeman operator :math:`G_Y = g_{YY} S_Y`, this becomes
 
 .. math::
 
    \langle I(t)\rangle_T
    =
    -\frac{B_1\,\omega}{2}\,
-   \frac{g_{xx}}{g_{yy}}\,
+   \frac{g_{XX}}{g_{YY}}\,
    \operatorname{Tr}\!\left[\tilde{\rho}(t)\,G_Y\right].
 
 
-In the isotropic case :math:`g_{xx}=g_{yy}`, the
+In the isotropic case :math:`g_{XX}=g_{YY}`, the
 prefactor equals unity and the familiar result is recovered. In the MaRs implementation,
 for simplicity, this prefactor is not computed explicitly. It is assumed to be equal to 1.0 for each orientation. For the crystalline sample it means the change of the total signal intenisty without change of the spectral form.
 For the powder spectrum it can lead to distoration.
@@ -305,34 +305,34 @@ Powder Averaging
 For disordered samples, spectra are averaged over molecular orientations
 :math:`(\alpha,\beta,\gamma)` in Euler angle notation. The RWA method inherently
 assumes nearly isotropic :math:`g`-tensor, and for powder averaging
-we make a further simplification for each orientation: :math:`g_{xx} \approx g_{yy} = g_{\perp}`.
+we make a further simplification for each orientation: :math:`g_{XX} \approx g_{YY} = g_{\perp}`.
 This additional approximation affects the line intensities but not their positions.
 
 For disordered samples, spectra are averaged over molecular orientations
-:math:`(\alpha,\beta)` in Euler angle in :math:`zyz'` notation. Averaging over
-:math:`\gamma` reduces to averaging the initial density matrix: under the RWA,
+:math:`(\beta, \gamma)` in Euler angle in :math:`zy'z'''` notation. Averaging over
+:math:`\alpha` reduces to averaging the initial density matrix: under the RWA,
 this dependence can be represented by the unitary rotation
-:math:`e^{i\gamma S_Z}` applied to the initial density matrix. Consequently,
-the powder average over :math:`\gamma` is equivalent to an average over the
+:math:`e^{i\alpha S_Z}` applied to the initial density matrix. Consequently,
+the powder average over :math:`\alpha` is equivalent to an average over the
 corresponding initial states.
 
 Let consider it:
 
 .. math::
 
-   W_\gamma=e^{iS_Z\gamma}.
+   W_\alpha=e^{iS_Z\alpha}.
 
 Let the reference RWA Hamiltonian be:
 
 .. math::
 
-   H_X = F + (B_0 g_{zz} \beta - h \omega_{\mathrm{rf}}) S_Z + \frac{B_1}{2}G_X,
+   H_X = F + (B_0 g_{ZZ} \beta - h \omega_{\mathrm{rf}}) S_Z + \frac{B_1}{2}G_X,
 
 and let the orientation-dependent Hamiltonian be
 
 .. math::
 
-   H_\gamma = W_\gamma^\dagger H_X W_\gamma.
+   H_\alpha = W_\alpha^\dagger H_X W_\alpha.
 
 Because :math:`[F,S_Z]=0` and :math:`S_Z` is unchanged by its own rotation, the only
 orientation dependence is the rotation of the transverse operator. The corresponding
@@ -340,22 +340,22 @@ density-matrix evolution can therefore be written as
 
 .. math::
 
-   \rho_\gamma(t)
-   =W_\gamma^\dagger\,
-   \rho_X\!\left(t;\rho_0^{(\gamma)}\right)W_\gamma,
+   \rho_\alpha (t)
+   =W_\alpha^\dagger\,
+   \rho_X\!\left(t;\rho_0^{(\alpha)}\right)W_\alpha,
 
 with the rotated initial state
 
 .. math::
 
-   \rho_0^{(\gamma)}
-   =W_\gamma\rho_0W_\gamma^\dagger.
+   \rho_0^{(\alpha)}
+   =W_\alpha\rho_0W_\alpha^\dagger.
 
 The detection operator transforms in the same way, e.g.
 
 .. math::
 
-   D_\gamma=W_\gamma^\dagger G_Y W_\gamma.
+   D_\alpha=W_\alpha^\dagger G_Y W_\alpha.
 
 Consequently the signal is invariant under moving the orientation dependence from the
 Hamiltonian and detection operator into the initial density matrix:
@@ -363,19 +363,19 @@ Hamiltonian and detection operator into the initial density matrix:
 .. math::
 
    \begin{aligned}
-   I_\gamma(t)
-   &=\operatorname{Tr}\!\left(D_\gamma\rho_\gamma(t)\right)\\
-   &=\operatorname{Tr}\!\left(G_Y\rho_X\!\left(t;\rho_0^{(\gamma)}\right)\right).
+   I_\alpha(t)
+   &=\operatorname{Tr}\!\left(D_\alpha\rho_\alpha(t)\right)\\
+   &=\operatorname{Tr}\!\left(G_Y\rho_X\!\left(t;\rho_0^{(\alpha)}\right)\right).
    \end{aligned}
 
-The Liouville equation is linear in :math:`\rho`, so averaging over :math:`\gamma` can be
+The Liouville equation is linear in :math:`\rho`, so averaging over :math:`\alpha` can be
 performed before the propagation:
 
 .. math::
 
    \begin{aligned}
    \overline{I}(t)
-   &=\frac{1}{2\pi}\int_0^{2\pi} I_\gamma(t)\,d\gamma\\
+   &=\frac{1}{2\pi}\int_0^{2\pi} I_\alpha(t)\,d\alpha\\
    &=\operatorname{Tr}\!\left(G_Y\,\rho_X(t;\overline{\rho}_0)\right),
    \end{aligned}
 
@@ -386,10 +386,10 @@ where
    \boxed{\displaystyle
    \overline{\rho}_0
    =\frac{1}{2\pi}\int_0^{2\pi}
-      W_\gamma\rho_0W_\gamma^\dagger\,d\gamma.}
+      W_\alpha\rho_0W_\alpha^\dagger\,d\alpha.}
 
 The implementation performs a single propagation with an averaged
-initial density matrix instead of explicitly sampling the final Euler angle :math:`\gamma`.
+initial density matrix instead of explicitly sampling the final Euler angle :math:`\alpha`.
 
 The averaging has a simple form in the eigenbasis of :math:`S_Z`. If
 :math:`S_Z|m\rangle=m|m\rangle`, then
@@ -398,7 +398,7 @@ The averaging has a simple form in the eigenbasis of :math:`S_Z`. If
 
    \left(\overline{\rho}_0\right)_{mn}
    =\rho_{0,mn}
-      \frac{1}{2\pi}\int_0^{2\pi}e^{i(m-n)\gamma}\,d\gamma
+      \frac{1}{2\pi}\int_0^{2\pi}e^{i(m-n)\alpha}\,d\alpha
    =\begin{cases}
       \rho_{0,mn}, & m=n,\\
       0, & m\neq n.

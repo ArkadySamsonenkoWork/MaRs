@@ -99,8 +99,6 @@ class BaseMesh(nn.Module, ABC):
                 return False
         return True
 
-
-
     def to_json_dict(self) -> tp.Dict:
         """Return a JSON-serializable dict that describes this mesh and references its tensors.
         The returned dict must contain at least:
@@ -118,19 +116,40 @@ class CrystalMesh(BaseMesh):
     """
     def __init__(self, euler_angles: tp.Union[torch.Tensor, tp.List[float]], convention: str = "zyz",
                  device: torch.device = torch.device("cpu"), dtype: torch.dtype = torch.float32):
-        """Initialize crystal mesh from Euler angles.
+        """Initialize the crystal mesh from Euler angles.
 
-        :param euler_angles: Euler angles in radians. Shape (..., 3) where last dimension
-            contains [alpha, beta, gamma] angles
-        :type euler_angles: torch.Tensor
+        The Euler angles describe the orientation of the crystal/molecular frame
+        relative to the laboratory frame.
 
-        :param convention: Euler angle convention. Supported: 'zyz', 'xyz', 'xzy',
-        'yxz', 'yzx', 'zxy', 'zyx'
-        :type convention: str
-        :param device: Computation device
-        :type device: torch.device
-        :param dtype: Floating point precision
-        :type dtype: torch.dtype
+        For ``convention="abc"``, ``[alpha, beta, gamma]`` defines an intrinsic
+        rotation of the crystal frame. Start with the crystal frame aligned with
+        the laboratory frame, then rotate the frame as
+        ``a(alpha) -> b'(beta) -> c''(gamma)``.
+
+        The equivalent rotations about the fixed laboratory axes occur in the
+        reverse physical order:
+        ``C(gamma) -> B(beta) -> A(alpha)``.
+
+        For the default ``"zyz"`` convention:
+            molecular:
+                ``z(alpha) -> y'(beta) -> z''(gamma)``
+            laboratory:
+                ``Z(gamma) -> Y(beta) -> Z(alpha)``
+            and
+            ``R = R_Z(alpha) @ R_Y(beta) @ R_Z(gamma)``.
+
+        The resulting matrix transforms coordinates according to
+
+        ``v_lab = R @ v_mol``.
+
+        :param euler_angles: Euler angles in radians with shape
+            ``[..., 3]``. The last dimension contains
+            ``[alpha, beta, gamma]``.
+        :param convention: Intrinsic molecular-axis convention. Supported values
+            are ``"zyz"``, ``"xyz"``, ``"xzy"``, ``"yxz"``, ``"yzx"``,
+            ``"zxy"``, and ``"zyx"``. Default is ``"zyz"``.
+        :param device: Computation device.
+        :param dtype: Floating-point dtype used for angles and matrices.
         """
         super().__init__(device=device, dtype=dtype)
 

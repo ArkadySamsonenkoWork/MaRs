@@ -27,7 +27,7 @@ class VaryInteraction:
         :param vary_frame:
         torch.Tensor | Sequence[float] optional
             Orientation of the tensor. Can be provided as:
-              - A 1D tensor of shape (3,) representing Euler angles in ZYZ' convention.
+              - A 1D tensor of shape (3,) representing Euler angles in zy'z'' convention.
               - A 2D tensor of shape (3, 3) representing a rotation matrix.
             Default is `None`, meaning lab frame.
 
@@ -62,7 +62,7 @@ class VaryDEInteraction:
         :param vary_frame:
         torch.Tensor | Sequence[float] optional
             Orientation of the tensor. Can be provided as:
-              - A 1D tensor of shape (3,) representing Euler angles in ZYZ' convention.
+              - A 1D tensor of shape (3,) representing Euler angles in zy'z'' convention.
               - A 2D tensor of shape (3, 3) representing a rotation matrix.
             Default is `None`, meaning lab frame.
 

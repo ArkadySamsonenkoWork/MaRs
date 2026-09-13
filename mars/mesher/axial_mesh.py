@@ -55,10 +55,10 @@ class AxialMesh(BaseMeshAxial):
                  dtype: torch.dtype = torch.float32):
         """Initialize Delaunay mesh parameters.
 
-        Args:
-            eps: Small epsilon value for numerical stability
-            initial_grid_frequency: Resolution of initial grid
-            interpolation_grid_frequency: Resolution of interpolation grid
+
+        :param  eps: Small epsilon value for numerical stability
+        :param initial_grid_frequency: Resolution of initial grid
+        :param interpolation_grid_frequency: Resolution of interpolation grid
         """
         super().__init__(device=device, dtype=dtype)
         self.dtype = dtype

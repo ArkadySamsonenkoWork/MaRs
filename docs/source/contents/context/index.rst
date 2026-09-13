@@ -47,6 +47,7 @@ Contents
    basis_transformation
    complex_context
    relaxation_channels
+   phase_correction	
 
 Quick Example
 -------------
@@ -101,4 +102,4 @@ See Also
 - :ref:`basis_transformation` - Transformation between different bases
 - :ref:`complex_context` - Combining contexts using algebra operations
 - :ref:`relaxation_channels` - Combining contexts using algebra operations
-
+- :ref:`phase_correction` - Phase convection for eigenvectors

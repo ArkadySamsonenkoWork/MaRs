@@ -1,7 +1,7 @@
-mars.mesher.delanay\_mesh module
+mars.mesher.delaunay\_mesh module
 ================================
 
-.. automodule:: mars.mesher.delanay_mesh
+.. automodule:: mars.mesher.delaunay_mesh
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,8 +1,8 @@
 # Configuration file for the Sphinx documentation builder.
 
 project = 'MaRs'
-copyright = '2026, Arkady Samsonenko, Ivan Kurgansky'
-author = 'Arkady Samsonenko, Ivan Kurgansky'
+copyright = '2026, Arkady Samsonenko, Ivan Kurganskii'
+author = 'Arkady Samsonenko, Ivan Kurganskii'
 release = '2026.08.09'
 version = '0.0.5.post5'
 

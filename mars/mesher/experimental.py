@@ -2,10 +2,10 @@ import math
 
 import torch
 
-from . import delanay_mesh
+from . import delaunay_mesh
 
 
-class Mesh3D(delanay_mesh.DelaunayMesh):
+class Mesh3D(delaunay_mesh.DelaunayMesh):
     def __init__(self,
                  eps: float = 1e-7,
                  phi_limits: tuple[float, float] = (0, 2 * math.pi),

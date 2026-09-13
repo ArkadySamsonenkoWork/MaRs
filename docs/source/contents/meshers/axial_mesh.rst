@@ -1,17 +1,18 @@
 Axial Mesh: AxialMesh
 ==============================
 
-The :class:`mars.mesher.axial_mesh.AxialMesh` class is optimized for systems with axial (cylindrical)
-symmetry, where physical observables depend only on the polar angle θ and are invariant under
-azimuthal rotation (φ).
+The :class:`mars.mesher.axial_mesh.AxialMesh` class is intended for systems with
+axial symmetry, where observables depend only on the polar angle ``theta`` and
+are independent of the azimuthal angle.
+
 
 Key Features
 ------------
 
-- Samples only the polar angle θ ∈ [0, π/2] (exploiting symmetry).
+- Samples only the polar angle ``theta`` in ``[0, pi/2]`` using axial symmetry.
 - Constructs line segments for integration.
-- No interpolation support (currently).
-- Generates rotation matrices about the y-axis only: R = R_y(θ).
+- Does not use interpolation.
+- Uses matrices of the form ``R = R_y(theta)``.
 
 Usage
 -----
@@ -24,11 +25,16 @@ Usage
        dtype=torch.float64
    )
 
-This mesh is automatically selected when the spin system has axial symmetry and no φ-dependent
-interactions (e.g., axial g-tensors and D-tensors with aligned frames).
+Use this mesh when the spin system is axially symmetric and has no relevant
+azimuthal dependence.
 
 Mathematical Notes
 ------------------
 
-Integration weight for a segment $[θ_i, θ_{i+1}]$ is proportional to  
-$2\pi(cos θ_i − cos θ_{i+1})$, corresponding to the surface area of a spherical zone.
+The integration weight for a segment ``[theta_i, theta_{i+1}]`` is proportional to
+
+.. math::
+
+   2\pi\left(\cos\theta_i - \cos\theta_{i+1}\right),
+
+which is the surface area of the corresponding spherical zone.

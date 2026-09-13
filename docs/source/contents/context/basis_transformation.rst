@@ -124,6 +124,13 @@ Both samples must have the same Hilbert space dimension and compatible orientati
 Notice, that if you choose "product", "multiplet", "xyz" basis, which doesn't depend on interactions,
 you will get the same result for any specified sample with the same Hilbert dimension and the same particles.
 
+For bases defined as eigenbases of operators (``"eigen"``, ``"zfs"``, and
+``"zeeman"``), some applications require a consistent phase convention for
+the basis vectors. Since the phase of an eigenvector is arbitrary, MaRs applies
+a phase convention when phase-sensitive quantities, such as coherences, are
+involved (see :ref:`phase_correction`).
+
+
 Transformation Rules
 --------------------
 

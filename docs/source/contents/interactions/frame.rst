@@ -1,94 +1,199 @@
 Frame, Rotations and Euler Angles
 =================================
 
-In MaRs, the orientation of any interaction tensor relative to the laboratory frame is defined by a rotation, which can be specified either as Euler angles or as a full 3×3 rotation matrix.
+MaRs uses passive coordinate transformations to relate coordinate frames. A
+rotation matrix changes the coordinates used to represent the same physical
+vector or tensor; it does not imply a physical rotation of the object.
 
-Euler Angle Convention
+Frame notation
+--------------
+
+The laboratory axes are written with capital letters :math:`(X,Y,Z)`. The
+molecular axes are written with lowercase letters :math:`(x,y,z)`. An
+interaction principal-axis system (PAS) is denoted by
+:math:`(x_p,y_p,z_p)`.
+
+For a transformation matrix :math:`\mathbf{R}` from a source frame to a target
+frame,
+
+.. math::
+
+   \mathbf{v}_{\mathrm{target}}
+   = \mathbf{R}\,\mathbf{v}_{\mathrm{source}}.
+
+The same second-rank tensor is represented in the target frame as
+
+.. math::
+
+   \mathbf{T}_{\mathrm{target}}
+   = \mathbf{R}\,\mathbf{T}_{\mathrm{source}}\,\mathbf{R}^{\mathsf T}.
+
+
+Euler-angle convention
 ----------------------
 
-MaRs uses the ZYZ' (proper Euler) convention with angles :math:`(\alpha, \beta, \gamma)` in radians, applied in the following order:
-
-1. Rotation by :math:`\alpha` around the lab Z-axis,
-2. Rotation by :math:`\beta` around the new Y'-axis,
-3. Rotation by :math:`\gamma` around the new Z''-axis.
-
-The total rotation matrix is:
+Euler angles :math:`(\alpha,\beta,\gamma)` describe the orientation of one
+frame relative to another. For the ``zy'z''`` convention, start with the reference
+frame and apply the intrinsic frame sequence
 
 .. math::
 
-   \mathbf{R}(\alpha, \beta, \gamma) = \mathbf{R}_z(\gamma)\, \mathbf{R}_y(\beta)\, \mathbf{R}_z(\alpha).
+   z(\alpha) \;\rightarrow\; y'(\beta) \;\rightarrow\; z''(\gamma)
 
-This is the standard convention used in magnetic resonance for describing molecular orientations in powders or single crystals, and it matches the convention used in EasySpin and many quantum chemistry packages.
+until the moving frame coincides with the final frame.
 
-How Rotations Act on Tensors
-----------------------------
-
-An interaction tensor :math:`\mathbf{T}` is defined in its principal axis system (PAS), where it is diagonal:
+For the molecular frame relative to the laboratory frame, the reference axes
+are :math:`(X,Y,Z)` and the final axes are :math:`(x,y,z)`. Thus the sequence is
 
 .. math::
 
-   \mathbf{T}_\text{PAS} = \operatorname{diag}(T_x, T_y, T_z).
+   Z(\alpha) \;\rightarrow\; Y'(\beta) \;\rightarrow\; Z''(\gamma),
 
-To express this tensor in the laboratory frame, it is rotated using the rotation matrix :math:`\mathbf{R}`:
+and the resulting matrix is
 
 .. math::
 
-   \mathbf{T}_\text{lab} = \mathbf{R}\, \mathbf{T}_\text{PAS}\, \mathbf{R}^\top.
+   \mathbf{R}_{L\leftarrow m}
+   = \mathbf{R}_Z(\alpha)\,
+     \mathbf{R}_Y(\beta)\,
+     \mathbf{R}_Z(\gamma).
 
-Specifying Orientation at Initialization
-----------------------------------------
+Its columns are the molecular axes expressed in laboratory coordinates, and it
+maps molecular coordinates to laboratory coordinates:
 
-When constructing an :class:`mars.spin_model.Interaction` or :class:`mars.spin_model.DEInteraction`, the ``frame`` argument accepts:
+.. math::
 
-* ``None`` → identity (tensor aligned with lab frame),
-* A sequence ``[α, β, γ]`` (in radians),
-* A 3×3 rotation matrix (``torch.Tensor``).
+   \mathbf{v}_{L}
+   = \mathbf{R}_{L\leftarrow m}\,\mathbf{v}_{m}.
 
+Interaction frame
+-----------------
+
+For :class:`mars.spin_model.Interaction` and
+:class:`mars.spin_model.DEInteraction`, ``frame`` describes the orientation of
+the interaction PAS relative to the molecular frame.
+
+Starting with the molecular axes :math:`(x,y,z)`, the intrinsic ``zy'z''`` Euler
+sequence gives the principal axes :math:`(x_p,y_p,z_p)`. The corresponding
+matrix maps PAS coordinates to molecular coordinates:
+
+.. math::
+
+   \mathbf{v}_{m}
+   = \mathbf{R}_{m\leftarrow p}\,\mathbf{v}_{p}.
+
+Therefore a diagonal PAS tensor
+
+.. math::
+
+   \mathbf{T}_{p} = \operatorname{diag}(T_x,T_y,T_z)
+
+is represented in the molecular frame as
+
+.. math::
+
+   \mathbf{T}_{m}
+   = \mathbf{R}_{m\leftarrow p}\,
+     \mathbf{T}_{p}\,
+     \mathbf{R}_{m\leftarrow p}^{\mathsf T}.
+
+The ``frame`` argument accepts:
+
+* ``None`` — the principal axes coincide with the molecular axes,
+* Euler angles ``[alpha, beta, gamma]`` in radians,
+* a ``3 x 3`` matrix that maps PAS coordinates to molecular coordinates.
 
 Example:
 
 .. code-block:: python
 
    import math
-   
-   # Rotate g-tensor: 40° around y, then 30° around new z
-   g = Interaction((2.0, 2.0, 2.1), frame=[0.0, math.radians(40), math.radians(30)])
+   from mars.spin_model import Interaction
 
-Applying Rotations After Initialization
----------------------------------------
+   g = Interaction(
+       (2.0, 2.0, 2.1),
+       frame=[0.0, math.radians(40), math.radians(30)],
+   )
 
-After an interaction or a spin system has been created, you can rotate it further using the ``apply_rotation()`` method. This updates the internal rotation matrix and Euler angles accordingly.
+Applying a coordinate-frame transformation
+------------------------------------------
 
-For a single interaction:
+:meth:`mars.spin_model.Interaction.apply_rotation` and
+:meth:`mars.spin_model.SpinSystem.apply_rotation` are interpreted passively.
+The supplied matrix maps coordinates from the current frame to a target frame:
+
+.. math::
+
+   \mathbf{v}_{\mathrm{target}}
+   = \mathbf{R}_{\mathrm{target}\leftarrow\mathrm{current}}
+     \mathbf{v}_{\mathrm{current}}.
+
+Accordingly, an interaction tensor is represented in the target frame as
+
+.. math::
+
+   \mathbf{T}_{\mathrm{target}}
+   = \mathbf{R}_{\mathrm{target}\leftarrow\mathrm{current}}
+     \mathbf{T}_{\mathrm{current}}
+     \mathbf{R}_{\mathrm{target}\leftarrow\mathrm{current}}^{\mathsf T}.
+
+Example:
 
 .. code-block:: python
 
    import torch
    from mars import utils
-   
-   angles = torch.tensor([0.1, 0.2, 0.3]) # [α, β, γ] in radians
-   rotation_matrix = utils.euler_angles_to_matrix(angles)
-   
-   dipolar_interaction.apply_rotation(rotation_matrix) # Rotate just this interaction
 
-For an entire spin system:
+   angles = torch.tensor([0.1, 0.2, 0.3])
+   R_target_from_current = utils.euler_angles_to_matrix(angles)
 
-.. code-block:: python
+   dipolar_interaction.apply_rotation(R_target_from_current)
+   base_spin_system.apply_rotation(R_target_from_current)
 
-   base_spin_system.apply_rotation(rotation_matrix) # Rotate spin system relative to the laboratory frame
+Sample, molecular and laboratory frames
+---------------------------------------
 
-Orientation in Sample Construction
-----------------------------------
+For orientation-dependent samples it is useful to distinguish three frames:
 
-When creating a sample, you can also specify the orientation of the entire spin system relative to the lab frame via the ``spin_system_frame`` argument in :class:`mars.spin_model.MultiOrientedSample` or :class:`mars.spin_model.BaseSample`.
+* molecular frame :math:`(x,y,z)`,
+* sample or crystal reference frame,
+* laboratory frame :math:`(X,Y,Z)`.
+
+The ``molecular_frame`` argument of :class:`mars.spin_model.BaseSample` and
+:class:`mars.spin_model.MultiOrientedSample` defines the molecular frame
+relative to the sample/reference frame. Its matrix satisfies
+
+.. math::
+
+   \mathbf{v}_{s}
+   = \mathbf{R}_{s\leftarrow m}\,\mathbf{v}_{m}.
+
+The orientation mesh defines the sample/reference frame relative to the
+laboratory frame:
+
+.. math::
+
+   \mathbf{v}_{L}
+   = \mathbf{R}_{L\leftarrow s}\,\mathbf{v}_{s}.
+
+The effective molecular-to-laboratory transformation is therefore
+
+.. math::
+
+   \mathbf{R}_{L\leftarrow m}
+   = \mathbf{R}_{L\leftarrow s}\,
+     \mathbf{R}_{s\leftarrow m}.
+
+If ``molecular_frame=None``, the molecular and sample/reference frames
+coincide.
 
 Example:
 
 .. code-block:: python
 
    sample = spin_model.MultiOrientedSample(
-       spin_system_frame=rotation_matrix,  # or use angles directly
        base_spin_system=base_spin_system,
+       molecular_frame=[0.0, 0.2, 0.0],
        ham_strain=5e7,
        gauss=0.001,
        lorentz=0.001,

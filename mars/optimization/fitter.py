@@ -754,7 +754,7 @@ def convert_backend_kwargs(
 
     _OPTUNA_KWARGS = {
         "sampler", "pruner", "n_trials", "timeout", "n_jobs",
-        "callbacks", "show_progress_bar", "max_concurrent_trials", "run_dashboard"
+        "callbacks", "show_progress_bar", "max_concurrent_trials", "run_dashboard", "study_name"
     }
     _NEVERGRAD_KWARGS = {
         "optimizer", "budget", "num_workers", "timeout",

@@ -1,6 +1,7 @@
 Base Spin System
 ==============================
-The :class:`mars.spin_model.SpinSystem` class provides a flexible representation of spin systems commonly encountered in EPR spectroscopy. It supports arbitrary numbers of electron and nuclear spins, along with their mutual interactions (hyperfine, dipolar, exchange, zfs).
+The :class:`mars.spin_model.SpinSystem` class provides a flexible representation of spin systems commonly encountered in EPR spectroscopy.
+It supports arbitrary numbers of electron and nuclear spins, along with their mutual interactions (hyperfine, dipolar, exchange, zfs).
 
 
 Examples
@@ -72,7 +73,7 @@ In MaRs, all operators and vectors are initially defined in the product basis of
 .. code-block:: python
 
    Mz = system.get_electron_z_operator()        # Total electron S_z operator
-   S2 = system.get_electron_squared_operator()  # Total electron S² operator
+   S2 = system.get_electron_squared_operator()  # Total electron S^2 operator
    Me = system.get_electron_projections()       # Electron-only Mₑ per product state
    Mt = system.get_total_projections()          # Total M = Σmₑ + Σmₙ per product state
 
@@ -112,39 +113,78 @@ In MaRs, all operators and vectors are initially defined in the product basis of
   - **Shape**: ``(spin_dim,)``
   - **Example**: Same system as above → ``[1.0, 0.0, 0.0, -1.0]``.
 
-Applying Frame Rotations
-~~~~~~~~~~~~~~~~~~~~~~~~
+Passive coordinate-frame transformation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Spin systems in MaRs can be rotated as a whole relative to laboratory frame using the :meth:`mars.spin_model.SpinSystem.apply_rotation` method.
+SpinSystem in MaRs can be tranformed to new frame. :meth:`mars.spin_model.SpinSystem.apply_rotation` expresses all interaction tensors in a new
+common coordinate frame.
+
+The supplied matrix maps coordinates from the current frame to the target
+frame:
+
+.. math::
+
+   \mathbf{v}_{\mathrm{target}}
+   = \mathbf{R}_{\mathrm{target}\leftarrow\mathrm{current}}
+     \mathbf{v}_{\mathrm{current}}.
+
+Each second-rank interaction tensor is then represented as
+
+.. math::
+
+   \mathbf{T}_{\mathrm{target}}
+   = \mathbf{R}_{\mathrm{target}\leftarrow\mathrm{current}}
+     \mathbf{T}_{\mathrm{current}}
+     \mathbf{R}_{\mathrm{target}\leftarrow\mathrm{current}}^{\mathsf T}.
+
+If the current frame is the molecular frame and the target frame is the
+laboratory frame, then
+
+.. math::
+
+   \mathbf{v}_{L} = \mathbf{R}_{L\leftarrow m}\,\mathbf{v}_{m},
+
+   \mathbf{T}_{L}
+   = \mathbf{R}_{L\leftarrow m}\,
+     \mathbf{T}_{m}\,
+     \mathbf{R}_{L\leftarrow m}^{\mathsf T}.
+
+Example:
 
 .. code-block:: python
 
    import torch
    from mars import spin_model
 
-   # Define a spin system (e.g., nitroxide radical)
    g_el = spin_model.Interaction([2.006, 2.006, 2.002])
    A_tensor = spin_model.Interaction([20.0e6, 20.0e6, 80.0e6])
+
    system = spin_model.SpinSystem(
        electrons=[1/2],
        g_tensors=[g_el],
        nuclei=["14N"],
-       electron_nuclei=[(0, 0, A_tensor)]
+       electron_nuclei=[(0, 0, A_tensor)],
    )
 
-   # Define a rotation matrix (e.g., 90° around y-axis)
-   R = torch.tensor([[0., 0., 1.],
-                     [0., 1., 0.],
-                     [-1., 0., 0.]])
+   # Matrix mapping the current coordinates to a target coordinate frame.
+   R_target_from_current = torch.tensor([
+       [0., 0., 1.],
+       [0., 1., 0.],
+       [-1., 0., 0.],
+   ])
 
-   # Apply rotation to all interaction tensors
-   system.apply_rotation(R)
+   system.apply_rotation(R_target_from_current)
 
-This operation updates the internal representation of all interaction tensors (g, hyperfine, dipolar, etc.) by left-multiplying their components with the provided rotation matrix:
+For an interaction whose PAS-to-current transformation is
+:math:`\mathbf{R}_{\mathrm{current}\leftarrow p}`, the stored orientation is
+updated by composition:
 
 .. math::
 
-   \mathbf{T}_{\text{new}} = \mathbf{R} \cdot \mathbf{T}_{\text{old}}
+   \mathbf{R}_{\mathrm{target}\leftarrow p}
+   = \mathbf{R}_{\mathrm{target}\leftarrow\mathrm{current}}
+     \mathbf{R}_{\mathrm{current}\leftarrow p}.
+
 
 Concatenating Spin Systems
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

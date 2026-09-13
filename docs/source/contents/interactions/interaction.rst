@@ -1,7 +1,8 @@
 Interaction
 ===========
 
-The :class:`mars.spin_model.Interaction` class is the general-purpose container for symmetric second-rank tensor interactions in EPR spectroscopy. It supports isotropic, axial, and orthorhombic symmetry and can be rotated into an arbitrary molecular frame via Euler angles or a rotation matrix.
+The :class:`mars.spin_model.Interaction` class is the general-purpose container for symmetric second-rank tensor interactions in EPR spectroscopy.
+It supports isotropic, axial, and orthorhombic symmetry and can be rotated into an arbitrary molecular frame via Euler angles or a rotation matrix.
 
 Mathematical Form
 -----------------
@@ -52,22 +53,27 @@ Two :class:`mars.spin_model.Interaction` and :class:`mars.spin_model.DEInteracti
    # total interaction as sum of interactions
    total = J + dipolar
 
-Frame handling
-~~~~~~~~~~~~~~
+Frame convention
+----------------
 
-If both interactions are defined in the same molecular frame (i.e., their Euler angles are numerically identical), their principal components are summed directly. If their frames differ, each tensor is first rotated into the laboratory frame:
+The molecular axes are written as :math:`(x,y,z)`. The interaction principal
+axes are written as :math:`(x_p,y_p,z_p)`.
 
-.. math::
-
-   \mathbf{T}^{(i)}_{\text{lab}} = \mathbf{R}^{(i)} \cdot \operatorname{diag}(T_x^{(i)}, T_y^{(i)}, T_z^{(i)}) \cdot (\mathbf{R}^{(i)})^\top,
-
-then summed as full 3×3 matrices:
+For Euler angles :math:`(\alpha,\beta,\gamma)` in the ``zyz`` convention, start
+with the molecular frame and apply the intrinsic frame sequence
 
 .. math::
 
-   \mathbf{T}_{\text{sum}}^{\text{lab}} = \mathbf{T}^{(1)}_{\text{lab}} + \mathbf{T}^{(2)}_{\text{lab}}.
+   z(\alpha) \;\rightarrow\; y'(\beta) \;\rightarrow\; z''(\gamma)
 
-The resulting tensor is diagonalized to extract new principal values and a new orientation frame. The output is always stored as a valid :class:`mars.spin_model.Interaction` with its own intrinsic frame and rotation to the lab frame.
+until the frame coincides with the PAS.
+
+The corresponding matrix maps PAS coordinates to molecular coordinates:
+
+.. math::
+
+   \mathbf{v}_{m}
+   = \mathbf{R}_{m\leftarrow p}\,\mathbf{v}_{p}.
 
 Strain handling
 ~~~~~~~~~~~~~~~

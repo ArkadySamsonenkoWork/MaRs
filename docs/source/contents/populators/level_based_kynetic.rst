@@ -324,7 +324,7 @@ kinetic model - tiny changes in the rate constants can strongly change relaxatio
 and mode amplitudes, so the model itself is structurally sensitive to the
 (experimentally uncertain) rate parameters. In this regime, use
 ``EvolutionPopulationSolver.stationary_rate_solver_expm``, which computes
-:math:`\exp(Kt)` directly (via matrix exponentiation, without eigen-decomposition) and
+:math:`\exp(Kt)` directly (via matrix exponentiation and Taylor expension, without eigen-decomposition) and
 remains mathematically valid for defective matrices, at the cost of being slower.
 
 Usage Examples

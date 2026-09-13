@@ -1,16 +1,16 @@
 Powder Mesh: DelaunayMesh
 ==================================
 
-The :class:`mars.mesher.delanay_mesh.DelaunayMesh` class implements a spherical triangulation
-based on an adaptive grid in spherical coordinates (θ, φ). It is designed for disordered
-(powder) samples where all orientations are equally probable.
+The :class:`mars.mesher.delaunay_mesh.DelaunayMesh` class implements a spherical
+triangulation for disordered (powder) samples, where molecular orientations are
+sampled over the sphere based on an adaptive grid in spherical coordinates (θ, φ). 
 
 Key Features
 ------------
 
 - Supports full-sphere or restricted φ ranges via ``phi_limits``.
 - Optional interpolation from a coarse initial grid to a finer evaluation grid.
-- Returns rotation matrices that map the laboratory z-axis to each sampled direction.
+- Provides molecular-to-laboratory transformation matrices for all sampled orientations.
 - Provides spherical triangle areas for proper integration weighting.
 
 Usage

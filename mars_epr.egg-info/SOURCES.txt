@@ -7,7 +7,7 @@ mars/spin_model.py
 mars/utils.py
 mars/mesher/__init__.py
 mars/mesher/axial_mesh.py
-mars/mesher/delanay_mesh.py
+mars/mesher/delaunay_mesh.py
 mars/mesher/experimental.py
 mars/mesher/general_mesh.py
 mars/operations/__init__.py

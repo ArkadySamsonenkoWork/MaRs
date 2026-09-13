@@ -8,7 +8,7 @@ Submodules
    :maxdepth: 4
 
    mars.mesher.axial_mesh
-   mars.mesher.delanay_mesh
+   mars.mesher.delaunay_mesh
    mars.mesher.experimental
    mars.mesher.general_mesh
 

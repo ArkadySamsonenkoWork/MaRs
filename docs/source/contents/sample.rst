@@ -77,11 +77,11 @@ This doesn't change the final spectrum of the sample, but it can be convinient f
 Hamiltonian Terms
 -----------------
 
-The total spin Hamiltonian in the presence of a magnetic field **B** = (B_x, B_y, B_z) is expressed as:
+The total spin Hamiltonian in the presence of a magnetic field **B** = (B_X, B_Y, B_Z) is expressed as:
 
 .. math::
 
-   \mathcal{H}(\mathbf{B}) = F + B_x G_X + B_y G_Y + B_z G_Z
+   \mathcal{H}(\mathbf{B}) = F + B_X G_X + B_Y G_Y + B_Z G_Z
 
 where:
 
@@ -93,18 +93,18 @@ Explicitly, these operators are defined as:
 .. math::
 
    \begin{aligned}
-   G_X &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,xx} \hat{S}_i^{(x)} + g_{i,xy} \hat{S}_i^{(y)} + g_{i,xz} \hat{S}_i^{(z)} \right)
-         + \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(x)}, \\
-   G_Y &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,yx} \hat{S}_i^{(x)} + g_{i,yy} \hat{S}_i^{(y)} + g_{i,yz} \hat{S}_i^{(z)} \right)
-         + \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(y)}, \\
-   G_Z &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,zx} \hat{S}_i^{(x)} + g_{i,zy} \hat{S}_i^{(y)} + g_{i,zz} \hat{S}_i^{(z)} \right)
-         + \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(z)},
+   G_X &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,XX} \hat{S}_i^{(X)} + g_{i,XY} \hat{S}_i^{(Y)} + g_{i,XZ} \hat{S}_i^{(Z)} \right)
+         + \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(X)}, \\
+   G_Y &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,yx} \hat{S}_i^{(X)} + g_{i,YY} \hat{S}_i^{(Y)} + g_{i,YZ} \hat{S}_i^{(Z)} \right)
+         + \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(Y)}, \\
+   G_Z &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,ZX} \hat{S}_i^{(X)} + g_{i,ZY} \hat{S}_i^{(Y)} + g_{i,ZZ} \hat{S}_i^{(Z)} \right)
+         + \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(Z)},
    \end{aligned}
 
 where:
 
-- :math:`\hat{S}_i^{(x,y,z)}` are the electron spin operators for electron :math:`i`,
-- :math:`\hat{I}_j^{(x,y,z)}` are the nuclear spin operators for nucleus :math:`j`,
+- :math:`\hat{S}_i^{(X,Y,Z)}` are the electron spin operators for electron :math:`i`,
+- :math:`\hat{I}_j^{(X,Y,Z)}` are the nuclear spin operators for nucleus :math:`j`,
 - :math:`\mathbf{g}_i` is the (possibly anisotropic) electron g‑tensor for electron :math:`i`,
 - :math:`g_{n,j}` is the (currently isotropic) nuclear g‑factor for nucleus :math:`j`,
 - :math:`\mu_\mathrm{B}` is the Bohr magneton,
@@ -121,8 +121,8 @@ You can retrieve them directly:
    F, G_X, G_Y, G_Z = sample.get_hamiltonian_terms()
 
    # Secular approximation: only retain elements of F that commute with Gz.
-   #   1. Zero non-commuting elements in Zeeman terms (Gx/Gy/Gz) with respect to spin projections, making Gx,y,z[Sx,y,z == 0] = 0
-   #   2. Zero non-commuting elements in F with respect to Gz, making F[Gz == 0] = 0
+   #   1. Zero non-commuting elements in Zeeman terms (GX/GY/GZ) with respect to spin projections, making GX,Y,Z[SX,Y,Z == 0] = 0
+   #   2. Zero non-commuting elements in F with respect to GZ, making F[Gz == 0] = 0
    F_sec, G_X, G_Y, G_Z sample.get_hamiltonian_terms_secular()
 
 The secular approximation modifies the Hamiltonian terms in two steps:
@@ -147,11 +147,11 @@ The secular approximation modifies the Hamiltonian terms in two steps:
    
       F_{ij}^{\text{sec}} = 
       \begin{cases}
-        F_{ij}, & \text{if } |(G_z)_{ii} - (G_z)_{jj}| < \varepsilon \\
+        F_{ij}, & \text{if } |(G_Z)_{ii} - (G_Z)_{jj}| < \varepsilon \\
         0,      & \text{otherwise}
       \end{cases}
    
-   This enforces :math:`[F^{\text{sec}}, G_z] \approx 0` with threshold :math:`\varepsilon` (default: :math:`10^{-9}`).
+   This enforces :math:`[F^{\text{sec}}, G_Z] \approx 0` with threshold :math:`\varepsilon` (default: :math:`10^{-9}`).
 
 
 Useful Features
@@ -167,7 +167,7 @@ The following methods allow you to construct and switch between common represent
 
 .. code-block:: python
 
-   Mul = sample.get_spin_multiplet_basis()      # |S, M> basis (eigenbasis of S^2 and S_z)
+   Mul = sample.get_spin_multiplet_basis()      # |S, M> basis (eigenbasis of S^2 and S_Z)
    PR  = sample.get_product_state_basis()       # Computational |m1, m2, ...> basis
 
 - :meth:`mars.spin_model.MultiOrientedSample.get_spin_multiplet_basis`

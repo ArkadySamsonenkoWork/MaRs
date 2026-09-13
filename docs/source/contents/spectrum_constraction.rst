@@ -27,7 +27,7 @@ The construction of an EPR spectrum in MaRs follows a sequence of computational 
    MaRs computes four matrices that define the spin Hamiltonian under an external magnetic field **B** = (Bx, By, Bz):
 
    .. math::
-      \hat{H} = \hat{F} + B_x \hat{G}_X + B_y \hat{G}_Y + B_z \hat{G}_Z
+      \hat{H} = \hat{F} + B_X \hat{G}_X + B_X \hat{G}_Y + B_Z \hat{G}_Z
 
    - **F**: Field-independent term (zero-field splitting, hyperfine, nuclear couplings, etc.)
    - **Gx, Gy, Gz**: Zeeman coupling operators, defined explicitly as:
@@ -53,9 +53,9 @@ The construction of an EPR spectrum in MaRs follows a sequence of computational 
    5.2. **Secular approximation** (:class:`mars.secular_approximation_algorithm.ResSecular`)
         This method applies a two-step approximation to the spin Hamiltonian:
         
-        1. Zeeman term projection: Modifies :math:`G_x, G_y, G_z` to zero matrix elements where the corresponding total spin projection (:math:`S_x, S_y, S_z`) has magnitude below threshold. Enforces :math:`[G_\alpha, S_\alpha] \approx 0`.
+        1. Zeeman term projection: Modifies :math:`G_X, G_Y, G_Z` to zero matrix elements where the corresponding total spin projection (:math:`S_X, S_Y, S_Z`) has magnitude below threshold. Enforces :math:`[G_\alpha, S_\alpha] \approx 0`.
         
-        2. Zero-field term projection: Modifies :math:`F` to zero elements connecting states with different Zeeman energies (:math:`|(G_z)_{ii} - (G_z)_{jj}| > \varepsilon`), enforcing :math:`[F, G_z] \approx 0`.
+        2. Zero-field term projection: Modifies :math:`F` to zero elements connecting states with different Zeeman energies (:math:`|(G_Z)_{ii} - (G_Z)_{jj}| > \varepsilon`), enforcing :math:`[F, G_Z] \approx 0`.
         
         This method is udsed by default in :class:`mars.spectra_manager.spectra_manager.DensityTimeSpectra` for time-resolved EPR.
    
@@ -84,13 +84,13 @@ The construction of an EPR spectrum in MaRs follows a sequence of computational 
    However, the final averaging over the third Euler angle (:math:'\gamma') can be performed analytically, reducing computational cost:
    
    .. math::
-      I_{ij} \propto \frac{1}{2} \left( |\langle i | \hat{G}_x | j \rangle|^2 + |\langle i | \hat{G}_y | j \rangle|^2 \right) \cdot (p_j - p_i)
+      I_{ij} \propto \frac{1}{2} \left( |\langle i | \hat{G}_X | j \rangle|^2 + |\langle i | \hat{G}_Y | j \rangle|^2 \right) \cdot (p_j - p_i)
 
 
    In **time-resolved** or **spin-polarized** simulations, populations :math:`p_i(t)` are not thermal and are managed via Context tool: see :class:`mars.population.contexts.Context`.
 
    For density matrix-based time dependant methods, the signal is computed directly as :math:`\mathrm{Tr}(\hat{G}_{\perp} \hat{\rho}(t))`,
-   where :math:`\hat{G}_{\perp}` is the detected transverse spin component (e.g., :math:`\hat{G}_x`, :math:`\hat{G}_y`, or circular combinations depending on detection computation method)
+   where :math:`\hat{G}_{\perp}` is the detected transverse spin component (e.g., :math:`\hat{G}_X`, :math:`\hat{G}_Y`, or circular combinations depending on detection computation method)
 
 7. **Account for line broadening**  
    The total Gaussian linewidth is computed as the square root of the sum of squares of all independent broadening contributions:

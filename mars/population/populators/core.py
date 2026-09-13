@@ -47,8 +47,9 @@ class BasePopulator(nn.Module):
                  device: torch.device = torch.device("cpu"),
                  dtype: torch.dtype = torch.float32):
         super().__init__()
+
         self.register_buffer(
-            "init_temperature", torch.tensor(init_temperature, device=device, dtype=dtype)
+            "init_temperature", torch.as_tensor(init_temperature, device=device, dtype=dtype)
         )
         if isinstance(energy_shifts, torch.Tensor):
             self.register_buffer(
@@ -56,7 +57,7 @@ class BasePopulator(nn.Module):
             )
         elif isinstance(energy_shifts, list):
             self.register_buffer(
-                "energy_shifts", torch.tensor(energy_shifts, device=device, dtype=dtype)
+                "energy_shifts", torch.as_tensor(energy_shifts, device=device, dtype=dtype)
             )
         elif energy_shifts is None:
             self.register_buffer(
