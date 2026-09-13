@@ -13,8 +13,8 @@ from ._dispatch import mars_items_types, mars_item_type
 def concat(items: tp.Sequence[spin_model.SpinSystem], mode: tp.Literal["direct_sum", "batch"] = "direct_sum",
            dim: int = -1) -> spin_model.SpinSystem: ...
 @tp.overload
-def concat(items: tp.Sequence[spin_model.MultiOrientedSample], mode: tp.Literal["direct_sum", "batch"] = "direct_sum",
-           dim: int = -1) -> spin_model.MultiOrientedSample: ...
+def concat(items: tp.Sequence[spin_model.SolidSample], mode: tp.Literal["direct_sum", "batch"] = "direct_sum",
+           dim: int = -1) -> spin_model.SolidSample: ...
 @tp.overload
 def concat(items: tp.Sequence[population.BaseContext], mode: tp.Literal["direct_sum", "batch"] = "direct_sum",
            dim: int = -1) -> population.BaseContext: ...
@@ -56,7 +56,7 @@ def concat(
     of the first element in the input sequence. It supports three types of inputs:
 
     - A sequence of :class:`SpinSystem` -> returns a single block-diagonal :class:`SpinSystem`
-    - A sequence of :class:`MultiOrientedSample` -> returns a single :class:`MultiOrientedSample`
+    - A sequence of :class:`SolidSample` -> returns a single :class:`SolidSample`
       with a concatenated spin system and shared spectral parameters
     - A sequence of :class:`Context` (or :class:`SummedContext`) -> returns a composite
       context that computed direct sum of all contexts
@@ -76,7 +76,7 @@ def concat(
     :param mars_items: A non-empty sequence of identical-type MARS objects.
                        Must be one of:
                        - ``Sequence[SpinSystem]``
-                       - ``Sequence[MultiOrientedSample]``
+                       - ``Sequence[SolidSample]``
                        - ``Sequence[BaseContext]``
     :param mode: The concatenation mode.
                  - ``"direct_sum"`` (default): Combines state spaces (block-diagonal).
@@ -97,7 +97,7 @@ def concat(
 
     if isinstance(ref_item, spin_model.SpinSystem):
         return spin_model.concat_spin_systems(mars_items, mode=mode)
-    elif isinstance(ref_item, spin_model.MultiOrientedSample):
+    elif isinstance(ref_item, spin_model.SolidSample):
         return spin_model.concat_multioriented_samples(mars_items, mode=mode)
     elif isinstance(ref_item, population.BaseContext):
         return population.concat_contexts(mars_items, mode=mode)

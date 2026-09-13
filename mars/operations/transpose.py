@@ -11,7 +11,7 @@ from ._dispatch import mars_item_type
 @tp.overload
 def transpose(item: spin_model.SpinSystem, dim0: int, dim1: int) -> spin_model.SpinSystem: ...
 @tp.overload
-def transpose(item: spin_model.MultiOrientedSample, dim0: int, dim1: int) -> spin_model.MultiOrientedSample: ...
+def transpose(item: spin_model.SolidSample, dim0: int, dim1: int) -> spin_model.SolidSample: ...
 @tp.overload
 def transpose(item: population.BaseContext, dim0: int, dim1: int) -> population.BaseContext: ...
 @tp.overload
@@ -46,7 +46,7 @@ def transpose(
     :return: A new object with the new dimension.
     :raises NotImplementedError: If the item is a live MARS object (not serialized or graph).
     """
-    if isinstance(item, (spin_model.SpinSystem, spin_model.MultiOrientedSample, population.BaseContext)):
+    if isinstance(item, (spin_model.SpinSystem, spin_model.SolidSample, population.BaseContext)):
         raise NotImplementedError("Transpose is not implemented for live MARS objects.")
 
     return operations_interface.transpose(item, dim0=dim0, dim1=dim1)

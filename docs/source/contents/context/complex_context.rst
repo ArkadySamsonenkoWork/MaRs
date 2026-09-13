@@ -91,7 +91,7 @@ A triplet state formed by intersystem crossing typically exhibits:
        electron_electron=[(0, 0, zfs)]
    )
    
-   sample = spin_modelMultiOrientedSample(
+   sample = spin_modelSolidSample(
        base_spin_system=triplet_system,
        ham_strain=2.2e7,
        gauss=0.0011,
@@ -599,14 +599,14 @@ We model each conformer independently, then concatenate their contexts:
    )
    
    # Combine into a single sample for concatenated system
-   triplet_sample_1 = spin_modelMultiOrientedSample(
+   triplet_sample_1 = spin_modelSolidSample(
        base_spin_system=triplet_1,
        ham_strain=2.2e7,
        gauss=0.0011,
        lorentz=0.0011
    )
 
-   triplet_sample_2 = spin_modelMultiOrientedSample(
+   triplet_sample_2 = spin_modelSolidSample(
        base_spin_system=triplet_2,
        ham_strain=2.2e7,
        gauss=0.0011,

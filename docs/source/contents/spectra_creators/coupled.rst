@@ -31,7 +31,7 @@ Examples
    g = spin_model.Interaction(2.002)
    zfs = spin_model.DEInteraction([500e6, 100e6])
    sys = spin_model.SpinSystem(electrons=[1.0], g_tensors=[g], electron_electron=[(0,0,zfs)])
-   sample = spin_model.MultiOrientedSample(sys, lorentz=0.001, ham_strain=1e7)
+   sample = spin_model.SolidSample(sys, lorentz=0.001, ham_strain=1e7)
 
    # Context with initial pop [0.5, 0.3, 0.2] and relaxation rates
    ctx = population.Context(

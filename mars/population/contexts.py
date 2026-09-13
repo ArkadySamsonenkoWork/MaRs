@@ -1718,7 +1718,7 @@ class Context(TransformedContext):
     def __init__(
             self,
             basis: tp.Optional[tp.Union[torch.Tensor, str, None]] = None,
-            sample: tp.Optional[spin_model.MultiOrientedSample] = None,
+            sample: tp.Optional[spin_model.SolidSample] = None,
             init_populations: tp.Optional[tp.Union[torch.Tensor, tp.List[float]]] = None,
             init_density: tp.Optional[torch.Tensor] = None,
 
@@ -1757,7 +1757,7 @@ class Context(TransformedContext):
             Tensor must be square in its last two dimensions.
           - `None`: indicates the eigen basis will be used (no transformation).
 
-        :param sample: MultiOrientedSample or None, optional
+        :param sample: SolidSample or None, optional
             Required when `basis` is specified as a `str`. Provides helper methods
             for building basis tensors for the requested basis type.
 
@@ -2263,7 +2263,7 @@ class Context(TransformedContext):
             coeffs = self._compute_transformation_probabilities(full_system_vectors)
         return transform.transform_dephasing_to_population_transfer(dephasing, coeffs)
 
-    def _create_basis_from_string(self, basis_type: str, sample: tp.Optional[spin_model.MultiOrientedSample]):
+    def _create_basis_from_string(self, basis_type: str, sample: tp.Optional[spin_model.SolidSample]):
         """Factory method to create basis from string identifier."""
         if basis_type == "eigen":
             self.eigen_basis_flag = True

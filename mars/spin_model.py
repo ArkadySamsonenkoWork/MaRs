@@ -24,7 +24,7 @@ Quick example – a simple S=1/2 electron with anisotropic g‑tensor:
 >>> system = spin_model.SpinSystem(electrons=[0.5], g_tensors=[g])
 >>>
 >>> # Create a powder sample with Gaussian broadening
->>> sample = spin_model.MultiOrientedSample(
+>>> sample = spin_model.SolidSample(
 ...     base_spin_system=system,
 ...     gauss=5e-4          # FWHM in tesla
 ... )
@@ -247,8 +247,8 @@ def concat_spin_systems(systems: tp.Sequence[SpinSystem], mode: str = "direct_su
     )
 
 
-def concat_multioriented_samples(samples: tp.Sequence[MultiOrientedSample], mode: str = "direct_sum") ->\
-        MultiOrientedSample:
+def concat_multioriented_samples(samples: tp.Sequence[SolidSample], mode: str = "direct_sum") ->\
+        SolidSample:
     """
     Concatenate multiple powder-averaged spin samples into a single block-diagonal sample.
 
@@ -271,10 +271,10 @@ def concat_multioriented_samples(samples: tp.Sequence[MultiOrientedSample], mode
       2. Weight and sum their spectra.
     This avoids unnecessary memory and computational overhead from block-diagonal Hamiltonians.
 
-    :param samples: Sequence of `MultiOrientedSample` instances. All must have:
+    :param samples: Sequence of `SolidSample` instances. All must have:
         - Identical `lorentz`, `gauss`, and `ham_strain` parameters,
         - Identical orientation mesh (`initial_grid_frequency` and `interpolation_grid_frequency`).
-    :return: A new `MultiOrientedSample` containing the concatenated, lab-frame-aligned spin system.
+    :return: A new `SolidSample` containing the concatenated, lab-frame-aligned spin system.
     :raises ValueError: If broadening parameters or meshes differ across samples.
     """
     if mode != "direct_sum":
@@ -304,7 +304,7 @@ def concat_multioriented_samples(samples: tp.Sequence[MultiOrientedSample], mode
         spin_systems.append(spin_system)
 
     concatenated_spin_system = concat_spin_systems(spin_systems)
-    return MultiOrientedSample(
+    return SolidSample(
         base_spin_system=concatenated_spin_system,
         lorentz=ref_sample.lorentz,
         gauss=ref_sample.gauss,
@@ -3202,7 +3202,7 @@ class LimitedDict(collections.OrderedDict):
         super().__setitem__(key, value)
 
 
-class MultiOrientedSample(BaseSample):
+class SolidSample(BaseSample):
     """
     Represents a solid-state sample evaluated over multiple molecular
     orientations.
@@ -3452,12 +3452,12 @@ class MultiOrientedSample(BaseSample):
         return rotation_matrices
 
     def is_equivalent(self, other: BaseSample, rtol: float = 1e-5, atol: float = 1e-6) -> bool:
-        """Check equality of two MultiOrientedSample instances.
+        """Check equality of two SolidSample instances.
 
         In addition to all BaseSample checks, this also verifies that the
         orientation mesh is identical.
 
-        :param other: Another MultiOrientedSample instance.
+        :param other: Another SolidSample instance.
         :return: True if all parameters and the mesh match.
         """
         if type(self) is not type(other):
@@ -3916,11 +3916,11 @@ class MultiOrientedSample(BaseSample):
         return O_static, O_dependent[..., -1, :, :]
 
 
-class MultiOrientedSampleExpandedStrain(MultiOrientedSample):
+class SolidSampleExpandedStrain(SolidSample):
     """
-    Extension of MultiOrientedSample that allows to define additional batche for hamiltonian strain.
+    Extension of SolidSample that allows to define additional batche for hamiltonian strain.
 
-    Compare to spin_system.MultiOrientedSample it allows to set the hamiltonian strain as an
+    Compare to spin_system.SolidSample it allows to set the hamiltonian strain as an
     additional batch for the system. That is, ham_strain.shape can be any
     """
     def _init_ham_str(
@@ -3933,3 +3933,105 @@ class MultiOrientedSampleExpandedStrain(MultiOrientedSample):
         else:
             ham_strain = init_tensor(ham_strain, device=device, dtype=dtype)
         return ham_strain
+
+
+class MultiOrientedSample(SolidSample):
+    """
+    DEPRICATED. USE SolidSample INSTEAD
+    """
+    _mesh_cache = LimitedDict(maxsize=3)
+
+    def __init__(self, base_spin_system: SpinSystem,
+                 ham_strain: tp.Optional[tp.Union[torch.Tensor, float]] = None,
+                 gauss: tp.Optional[tp.Union[torch.Tensor, float]] = None,
+                 lorentz: tp.Optional[tp.Union[torch.Tensor, float]] = None,
+                 molecular_frame: tp.Optional[tp.Union[torch.Tensor, list[float]]] = None,
+                 mesh: tp.Optional[tp.Union[BaseMesh, tuple[int, int]]] = None,
+                 device: torch.device = torch.device("cpu"),
+                 dtype: torch.dtype = torch.float32,
+                 ):
+        """
+        :param base_spin_system:
+
+        SpinSystem
+            The spin system describing electrons, nuclei, and their interactions.
+
+        :param ham_strain:
+        torch.Tensor, optional
+            Anisotropic line width, due to the unresolved hyperfine interactions.
+            The tensor components, provided in one of the following forms:
+              - A scalar (for isotropic interaction).
+              - A sequence of two values (axial and z components).
+              - A sequence of three values (principal components).
+            The values are given as FWHM (full width at half maximum) of corresponding distribution and measured in Hz
+
+        :param gauss:
+        torch.Tensor, optional
+            Gaussian broadening parameter(s). Defines inhomogeneous linewidth
+            contributions (e.g., due to static disorder). Default is `None`.
+            Values are provided as the full width at half maximum (FWHM) and are expressed in:
+            - tesla (T) for field-dependent spectra,
+            - hertz (Hz) for frequency-dependent spectra.
+
+        :param lorentz:
+        torch.Tensor, optional
+            Lorentzian broadening parameter(s). Defines homogeneous linewidth
+            contributions (e.g., due to relaxation). Default is `None`
+            Values are provided as the full width at half maximum (FWHM) and are expressed in:
+            - tesla (T) for field-dependent spectra,
+            - hertz (Hz) for frequency-dependent spectra.
+
+        :param molecular_frame:
+        torch.Tensor | Sequence[float] optional
+            Orientation of the molecular frame relative to the sample/crystal frame.
+            Can be provided as:
+              - A 1D tensor of shape (3,) representing Euler angles in zy'z'' convention.
+              - A 2D tensor of shape (3, 3) representing a rotation matrix.
+            Default is `None`, meaning lab frame.
+
+            zy'z'' convention is used:
+                molecular (intrinsic, moving axes):
+                    ``z(alpha) -> y'(beta) -> z''(gamma)``
+                laboratory (extrinsic, fixed axes):
+                    ``Z(gamma) -> Y(beta) -> Z(alpha)``
+                with:
+                    ``R_mol = R_Z(alpha) @ R_Y(beta) @ R_Z(gamma)``.
+
+            The corresponding matrix maps:
+                v_sample = R_mol @ v_mol.
+
+            For orientation-averaged samples, the powder mesh generates a set of
+            rotations ``R_mesh`` that sample different molecular orientations.
+            If ``molecular_frame`` is also given, the effective rotation used for
+            every mesh point is:
+                R_eff = R_mesh @ R_molecular_frame
+            Therefore:
+              - ``R_mesh`` produces the distribution of molecular orientations.
+              - ``molecular_frame`` applies an additional fixed alignment or offset
+                of that molecular frame before the powder averaging.
+
+        :param mesh: The mesh defining sample-to-laboratory orientations. It can be:
+           -tuple[initial_grid_frequency, interpolation_grid_frequency],
+           where initial_grid_frequency is the size of the initial mesh,
+           interpolation_grid_frequency is the size of the interpolation mesh
+           For this case mesh will be initialize as DelaunayMesh with given sizes
+
+           -Inheritor of Base Mesh
+
+        If it is None it will be initialize as DelaunayMesh with initial_grid_frequency = 20
+
+        :param device: device to compute (cpu / gpu)
+        """
+        warnings.warn(
+            "'MultiOrientedSample' is deprecated and will be removed in a future version. "
+            "Please use 'SolidSample' instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(base_spin_system=base_spin_system,
+                         ham_strain=ham_strain,
+                         gauss=gauss,
+                         lorentz=lorentz,
+                         molecular_frame=molecular_frame,
+                         mesh=mesh,
+                         device=device, dtype=dtype)

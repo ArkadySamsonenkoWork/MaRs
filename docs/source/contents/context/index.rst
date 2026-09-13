@@ -67,7 +67,7 @@ Quick Example
        electron_electron=[(0, 0, zfs)]
    )
    
-   sample = spin_model.MultiOrientedSample(
+   sample = spin_model.SolidSample(
        base_spin_system=base_system,
        ham_strain=2e7,
        gauss=0.0008,

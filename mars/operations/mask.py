@@ -13,7 +13,7 @@ from ._dispatch import mars_item_type
 @tp.overload
 def mask(item: spin_model.SpinSystem, mask: torch.Tensor) -> spin_model.SpinSystem: ...
 @tp.overload
-def mask(item: spin_model.MultiOrientedSample, mask: torch.Tensor) -> spin_model.MultiOrientedSample: ...
+def mask(item: spin_model.SolidSample, mask: torch.Tensor) -> spin_model.SolidSample: ...
 @tp.overload
 def mask(item: population.BaseContext, mask: torch.Tensor) -> population.BaseContext: ...
 @tp.overload
@@ -48,7 +48,7 @@ def mask(
     :return: A new object with the specified dimensions removed.
     :raises NotImplementedError: If the item is a live MARS object (not serialized or graph).
     """
-    if isinstance(item, (spin_model.SpinSystem, spin_model.MultiOrientedSample, population.BaseContext)):
+    if isinstance(item, (spin_model.SpinSystem, spin_model.SolidSample, population.BaseContext)):
         raise NotImplementedError("Squeeze is not implemented for live MARS objects.")
 
     return operations_interface.mask(item, mask=mask)

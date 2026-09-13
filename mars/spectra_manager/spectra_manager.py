@@ -85,18 +85,18 @@ class Broadener(nn.Module):
                 )
         ).square().sum(dim=-2)
 
-    def add_hamiltonian_strain(self, sample: spin_model.MultiOrientedSample, squared_width: torch.Tensor) ->\
+    def add_hamiltonian_strain(self, sample: spin_model.SolidSample, squared_width: torch.Tensor) ->\
             torch.Tensor:
         """Adds residual broadening due to unresolved interactions.
 
-        :param sample: The MultiOrientedSample object
+        :param sample: The SolidSample object
         :param squared_width: The square of gaussian broadening
         :return: Total gaussian broadening as
         """
         hamiltonian_width = sample.build_ham_strain().unsqueeze(-1).square()
         return (squared_width + hamiltonian_width).sqrt()
 
-    def forward(self, sample: spin_model.MultiOrientedSample,
+    def forward(self, sample: spin_model.SolidSample,
                 vector_down: torch.Tensor, vector_up: torch.Tensor,
                 B_trans: torch.Tensor) -> torch.Tensor:
         """Compute total Gaussian linewidth (FWHM) for each transition by
@@ -107,7 +107,7 @@ class Broadener(nn.Module):
         - Residual Hamiltonian strain (e.g., unresolved hyperfine)
         Result is returned as FWHM
 
-        :param sample: The MultiOrientedSample object
+        :param sample: The SolidSample object
         :param vector_down: Lower-state eigenvector. Shape [..., N]
         :param vector_up: Upper-state eigenvector. Shape [..., N]
         :param B_trans: Magnetic fields of transitions
@@ -457,7 +457,7 @@ class BaseSpectra(nn.Module, ABC):
     def __init__(
         self,
         resonance_parameter: tp.Union[float, torch.Tensor],
-        sample: tp.Optional[spin_model.MultiOrientedSample] = None,
+        sample: tp.Optional[spin_model.SolidSample] = None,
         spin_system_dim: tp.Optional[int] = None,
         batch_dims: tp.Optional[tp.Union[int, tuple]] = None,
         mesh: tp.Optional[mesher.BaseMesh] = None,
@@ -480,7 +480,7 @@ class BaseSpectra(nn.Module, ABC):
     ):
         """
         :param resonance_parameter: Resonance parameter of experiment (frequency or field).
-        :param sample: MultiOrientedSample used to extract meta information.
+        :param sample: SolidSample used to extract meta information.
             If None, spin_system_dim, batch_dims, and mesh must be provided.
         :param spin_system_dim: Hilbert space dimension of the spin system.
         :param batch_dims: Number of batch dimensions.
@@ -597,7 +597,7 @@ class BaseSpectra(nn.Module, ABC):
 
     def _init_sample_parameters(
         self,
-        sample: tp.Optional[spin_model.MultiOrientedSample],
+        sample: tp.Optional[spin_model.SolidSample],
         spin_system_dim: tp.Optional[int],
         batch_dims: tp.Optional[tp.Union[int, tuple]],
         mesh: tp.Optional[mesher.BaseMesh],
@@ -720,7 +720,7 @@ class BaseSpectra(nn.Module, ABC):
 
     @abstractmethod
     def forward(
-            self, sample: spin_model.MultiOrientedSample,
+            self, sample: spin_model.SolidSample,
             fields: torch.Tensor, time: tp.Optional[torch.Tensor] = None, **kwargs):
         """Main simulation entry point. Orchestrates the pipeline."""
         pass
@@ -749,7 +749,7 @@ class BaseResSpectra(BaseSpectra):
     """
     def __init__(self,
                  resonance_parameter: tp.Union[float, torch.Tensor],
-                 sample: tp.Optional[spin_model.MultiOrientedSample] = None,
+                 sample: tp.Optional[spin_model.SolidSample] = None,
                  spin_system_dim: tp.Optional[int] = None,
                  batch_dims: tp.Optional[tp.Union[int, tuple]] = None,
                  mesh: tp.Optional[mesher.BaseMesh] = None,
@@ -773,7 +773,7 @@ class BaseResSpectra(BaseSpectra):
         """
         :param resonance_parameter: Resonance parameter of experiment: frequency or field.
 
-        :param sample: MultiOrientedSample.
+        :param sample: SolidSample.
             It is just an example of spin system to extract meta information (spin_system_dim, batch_dims, mesh)
             If it is None, then spin_system_dim, batch_dims, mesh should be given
 
@@ -1052,7 +1052,7 @@ class BaseResSpectra(BaseSpectra):
         pass
 
     def _init_sample_parameters(self,
-                                sample: tp.Optional[spin_model.MultiOrientedSample],
+                                sample: tp.Optional[spin_model.SolidSample],
                                 spin_system_dim: tp.Optional[int],
                                 batch_dims: tp.Optional[tp.Union[int, tuple]],
                                 mesh: tp.Optional[mesher.BaseMesh]):
@@ -1165,7 +1165,7 @@ class BaseResSpectra(BaseSpectra):
         else:
             return context is not None
 
-    def _cashed_resfield(self, sample: spin_model.MultiOrientedSample,
+    def _cashed_resfield(self, sample: spin_model.SolidSample,
                                 B_low: torch.Tensor, B_high: torch.Tensor,
                                 F: torch.Tensor, Gz: torch.Tensor):
         """Compute or retrieve cached resonance fields and eigensystem.
@@ -1190,7 +1190,7 @@ class BaseResSpectra(BaseSpectra):
         return (self.vectors_u, self.vectors_v), (self.valid_lvl_down, self.valid_lvl_up), self.res_fields,\
             self.resonance_energies, self.full_eigen_vectors
 
-    def _recomputed_resfield(self, sample: spin_model.MultiOrientedSample,
+    def _recomputed_resfield(self, sample: spin_model.SolidSample,
                                 B_low: torch.Tensor, B_high: torch.Tensor,
                                 F: torch.Tensor, Gz: torch.Tensor):
         """Compute resonance fields and associated quantum states.
@@ -1246,14 +1246,14 @@ class BaseResSpectra(BaseSpectra):
         return intensities_mask
 
     def forward(self,
-                 sample: spin_model.MultiOrientedSample,
+                 sample: spin_model.SolidSample,
                  fields: torch.Tensor, time: tp.Optional[torch.Tensor] = None, **kwargs):
         """Compute EPR spectrum over a given magnetic fields range.
 
         Orchestrates the full simulation pipeline: diagonalization, intensity
         calculation, broadening, orientation averaging, and line-shape convolution.
 
-        :param sample: MultiOrientedSample object.
+        :param sample: SolidSample object.
         :param fields: The magnetic fields in Tesla units
         :param time: It is used only for time resolved spectra
         :param kwargs:
@@ -1396,7 +1396,7 @@ class BaseResSpectra(BaseSpectra):
             return full_system_vectors
 
     def _compute_additional(self,
-                           sample: spin_model.MultiOrientedSample,
+                           sample: spin_model.SolidSample,
                            F: torch.Tensor,
                            Gx: torch.Tensor,
                            Gy: torch.Tensor,
@@ -1414,7 +1414,7 @@ class BaseResSpectra(BaseSpectra):
         """
         return extras
 
-    def compute_parameters(self, sample: spin_model.MultiOrientedSample,
+    def compute_parameters(self, sample: spin_model.SolidSample,
                            F: torch.Tensor,
                            Gx: torch.Tensor,
                            Gy: torch.Tensor,
@@ -1515,7 +1515,7 @@ class StationarySpectra(BaseResSpectra):
     """
     def __init__(self,
                  freq: tp.Union[float, torch.Tensor],
-                 sample: tp.Optional[spin_model.MultiOrientedSample] = None,
+                 sample: tp.Optional[spin_model.SolidSample] = None,
                  spin_system_dim: tp.Optional[int] = None,
                  batch_dims: tp.Optional[tp.Union[int, tuple]] = None,
                  mesh: tp.Optional[mesher.BaseMesh] = None,
@@ -1539,7 +1539,7 @@ class StationarySpectra(BaseResSpectra):
         """
         :param freq: Resonance frequency of experiment at Hz.
 
-        :param sample: MultiOrientedSample.
+        :param sample: SolidSample.
             It is just an example of spin system to extract meta information (spin_system_dim, batch_dims, mesh)
             If it is None, then spin_system_dim, batch_dims, mesh should be given
 
@@ -1758,10 +1758,10 @@ class StationarySpectra(BaseResSpectra):
             return intensity_calculator
 
     def __call__(self,
-                sample: spin_model.MultiOrientedSample,
+                sample: spin_model.SolidSample,
                 fields: torch.Tensor, time: tp.Optional[torch.Tensor] = None, **kwargs):
         """
-        :param sample: MultiOrientedSample object.
+        :param sample: SolidSample object.
 
         :param fields: The magnetic fields in Tesla units
         :param time: It is used only for time resolved spectra
@@ -1788,7 +1788,7 @@ class TruncTimeSpectra(BaseResSpectra):
     """
     def __init__(self,
                  freq: tp.Union[float, torch.Tensor],
-                 sample: tp.Optional[spin_model.MultiOrientedSample] = None,
+                 sample: tp.Optional[spin_model.SolidSample] = None,
                  spin_system_dim: tp.Optional[int] = None,
                  batch_dims: tp.Optional[tp.Union[int, tuple]] = None,
                  mesh: tp.Optional[mesher.BaseMesh] = None,
@@ -1817,7 +1817,7 @@ class TruncTimeSpectra(BaseResSpectra):
 
         :param freq: Resonance frequency of experiment
 
-        :param sample: MultiOrientedSample.
+        :param sample: SolidSample.
             It is just an example of spin system to extract meta information (spin_system_dim, batch_dims, mesh)
             If it is None, then spin_system_dim, batch_dims, mesh should be given
 
@@ -1935,9 +1935,9 @@ class TruncTimeSpectra(BaseResSpectra):
                          hamiltonian_mode, output_mode,
                          device=device, dtype=dtype)
 
-    def __call__(self, sample: spin_model.MultiOrientedSample, fields: torch.Tensor, time: torch.Tensor, **kwargs):
+    def __call__(self, sample: spin_model.SolidSample, fields: torch.Tensor, time: torch.Tensor, **kwargs):
         """
-        :param sample: MultiOrientedSample object.
+        :param sample: SolidSample object.
 
         :param fields: The magnetic fields in Tesla units
         :param time: Time to compute time resolved spectra
@@ -2154,7 +2154,7 @@ class DensityTimeSpectra(CoupledTimeSpectra):
 
     def __init__(self,
                  freq: tp.Union[float, torch.Tensor],
-                 sample: tp.Optional[spin_model.MultiOrientedSample] = None,
+                 sample: tp.Optional[spin_model.SolidSample] = None,
                  spin_system_dim: tp.Optional[int] = None,
                  batch_dims: tp.Optional[tp.Union[int, tuple]] = None,
                  mesh: tp.Optional[mesher.BaseMesh] = None,
@@ -2183,7 +2183,7 @@ class DensityTimeSpectra(CoupledTimeSpectra):
 
         :param freq: Resonance frequency of experiment
 
-        :param sample: MultiOrientedSample.
+        :param sample: SolidSample.
             It is just an example of spin system to extract meta information (spin_system_dim, batch_dims, mesh)
             If it is None, then spin_system_dim, batch_dims, mesh should be given
 
@@ -2363,7 +2363,7 @@ class StationaryFreqSpectra(StationarySpectra):
 
     def __init__(self,
                  field: tp.Union[float, torch.Tensor],
-                 sample: tp.Optional[spin_model.MultiOrientedSample] = None,
+                 sample: tp.Optional[spin_model.SolidSample] = None,
                  spin_system_dim: tp.Optional[int] = None,
                  batch_dims: tp.Optional[tp.Union[int, tuple]] = None,
                  mesh: tp.Optional[mesher.BaseMesh] = None,
@@ -2387,7 +2387,7 @@ class StationaryFreqSpectra(StationarySpectra):
         """
         :param field: Resonance field of experiment.
 
-        :param sample: MultiOrientedSample.
+        :param sample: SolidSample.
             It is just an example of spin system to extract meta information (spin_system_dim, batch_dims, mesh)
             If it is None, then spin_system_dim, batch_dims, mesh should be given
 
@@ -2506,10 +2506,10 @@ class StationaryFreqSpectra(StationarySpectra):
         )
 
     def __call__(self,
-                sample: spin_model.MultiOrientedSample,
+                sample: spin_model.SolidSample,
                 freq: torch.Tensor, time: tp.Optional[torch.Tensor] = None, **kwargs):
         """
-        :param sample: MultiOrientedSample object.
+        :param sample: SolidSample object.
         :param freq: The frequency in Hz units
         :param time: It is used only for time resolved spectra
         :param kwargs:
@@ -2517,7 +2517,7 @@ class StationaryFreqSpectra(StationarySpectra):
         """
         return super().__call__(sample, freq, time)
 
-    def compute_parameters(self, sample: spin_model.MultiOrientedSample,
+    def compute_parameters(self, sample: spin_model.SolidSample,
                            F: torch.Tensor,
                            Gx: torch.Tensor,
                            Gy: torch.Tensor,

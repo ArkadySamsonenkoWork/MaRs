@@ -29,5 +29,5 @@ Typical initialization:
        dtype=torch.float64
    )
 
-The mesh is used internally by :class:`mars.spin_model.MultiOrientedSample` to average
+The mesh is used internally by :class:`mars.spin_model.SolidSample` to average
 the spectrum over orientations.

@@ -160,7 +160,7 @@ For orientation-dependent samples it is useful to distinguish three frames:
 * laboratory frame :math:`(X,Y,Z)`.
 
 The ``molecular_frame`` argument of :class:`mars.spin_model.BaseSample` and
-:class:`mars.spin_model.MultiOrientedSample` defines the molecular frame
+:class:`mars.spin_model.SolidSample` defines the molecular frame
 relative to the sample/reference frame. Its matrix satisfies
 
 .. math::
@@ -191,7 +191,7 @@ Example:
 
 .. code-block:: python
 
-   sample = spin_model.MultiOrientedSample(
+   sample = spin_model.SolidSample(
        base_spin_system=base_spin_system,
        molecular_frame=[0.0, 0.2, 0.0],
        ham_strain=5e7,

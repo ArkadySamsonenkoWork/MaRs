@@ -69,7 +69,7 @@ def create_electron_nucleus(
         disable_randomness: bool = False,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with S=1/2 electron coupled with N=1 nuclei. The S=1/2 is close to isotropic, N=1 is anisotropic.
     """
@@ -106,7 +106,7 @@ def create_electron_nucleus(
             dtype=dtype
         )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=0.001,
         lorentz=0.001,
@@ -123,7 +123,7 @@ def create_electron_anisotropic_chain(
         disable_randomness: bool = False,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with a lot of S=1/2 electrons coupled in chain with isotropic J-exchange.
     """
@@ -166,7 +166,7 @@ def create_electron_anisotropic_chain(
             dtype=dtype
         )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=0.0015,
         lorentz=0.0015,
@@ -183,7 +183,7 @@ def create_heterospin_connected_to_Co(
         disable_randomness: bool = False,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with Co spin connected to S=1/2 spins via exchange interaction
     """
@@ -236,7 +236,7 @@ def create_heterospin_connected_to_Co(
             dtype=dtype
         )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=0.0015,
         lorentz=0.0015,
@@ -253,7 +253,7 @@ def create_heterospin_connected_to_Co_high_values(
         disable_randomness: bool = False,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with Co spin connected to S=1/2 spins via exchange interaction
     """
@@ -306,7 +306,7 @@ def create_heterospin_connected_to_Co_high_values(
             dtype=dtype
         )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=0.0015,
         lorentz=0.0015,
@@ -324,7 +324,7 @@ def create_electron_DE_chain(
         disable_randomness: bool = False,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with a lot of S=1/2 electrons coupled in chain with isotropic D-E values.
     """
@@ -365,7 +365,7 @@ def create_electron_DE_chain(
             dtype=dtype
         )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=0.001,
         lorentz=0.001,
@@ -382,7 +382,7 @@ def create_electron_batch_size(
         disable_randomness: bool = False,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with a lot of S=1/2 electrons coupled with N=1 nuclei
     """
@@ -406,7 +406,7 @@ def create_electron_batch_size(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=torch.tensor([0.001] * batch_size, dtype=dtype, device=device),
         lorentz=torch.tensor([0.001] * batch_size, dtype=dtype, device=device),
@@ -423,7 +423,7 @@ def create_electron_batch_size_2N(
         disable_randomness: bool = False,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with a lot of S=1/2 electrons coupled with N=1 nuclei
     """
@@ -452,7 +452,7 @@ def create_electron_batch_size_2N(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=torch.tensor([0.001] * batch_size, dtype=dtype, device=device),
         lorentz=torch.tensor([0.001] * batch_size, dtype=dtype, device=device),
@@ -469,7 +469,7 @@ def create_relaxation_batch_size(
         disable_randomness: bool = False,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with S=1 electron
     """
@@ -485,7 +485,7 @@ def create_relaxation_batch_size(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=torch.tensor([0.001] * batch_size, dtype=dtype, device=device),
         lorentz=torch.tensor([0.001] * batch_size, dtype=dtype, device=device),
@@ -502,7 +502,7 @@ def create_relaxation_coupled(
         disable_randomness: bool = False,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with S=1 electron
     """
@@ -546,7 +546,7 @@ def create_relaxation_coupled(
             dtype=dtype
         )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=0.001,
         lorentz=0.001,

@@ -5,7 +5,7 @@ from scipy.optimize import linear_sum_assignment
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from ..spin_model import MultiOrientedSample
+from ..spin_model import SolidSample
 from .. import population
 from .. import constants
 from .. import spectra_manager
@@ -186,7 +186,7 @@ class RalaxatioParmaetersPopulator(population.BaseTimeDepPopulator):
 
 
 def relaxation_field_dep(context: population.BaseContext,
-                         sample: MultiOrientedSample,
+                         sample: SolidSample,
                          freq: float,
                          temperature: float,
                          fields: tp.Union[tp.Tuple[float, float], torch.Tensor],

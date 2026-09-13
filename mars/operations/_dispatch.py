@@ -8,7 +8,7 @@ from ..serialization import graph_representation as graph
 
 mars_items_types = tp.Union[
     tp.Sequence[spin_model.SpinSystem],
-    tp.Sequence[spin_model.MultiOrientedSample],
+    tp.Sequence[spin_model.SolidSample],
     tp.Sequence[population.BaseContext],
     tp.Sequence[ser.SerializedSpinSystem],
     tp.Sequence[ser.SerializedSample],
@@ -22,7 +22,7 @@ mars_items_types = tp.Union[
 
 mars_item_type = tp.Union[
     spin_model.SpinSystem,
-    spin_model.MultiOrientedSample,
+    spin_model.SolidSample,
     population.BaseContext,
     ser.SerializedSpinSystem,
     ser.SerializedSample,

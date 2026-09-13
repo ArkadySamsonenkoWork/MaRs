@@ -9,7 +9,7 @@ import torch.nn as nn
 
 from .. import particles
 
-from ..spin_model import BaseSample, MultiOrientedSample, MultiOrientedSampleExpandedStrain,\
+from ..spin_model import BaseSample, SolidSample, SolidSampleExpandedStrain,\
     SpinSystem
 
 from . import serialization, graph_equivalence
@@ -438,10 +438,10 @@ class GraphSample:
         :param sample: The source sample to be serialised.
         :return: A new :class:`SerializedSample` instance.
         """
-        if isinstance(sample, MultiOrientedSampleExpandedStrain):
-            sample_type = "MultiOrientedSampleExpandedStrain"
-        elif isinstance(sample, MultiOrientedSample):
-            sample_type = "MultiOrientedSample"
+        if isinstance(sample, SolidSampleExpandedStrain):
+            sample_type = "SolidSampleExpandedStrain"
+        elif isinstance(sample, SolidSample):
+            sample_type = "SolidSample"
         elif isinstance(sample, BaseSample):
             sample_type = "BaseSample"
         else:
@@ -477,16 +477,16 @@ class GraphSample:
             data=self.metadata.mesh_meta, device=device, dtype=dtype
         )
         sample_type = self.metadata.sample_type
-        if sample_type == "MultiOrientedSampleExpandedStrain":
-            return MultiOrientedSampleExpandedStrain(
+        if sample_type == "SolidSampleExpandedStrain":
+            return SolidSampleExpandedStrain(
                 base_spin_system=base_spin_system,
                 mesh=mesh,
                 gauss=self.width.gauss,
                 lorentz=self.width.lorentz,
                 ham_strain=self.width.ham_strain
             )
-        elif sample_type == "MultiOrientedSample":
-            return MultiOrientedSample(
+        elif sample_type == "SolidSample":
+            return SolidSample(
                 base_spin_system=base_spin_system,
                 mesh=mesh,
                 gauss=self.width.gauss,

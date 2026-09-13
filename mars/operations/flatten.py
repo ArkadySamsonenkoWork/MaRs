@@ -12,8 +12,8 @@ from ._dispatch import mars_item_type
 def flatten(item: spin_model.SpinSystem, start_dim: int = 0, end_dim: int = -3) ->\
         spin_model.SpinSystem: ...
 @tp.overload
-def flatten(item: spin_model.MultiOrientedSample, start_dim: int = 0, end_dim: int = -3) ->\
-        spin_model.MultiOrientedSample: ...
+def flatten(item: spin_model.SolidSample, start_dim: int = 0, end_dim: int = -3) ->\
+        spin_model.SolidSample: ...
 @tp.overload
 def flatten(item: population.BaseContext, start_dim: int = 0, end_dim: int = -3) ->\
         population.BaseContext: ...
@@ -57,7 +57,7 @@ def flatten(
     :return: A new object with flattened batch dimensions.
     :raises NotImplementedError: If the item is a MARS object (not serialized or graph).
     """
-    if isinstance(item, (spin_model.SpinSystem, spin_model.MultiOrientedSample, population.BaseContext)):
+    if isinstance(item, (spin_model.SpinSystem, spin_model.SolidSample, population.BaseContext)):
         raise NotImplementedError("Flatten is not implemented for MARS objects.")
 
     return operations_interface.flatten(item, start_dim=start_dim, end_dim=end_dim)

@@ -214,7 +214,7 @@ class BaseDirectSpectra(BaseSpectra):
     """
     def __init__(self,
                  freq: tp.Union[float, torch.Tensor],
-                 sample: tp.Optional[spin_model.MultiOrientedSample] = None,
+                 sample: tp.Optional[spin_model.SolidSample] = None,
                  spin_system_dim: tp.Optional[int] = None,
                  batch_dims: tp.Optional[tp.Union[int, tuple]] = None,
                  mesh: tp.Optional[mesher.BaseMesh] = None,
@@ -238,7 +238,7 @@ class BaseDirectSpectra(BaseSpectra):
         """
         :param freq: Resonance frequency of experiment at Hz.
 
-        :param sample: MultiOrientedSample.
+        :param sample: SolidSample.
             It is just an example of spin system to extract meta information (spin_system_dim, batch_dims, mesh)
             If it is None, then spin_system_dim, batch_dims, mesh should be given
 
@@ -493,10 +493,10 @@ class BaseDirectSpectra(BaseSpectra):
             return intensity_calculator
 
     def forward(self,
-                sample: spin_model.MultiOrientedSample,
+                sample: spin_model.SolidSample,
                 fields: torch.Tensor, time: tp.Optional[torch.Tensor] = None, **kwargs):
         """Compute EPR spectrum over a given magnetic fields range.
-        :param sample: MultiOrientedSample object.
+        :param sample: SolidSample object.
         :param fields: The magnetic fields in Tesla units, where the signal should be computed. The shape [..., K]
         :param time: It is used only for time resolved spectra
         :param kwargs:
@@ -548,7 +548,7 @@ class BaseDirectSpectra(BaseSpectra):
         intensities = population
         return fields, intensities
 
-    def compute_parameters(self, sample: spin_model.MultiOrientedSample,
+    def compute_parameters(self, sample: spin_model.SolidSample,
                            F: torch.Tensor,
                            Gx: torch.Tensor,
                            Gy: torch.Tensor,
@@ -579,10 +579,10 @@ class BaseDirectSpectra(BaseSpectra):
         return fields, None, full_system_vectors, *(energies, )
 
     def __call__(self,
-                sample: spin_model.MultiOrientedSample,
+                sample: spin_model.SolidSample,
                 fields: torch.Tensor, time: torch.Tensor, **kwargs):
         """
-        :param sample: MultiOrientedSample object.
+        :param sample: SolidSample object.
 
         :param fields: The magnetic fields in Tesla units
         :param time: It is used only for time resolved spectra

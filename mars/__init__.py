@@ -29,7 +29,7 @@ Quick Example (using all major components)
 ... )
 >>>
 >>> # 2. Create a powder sample (orientation averaging)
->>> sample = spin_model.MultiOrientedSample(
+>>> sample = spin_model.SolidSample(
 ...     base_spin_system=system,
 ...     gauss=5e-4               # Gaussian broadening (T)
 ... )

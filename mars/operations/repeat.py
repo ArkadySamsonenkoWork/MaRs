@@ -13,8 +13,8 @@ from ._dispatch import mars_item_type
 def repeat(item: spin_model.SpinSystem, repeats: tp.Union[torch.Size, tp.List[int]]) ->\
         spin_model.SpinSystem: ...
 @tp.overload
-def repeat(item: spin_model.MultiOrientedSample, repeats: tp.Union[torch.Size, tp.List[int]]) ->\
-        spin_model.MultiOrientedSample: ...
+def repeat(item: spin_model.SolidSample, repeats: tp.Union[torch.Size, tp.List[int]]) ->\
+        spin_model.SolidSample: ...
 @tp.overload
 def repeat(item: population.BaseContext, repeats: tp.Union[torch.Size, tp.List[int]]) ->\
         population.BaseContext: ...
@@ -57,7 +57,7 @@ def repeat(
     :return: A new object with repeated batch dimensions.
     :raises NotImplementedError: If the item is a MARS object (not serialized or graph).
     """
-    if isinstance(item, (spin_model.SpinSystem, spin_model.MultiOrientedSample, population.BaseContext)):
+    if isinstance(item, (spin_model.SpinSystem, spin_model.SolidSample, population.BaseContext)):
         raise NotImplementedError("Repeat is not implemented for MARS objects.")
 
     return operations_interface.repeat(item, repeats=repeats)

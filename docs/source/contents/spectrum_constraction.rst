@@ -20,7 +20,7 @@ The construction of an EPR spectrum in MaRs follows a sequence of computational 
 
 3. **Assemble the spin system and sample**  
    Particles and interactions are combined into a :class:`mars.spin_model.SpinSystem`.
-   Disordered (powder) samples are represented by :class:`mars.spin_model.MultiOrientedSample`.
+   Disordered (powder) samples are represented by :class:`mars.spin_model.SolidSample`.
    The next workflow is managed by the abstract class :class:`mars.spectra_manager.spectra_manager.BaseResSpectra`.
 
 4. **Construct Hamiltonian matrices**  

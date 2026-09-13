@@ -119,7 +119,7 @@ calculation. Two possible checks are:
        from mars.spectra_manager import StationarySpectra
 
        # Define sample, context, freq, temperature
-       sample = ...  # MultiOrientedSample
+       sample = ...  # SolidSample
        context = ...  # relaxation context
        freq = 9.8e9
        temperature = 293

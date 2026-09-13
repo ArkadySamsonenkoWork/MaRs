@@ -24,7 +24,7 @@ Simulate a basic EPR spectrum:
    )
 
    # Create a powder sample
-   sample = spin_model.MultiOrientedSample(
+   sample = spin_model.SolidSample(
        base_spin_system=system,
        gauss=0.001,
        lorentz=0.001,

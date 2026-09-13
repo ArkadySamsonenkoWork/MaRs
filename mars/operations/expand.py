@@ -13,8 +13,8 @@ from ._dispatch import mars_item_type
 def expand(item: spin_model.SpinSystem, sizes: tp.Union[torch.Size, tp.List[int]]) ->\
         spin_model.SpinSystem: ...
 @tp.overload
-def expand(item: spin_model.MultiOrientedSample, sizes: tp.Union[torch.Size, tp.List[int]]) ->\
-        spin_model.MultiOrientedSample: ...
+def expand(item: spin_model.SolidSample, sizes: tp.Union[torch.Size, tp.List[int]]) ->\
+        spin_model.SolidSample: ...
 @tp.overload
 def expand(item: population.BaseContext, sizes: tp.Union[torch.Size, tp.List[int]]) ->\
         population.BaseContext: ...
@@ -56,7 +56,7 @@ def expand(
     :return: A new object with expanded batch dimensions.
     :raises NotImplementedError: If the item is a MARS object (not serialized or graph).
     """
-    if isinstance(item, (spin_model.SpinSystem, spin_model.MultiOrientedSample, population.BaseContext)):
+    if isinstance(item, (spin_model.SpinSystem, spin_model.SolidSample, population.BaseContext)):
         raise NotImplementedError("Expand is not implemented for MARS objects.")
 
     return operations_interface.expand(item, sizes=sizes)

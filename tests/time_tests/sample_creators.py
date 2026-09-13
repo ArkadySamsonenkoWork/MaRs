@@ -14,7 +14,7 @@ def create_2_electrons_sample(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with two coupled S=1/2 electrons.
 
@@ -31,7 +31,7 @@ def create_2_electrons_sample(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
         Configured sample ready for spectrum simulation.
     """
 
@@ -65,7 +65,7 @@ def create_2_electrons_sample(
     )
 
     # Create sample with realistic broadening parameters
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         ham_strain=5e7,  # 50 MHz Hamiltonian strain
         gauss=0.001,  # 1 mT Gaussian broadening
@@ -82,7 +82,7 @@ def create_3_electrons_sample(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with three coupled S=1/2 electrons.
 
@@ -99,7 +99,7 @@ def create_3_electrons_sample(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
     """
     g_tensor = spin_model.Interaction((2.00, 2.00, 2.00), device=device, dtype=dtype)
 
@@ -122,7 +122,7 @@ def create_3_electrons_sample(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         ham_strain=3e7,
         gauss=0.0015,
@@ -138,7 +138,7 @@ def create_4_electrons_sample(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with four coupled S=1/2 electrons.
 
@@ -155,7 +155,7 @@ def create_4_electrons_sample(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
     """
     g_tensor = spin_model.Interaction((2.00, 2.00, 2.00), device=device, dtype=dtype)
     exchange_val = constants.unit_converter(0.3, "cm-1_to_Hz")
@@ -179,7 +179,7 @@ def create_4_electrons_sample(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         ham_strain=2e7,
         gauss=0.002,
@@ -195,7 +195,7 @@ def create_2_electrons_1_nuclei_sample(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with two electrons coupled to a single nitrogen nucleus.
 
@@ -213,7 +213,7 @@ def create_2_electrons_1_nuclei_sample(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
 
     """
     g_tensor = spin_model.Interaction((2.02, 2.04, 2.06), device=device, dtype=dtype)
@@ -239,7 +239,7 @@ def create_2_electrons_1_nuclei_sample(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         ham_strain=4e7,
         gauss=0.0012,
@@ -255,7 +255,7 @@ def create_1_high_spin_electron_1_nuclei_sample(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with one high-spin electron (S=5/2) coupled to ⁵⁵Mn nucleus.
 
@@ -274,7 +274,7 @@ def create_1_high_spin_electron_1_nuclei_sample(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
 
     """
     # Anisotropic g-tensor for Mn(II)
@@ -300,7 +300,7 @@ def create_1_high_spin_electron_1_nuclei_sample(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         ham_strain=6e7,
         gauss=0.0015,
@@ -317,7 +317,7 @@ def create_2_middle_spin_sample(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with one high-spin electron (S=5/2) coupled to ⁵⁵Mn nucleus.
 
@@ -336,7 +336,7 @@ def create_2_middle_spin_sample(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
 
     """
     g_tensor = spin_model.Interaction((2.02, 2.04, 2.12), device=device, dtype=dtype)
@@ -361,7 +361,7 @@ def create_2_middle_spin_sample(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         ham_strain=6e7,
         gauss=0.0015,

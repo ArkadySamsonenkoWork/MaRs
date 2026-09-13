@@ -27,7 +27,7 @@ Examples
 >>> # Define a single electron with an anisotropic g‑tensor
 >>> g_tensor = spin_model.Interaction(components=[2.0, 2.01, 2.02])
 >>> system = spin_model.SpinSystem(electrons=[0.5], g_tensors=[g_tensor])
->>> sample = spin_model.MultiOrientedSample(
+>>> sample = spin_model.SolidSample(
 ...     base_spin_system=system,
 ...     gauss=5e-4               # broadening (T)
 ... )
@@ -51,7 +51,7 @@ Examples
 ...     g_tensors=[g_tensor],
 ...     electron_electron=[(0, 0, zfs)]
 ... )
->>> sample = spin_model.MultiOrientedSample(
+>>> sample = spin_model.SolidSample(
 ...     base_spin_system=system,
 ...     gauss=5e-4
 ... )

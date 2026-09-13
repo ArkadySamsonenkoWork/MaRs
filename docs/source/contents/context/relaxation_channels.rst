@@ -174,8 +174,8 @@ MaRs provides a rich set of methods that directly produce the operator pairs
 Libration of the entire spin system
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- :meth:`mars.spin_model.MultiOrientedSample.get_librations_along_axis(axis)
-  <mars.spin_model.MultiOrientedSample.get_librations_along_axis>`
+- :meth:`mars.spin_model.SolidSample.get_librations_along_axis(axis)
+  <mars.spin_model.SolidSample.get_librations_along_axis>`
   Returns a tuple ``(O_static, O_dependent)`` representing the derivative of the
   **full** spin Hamiltonian with respect to a small rotation around the given axis.
   ``O_static`` (Hz) comes from zero‑field terms (ZFS, hyperfine, dipolar),
@@ -194,23 +194,23 @@ Libration of a single interaction tensor
 Oriented interaction operators (all orientations)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-These methods belong to :class:`~mars.spin_model.MultiOrientedSample` and provide
+These methods belong to :class:`~mars.spin_model.SolidSample` and provide
 the full spin operator for a given interaction tensor, rotated into the
 laboratory frame and contracted with the appropriate spin operators.
 They are essential for building field‑dependent coupling terms.
 
-- :meth:`MultiOrientedSample.get_oriented_electron_electron_interaction(interaction, el_idx_1, el_idx_2)
-  <mars.spin_model.MultiOrientedSample.get_oriented_electron_electron_interaction>`
+- :meth:`SolidSample.get_oriented_electron_electron_interaction(interaction, el_idx_1, el_idx_2)
+  <mars.spin_model.SolidSample.get_oriented_electron_electron_interaction>`
   Returns the operator :math:`\hat{S}_1 \cdot \mathbf{Q} \cdot \hat{S}_2` for all orientations,
   where :math:`\mathbf{Q}` is the rotated interaction tensor.
-- :meth:`MultiOrientedSample.get_oriented_electron_nuclei_interaction(interaction, el_idx, nuc_idx)
-  <mars.spin_model.MultiOrientedSample.get_oriented_electron_nuclei_interaction>`
+- :meth:`SolidSample.get_oriented_electron_nuclei_interaction(interaction, el_idx, nuc_idx)
+  <mars.spin_model.SolidSample.get_oriented_electron_nuclei_interaction>`
   Returns the hyperfine operator :math:`\hat{S} \cdot \mathbf{A} \cdot \hat{I}` for all orientations.
-- :meth:`MultiOrientedSample.get_oriented_nuclei_nuclei_interaction(interaction, nuc_idx_1, nuc_idx_2)
-  <mars.spin_model.MultiOrientedSample.get_oriented_nuclei_nuclei_interaction>`
+- :meth:`SolidSample.get_oriented_nuclei_nuclei_interaction(interaction, nuc_idx_1, nuc_idx_2)
+  <mars.spin_model.SolidSample.get_oriented_nuclei_nuclei_interaction>`
   Returns the nuclear coupling operator :math:`\hat{I}_1 \cdot \mathbf{Q} \cdot \hat{I}_2`.
-- :meth:`MultiOrientedSample.get_oriented_zeeman_interaction(interaction, el_idx)
-  <mars.spin_model.MultiOrientedSample.get_oriented_zeeman_interaction>`
+- :meth:`SolidSample.get_oriented_zeeman_interaction(interaction, el_idx)
+  <mars.spin_model.SolidSample.get_oriented_zeeman_interaction>`
   Returns the Zeeman operator :math:`(\mu_B/h) \hat{S} \cdot \mathbf{g}` for all orientations.
   The result has an extra dimension for the three field components; contraction with
   :math:`\mathbf{B}` gives the full Zeeman term.

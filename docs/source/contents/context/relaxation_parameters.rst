@@ -279,7 +279,7 @@ Let's consider a triplet state with several realxation mechanisms:
        electron_electron=[(0, 0, zfs)]
    )
    
-   sample = spin_model.MultiOrientedSample(
+   sample = spin_model.SolidSample(
        base_spin_system=triplet_system,
        ham_strain=2.5e7,
        gauss=0.0012,

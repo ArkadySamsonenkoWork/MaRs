@@ -11,7 +11,7 @@ from ._dispatch import mars_item_type
 @tp.overload
 def unsqueeze(item: spin_model.SpinSystem, dim: int) -> spin_model.SpinSystem: ...
 @tp.overload
-def unsqueeze(item: spin_model.MultiOrientedSample, dim: int) -> spin_model.MultiOrientedSample: ...
+def unsqueeze(item: spin_model.SolidSample, dim: int) -> spin_model.SolidSample: ...
 @tp.overload
 def unsqueeze(item: population.BaseContext, dim: int) -> population.BaseContext: ...
 @tp.overload
@@ -46,7 +46,7 @@ def unsqueeze(
     :return: A new object with the new dimension.
     :raises NotImplementedError: If the item is a live MARS object (not serialized or graph).
     """
-    if isinstance(item, (spin_model.SpinSystem, spin_model.MultiOrientedSample, population.BaseContext)):
+    if isinstance(item, (spin_model.SpinSystem, spin_model.SolidSample, population.BaseContext)):
         raise NotImplementedError("Unsqueeze is not implemented for live MARS objects.")
 
     return operations_interface.unsqueeze(item, dim=dim)

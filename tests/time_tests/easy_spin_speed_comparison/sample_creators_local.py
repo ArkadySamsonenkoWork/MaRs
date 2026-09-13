@@ -14,7 +14,7 @@ def create_5_electrons_sample(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with five coupled S=1/2 electrons.
 
@@ -31,7 +31,7 @@ def create_5_electrons_sample(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
     """
     g_tensor = spin_model.Interaction((2.00, 2.01, 2.02), device=device, dtype=dtype)
     exchange_val = constants.unit_converter(0.3, "cm-1_to_Hz")
@@ -55,7 +55,7 @@ def create_5_electrons_sample(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=0.001,
         lorentz=0.001,
@@ -70,7 +70,7 @@ def create_2_electrons_2_nuclei_sample(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with two electrons coupled with two nitrogen nuclei.
 
@@ -88,7 +88,7 @@ def create_2_electrons_2_nuclei_sample(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
 
     """
     g_tensor = spin_model.Interaction((2.00, 2.001, 2.002), device=device, dtype=dtype)
@@ -118,7 +118,7 @@ def create_2_electrons_2_nuclei_sample(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         ham_strain=None,
         gauss=0.0001,
@@ -134,7 +134,7 @@ def create_1_high_spin_electron_1_nuclei_sample(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with one high-spin electron (S=5/2) coupled to ⁵⁵Mn nucleus.
 
@@ -153,7 +153,7 @@ def create_1_high_spin_electron_1_nuclei_sample(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
 
     """
     # Anisotropic g-tensor for Mn(II)
@@ -178,7 +178,7 @@ def create_1_high_spin_electron_1_nuclei_sample(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=0.0015,
         lorentz=0.0015,
@@ -193,7 +193,7 @@ def create_2_middle_spin_sample(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with two Cobalt spins
 
@@ -208,7 +208,7 @@ def create_2_middle_spin_sample(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
 
     """
     g_tensor = spin_model.Interaction((2.00, 2.01, 2.02), device=device, dtype=dtype)
@@ -239,7 +239,7 @@ def create_2_middle_spin_sample(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=0.0015,
         lorentz=0.0015,
@@ -255,7 +255,7 @@ def create_3_middle_spin_sample(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with 3 Cobalt spins
 
@@ -270,7 +270,7 @@ def create_3_middle_spin_sample(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
 
     """
     g_tensor = spin_model.Interaction((2.00, 2.01, 2.02), device=device, dtype=dtype)
@@ -301,7 +301,7 @@ def create_3_middle_spin_sample(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=0.0015,
         lorentz=0.0015,
@@ -317,7 +317,7 @@ def create_heterospin_sample(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with 2 Cobalt spins exchange connected to radical spin
 
@@ -332,7 +332,7 @@ def create_heterospin_sample(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
 
     """
     g_tensor = spin_model.Interaction((2.00, 2.01, 2.10), device=device, dtype=dtype)
@@ -358,7 +358,7 @@ def create_heterospin_sample(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=0.0015,
         lorentz=0.0015,
@@ -374,7 +374,7 @@ def create_heterospin_sample_freq_domain(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample with 2 Cobalt spins exchange connected to radical spin
     The spectra are created in frequency domain
@@ -390,7 +390,7 @@ def create_heterospin_sample_freq_domain(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
 
     """
     g_tensor = spin_model.Interaction((2.00, 2.01, 2.10), device=device, dtype=dtype)
@@ -416,7 +416,7 @@ def create_heterospin_sample_freq_domain(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=2e10,
         lorentz=2e10,
@@ -432,7 +432,7 @@ def create_tripletfission_sample(
         mesh: tp.Optional[tp.Union[mesher.BaseMesh, tp.Tuple[int, int]]] = None,
         device: torch.device = torch.device("cpu"),
         dtype: torch.dtype = torch.float64
-) -> spin_model.MultiOrientedSample:
+) -> spin_model.SolidSample:
     """
     Create a sample of 2 triplets with fission
 
@@ -447,7 +447,7 @@ def create_tripletfission_sample(
 
     Returns
     -------
-    MultiOrientedSample
+    SolidSample
 
     """
     g_tensor = spin_model.Interaction((2.000, 2.002, 2.004), device=device, dtype=dtype)
@@ -472,7 +472,7 @@ def create_tripletfission_sample(
         dtype=dtype
     )
 
-    sample = spin_model.MultiOrientedSample(
+    sample = spin_model.SolidSample(
         base_spin_system=spin_sys,
         gauss=0.0015,
         lorentz=0.0015,

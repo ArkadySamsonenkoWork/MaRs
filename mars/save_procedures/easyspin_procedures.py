@@ -10,7 +10,7 @@ import torch
 import scipy
 
 from .. import particles, utils
-from ..spin_model import BaseSample, SpinSystem, Interaction, MultiOrientedSample
+from ..spin_model import BaseSample, SpinSystem, Interaction, SolidSample
 from ..spectra_manager import BaseResSpectra, StationarySpectra
 
 from ..serialization import serialization
@@ -338,7 +338,7 @@ class EasySpinLoaderSampleDict:
         else:
             ham_strain = None
 
-        return MultiOrientedSample(
+        return SolidSample(
             base_spin_system=spin_system, gauss=gauss, lorentz=lorentz, ham_strain=ham_strain,
             dtype=dtype, device=device
         )
@@ -480,7 +480,7 @@ def load_mat_file(filepath: tp.Union[str, pathlib.Path]):
     return result
 
 
-def load_easyspin_creator(sample: MultiOrientedSample,
+def load_easyspin_creator(sample: SolidSample,
                           temperature: tp.Union[float, torch.Tensor],
                           freq: tp.Union[float, torch.Tensor],
                           device: torch.device = torch.device("cpu"),

@@ -5,7 +5,7 @@ from scipy.optimize import linear_sum_assignment
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from ..spin_model import MultiOrientedSample
+from ..spin_model import SolidSample
 from .. import constants
 
 
@@ -40,7 +40,7 @@ def unit_converter(energy: torch.Tensor, energy_units: EnergyUnits):
         return energy.mul_(1e-6)
 
 
-def plot_energy_system(sample: MultiOrientedSample,
+def plot_energy_system(sample: SolidSample,
                        B_range: tuple[float, float],
                        levels: tp.Optional[list[int]] = None,
                        saved_order: bool = False,

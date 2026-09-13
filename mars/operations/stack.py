@@ -12,7 +12,7 @@ from ._dispatch import mars_items_types, mars_item_type
 @tp.overload
 def stack(items: tp.Sequence[spin_model.SpinSystem], dim: int = -1) -> spin_model.SpinSystem: ...
 @tp.overload
-def stack(items: tp.Sequence[spin_model.MultiOrientedSample], dim: int = -1) -> spin_model.MultiOrientedSample: ...
+def stack(items: tp.Sequence[spin_model.SolidSample], dim: int = -1) -> spin_model.SolidSample: ...
 @tp.overload
 def stack(items: tp.Sequence[population.BaseContext], dim: int = -1) -> population.BaseContext: ...
 @tp.overload
@@ -46,7 +46,7 @@ def stack(
 
     if isinstance(ref_item, spin_model.SpinSystem):
         raise NotImplementedError()
-    elif isinstance(ref_item, spin_model.MultiOrientedSample):
+    elif isinstance(ref_item, spin_model.SolidSample):
         raise NotImplementedError()
     elif isinstance(ref_item, population.BaseContext):
         raise NotImplementedError()

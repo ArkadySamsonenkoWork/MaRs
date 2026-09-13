@@ -44,7 +44,7 @@ Examples
 >>> # Build spin system and sample
 >>> g_tensor = spin_model.Interaction(components=[2.0, 2.01, 2.02])
 >>> system = spin_model.SpinSystem(electrons=[0.5], g_tensors=[g_tensor])
->>> sample = spin_model.MultiOrientedSample(base_spin_system=system, gauss=5e-4)
+>>> sample = spin_model.SolidSample(base_spin_system=system, gauss=5e-4)
 >>>
 >>> # Simulator callable: updates sample and returns spectrum
 >>> def simulator(fields, params):

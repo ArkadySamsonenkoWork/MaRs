@@ -32,7 +32,7 @@ Example: setting up a population context for a powder sample
 ...     g_tensors=[g_tensor],
 ...     electron_electron=[(0, 0, zfs)]
 ... )
->>> sample = spin_model.MultiOrientedSample(
+>>> sample = spin_model.SolidSample(
 ...     base_spin_system=system,
 ...     gauss=5e-4
 ... )

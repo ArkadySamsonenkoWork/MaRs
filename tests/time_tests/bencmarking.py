@@ -16,7 +16,7 @@ from mars import spin_model, mesher, constants, spectra_manager, population
 
 
 def time_spectrum_calculation(
-        sample: spin_model.MultiOrientedSample,
+        sample: spin_model.SolidSample,
         freq: float = 9.8e9,
         field_range: tp.Tuple[float, float] = (0.30, 0.40),
         n_points: int = 1000,
@@ -31,7 +31,7 @@ def time_spectrum_calculation(
 
     Parameters
     ----------
-    sample : MultiOrientedSample
+    sample : SolidSample
         Pre-configured spin system sample.
     freq : float, optional
         Microwave frequency in Hz. Default is 9.8 GHz (X-band).
@@ -102,7 +102,7 @@ def _prepare_x_axis(
         n_points: int,
         device: torch.device,
         dtype: torch.dtype,
-        sample: "spin_model.MultiOrientedSample"
+        sample: "spin_model.SolidSample"
 ) -> torch.Tensor:
     """
     Create field tensor, handling batch expansion if necessary.
@@ -126,7 +126,7 @@ def _prepare_x_axis(
 
 
 def time_spectrum_calculation_full_pipeline(
-        sample_creation_func: tp.Callable[..., spin_model.MultiOrientedSample],
+        sample_creation_func: tp.Callable[..., spin_model.SolidSample],
         context: tp.Optional[tp.Union[population.Context, tp.Callable]] = None,
         sample_kwargs: tp.Optional[tp.Dict[str, tp.Any]] = None,
         creator_kwargs: tp.Optional[tp.Dict[str, tp.Any]] = None,
@@ -150,7 +150,7 @@ def time_spectrum_calculation_full_pipeline(
     Parameters
     ----------
     sample_creation_func : callable
-        Function that creates a MultiOrientedSample (e.g., create_2_electrons_sample).
+        Function that creates a SolidSample (e.g., create_2_electrons_sample).
     sample_kwargs : dict, optional
         Keyword arguments to pass to the sample creation function.
         Default is None (uses function defaults).
@@ -261,7 +261,7 @@ def time_spectrum_calculation_full_pipeline(
 
 
 def time_spectrum_calculation_full_pipeline_freqdep(
-        sample_creation_func: tp.Callable[..., spin_model.MultiOrientedSample],
+        sample_creation_func: tp.Callable[..., spin_model.SolidSample],
         context: tp.Optional[tp.Union[population.Context, tp.Callable]] = None,
         sample_kwargs: tp.Optional[tp.Dict[str, tp.Any]] = None,
         creator_kwargs: tp.Optional[tp.Dict[str, tp.Any]] = None,
@@ -285,7 +285,7 @@ def time_spectrum_calculation_full_pipeline_freqdep(
     Parameters
     ----------
     sample_creation_func : callable
-        Function that creates a MultiOrientedSample (e.g., create_2_electrons_sample).
+        Function that creates a SolidSample (e.g., create_2_electrons_sample).
     sample_kwargs : dict, optional
         Keyword arguments to pass to the sample creation function.
         Default is None (uses function defaults).
@@ -399,7 +399,7 @@ def time_spectrum_calculation_full_pipeline_freqdep(
 
 
 def time_spectrum_calculation_full_pipeline_timedep(
-        sample_creation_func: tp.Callable[..., spin_model.MultiOrientedSample],
+        sample_creation_func: tp.Callable[..., spin_model.SolidSample],
         context: tp.Optional[tp.Union[population.Context, tp.Callable]] = None,
         sample_kwargs: tp.Optional[tp.Dict[str, tp.Any]] = None,
         creator_kwargs: tp.Optional[tp.Dict[str, tp.Any]] = None,

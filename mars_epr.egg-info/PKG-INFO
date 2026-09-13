@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mars-epr
-Version: 0.0.5.post5
+Version: 0.0.6
 Summary: A library for computation CW and time resolved spectra
 Author-email: Arkady Samsonenko <a.samsonenko@tomo.nsc.ru>, Ivan Kurganskii <kurgansky@tomo.nsc.ru>
 License-Expression: MIT
@@ -29,6 +29,7 @@ Provides-Extra: opt
 Requires-Dist: optuna>=4.3; extra == "opt"
 Requires-Dist: nevergrad>=1.0.12; extra == "opt"
 Requires-Dist: optuna_dashboard; extra == "opt"
+Requires-Dist: emcee; extra == "opt"
 Provides-Extra: plot
 Requires-Dist: seaborn; extra == "plot"
 Requires-Dist: plotly; extra == "plot"
@@ -224,7 +225,7 @@ system = spin_model.SpinSystem(
 )
 
 # Create a powder sample
-sample = spin_model.MultiOrientedSample(
+sample = spin_model.SolidSample(
     base_spin_system=system,
     gauss=0.001,
     lorentz=0.001,
