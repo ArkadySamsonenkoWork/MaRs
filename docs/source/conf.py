@@ -43,15 +43,18 @@ autodoc_mock_imports = [
     "numpy",
     "sklearn",
     "matplotlib",
+    "torchdiffeq",
+    "safetensors",
+    "pywt",
     
     # Optional dependencies
     "optuna",
     "nevergrad",
     "optuna_dashboard",
-    "torchdiffeq",
-    "safetensors",
-    "pywt",
     "emcee",
+    "hdbscan",
+    "numdifftools",
+    "optuna-integration[botorch]"
     
     # Visualization
     "seaborn",
