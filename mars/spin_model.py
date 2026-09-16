@@ -3119,20 +3119,31 @@ class BaseSample(nn.Module):
         :return: The shape is [..., N, N]
         The eigen basis of zero field splitting. The order from the
         lowest eigen value to higher eigen value
+
+        The basis is phase-aligned to fix the arbitrary complex phase.
+        This does not change eigenvalues or the ordering of eigenvectors.
+        Degeneracies or crossings may require additional eigenvector matching.
         """
         zero_field_term = self.build_zero_field_term()
         _, zfs_eigenvectors = torch.linalg.eigh(zero_field_term)
-        return zfs_eigenvectors
+        basis, _ = utils.align_eigenvector_phases_(zfs_eigenvectors.unsqueeze_(-3))
+        return basis.squeeze_(-3)
 
     def get_zeeman_basis(self) -> torch.Tensor:
         """
         :return: The shape is [..., N, N]
         The eigen basis of Z-projection of Zeeman operator. This is basis in infinite magnetic field
         The order from the lowest eigen value to higher eigen value
+
+        The basis is phase-aligned to fix the arbitrary complex phase.
+        This does not change eigenvalues or the ordering of eigenvectors.
+        Degeneracies or crossings may require additional eigenvector matching.
         """
         _, _, Gz = self.build_zeeman_terms()
         _, zeeman_eigenvectors = torch.linalg.eigh(Gz)
-        return zeeman_eigenvectors
+
+        basis, _ = utils.align_eigenvector_phases_(zeeman_eigenvectors.unsqueeze_(-3))
+        return zeeman_eigenvectors.squeeze_(-3)
 
     def __repr__(self):
         spin_system_summary = str(self.base_spin_system)

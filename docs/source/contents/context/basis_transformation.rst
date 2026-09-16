@@ -326,16 +326,10 @@ Compute the Liouville-space transformation between eigenbases of two spin Hamilt
 
    - For the transformation of operators from Hilbert space to Liouville space, MaRs uses **row-major** (C-order) vectorization.
      This corresponds to flattening the density matrix by stacking its rows sequentially—the default behavior in NumPy and PyTorch.
-     For example, in a 2×2 system, the vectorized density matrix appears as:
+     For example, in a 2x2 system, the vectorized density matrix appears as:
      ``[ρ₀₀, ρ₀₁, ρ₁₀, ρ₁₁]``.
 
    - The transformation matrix for the vectorized density matrix, :math:`T = U \otimes U^*`, is unitary whenever :math:`U` is unitary.
-
-Notes
------
-
-* The function assumes row-major (C-order) vectorization, consistent with PyTorch/NumPy ``.flatten()``.
-* The returned for vectorized density matrix transformation :math:`T=U \otimes U^*` is unitary when :math:`U` is unitary.
 
 Relaxation Superoperator
 ^^^^^^^^^^^^^^^^^^^^^^^^^

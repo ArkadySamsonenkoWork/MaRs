@@ -50,6 +50,9 @@ Quick Example (using all major components)
 """
 
 
+__version__ = "0.0.6.post1"
+
+
 from .serialization import serialization, graph_representation, operations_interface
 from .operations import concat, flatten, stack, expand, repeat, unsqueeze, squeeze, transpose, mask
 from .multiplication import multiply
@@ -63,3 +66,25 @@ from . import population
 from . import spectra_processing
 from . import mesher
 from . import visualization
+
+__all__ = [
+    # Serialization
+    "serialization", "graph_representation", "operations_interface",
+
+    # Operations
+    "concat", "flatten", "stack", "expand", "repeat",
+    "unsqueeze", "squeeze", "transpose", "mask",
+
+    # Multiplication
+    "multiply",
+
+    # Save procedures
+    "save", "load",
+
+    # Reader
+    "read_bruker_data",
+
+    # Submodules
+    "constants", "spectra_manager", "spin_model", "population",
+    "spectra_processing", "mesher", "visualization",
+]

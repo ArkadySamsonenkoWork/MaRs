@@ -7,9 +7,9 @@ import typing as tp
 from .. import tr_utils
 from .. import transform
 from .. import matrix_generators
-from ... import constants
 from .. import contexts
 from . import core
+from ...utils import align_eigenvector_phases
 
 
 class RWADensityPopulator(core.BaseTimeDepPopulator):
@@ -586,6 +586,7 @@ class RWADensityPopulator(core.BaseTimeDepPopulator):
         :return: Part of the transition intensity that depends on the population of the levels.
         The shape is [T, ...., Tr]
         """
+        full_system_vectors, _ = align_eigenvector_phases(full_system_vectors)
         H0 = self._get_initial_Hamiltonian(energies) * self.two_pi
         initial_density = self._initial_density(energies, lvl_down, lvl_up, full_system_vectors)
         Gx, Gy, Sz_eigen = self._compute_hamiltonian_operators(
@@ -1031,6 +1032,7 @@ class PropagatorDensityPopulator(RWADensityPopulator):
         :return: Part of the transition intensity that depends on the population of the levels.
         The shape is [T, ...., Tr]
         """
+        full_system_vectors, _ = align_eigenvector_phases(full_system_vectors)
         H0 = self._get_initial_Hamiltonian(energies) * self.two_pi
         Gx, Gy, Sz_eigen = self._compute_hamiltonian_operators(
             Gx, Gy, Sz.unsqueeze(-3), full_system_vectors)

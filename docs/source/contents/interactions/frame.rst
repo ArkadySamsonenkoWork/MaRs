@@ -117,9 +117,11 @@ Example:
 
 Applying a coordinate-frame transformation
 ------------------------------------------
-
+MaRs allows to change the orientaion of the interaction frame or the all interactions within spin system using methods:
 :meth:`mars.spin_model.Interaction.apply_rotation` and
-:meth:`mars.spin_model.SpinSystem.apply_rotation` are interpreted passively.
+:meth:`mars.spin_model.SpinSystem.apply_rotation`
+
+These methods are interpreted passively.
 The supplied matrix maps coordinates from the current frame to a target frame:
 
 .. math::

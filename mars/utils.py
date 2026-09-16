@@ -809,3 +809,114 @@ def align_eigenvector_phases(
     V_aligned = V * gauge.unsqueeze(-2)
 
     return V_aligned, gauge
+
+
+def align_eigenvector_phases_(
+    V: torch.Tensor,
+    eps: tp.Optional[float] = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Phase-align eigenvectors on an ``[..., R, K, N, N]`` grid in-place.
+
+    Eigenvectors must be stored in columns:
+
+    ``V[..., r, k, :, n]``
+
+    is eigenvector ``n``.
+
+    The algorithm treats every K position independently:
+
+    1. At ``R = 0``, each eigenvector phase is fixed using its component
+       with the largest absolute value.
+    2. That largest component is made real and positive.
+    3. For every K independently, the phase is transported along R using
+       overlaps between neighboring eigenvectors.
+    4. All leading ``...`` dimensions are treated independently.
+
+    The phase at ``R = 0`` is therefore not aligned between different K
+    values. Each K chain has its own independent phase reference.
+
+    The implementation is fully vectorized and does not use Python loops
+    over R or K.
+
+    :param V:
+        Eigenvector tensor with shape ``[..., R, K, N, N]``.
+        Modified in-place.
+
+        The second-to-last dimension contains vector components in the
+        original basis and the last dimension enumerates eigenvectors.
+
+    :param eps:
+        Numerical threshold used when determining phases. If ``None``,
+        a dtype-dependent value is used.
+
+    :return:
+        Tuple ``(V, gauge)``.
+
+        ``V``:
+            The input tensor, modified in-place to contain the phase-aligned
+            eigenvectors.
+
+        ``gauge``:
+            Complex phase factors with shape ``[..., R, K, N]``.
+            The relation is
+            ``V = V_original * gauge.unsqueeze(-2)``.
+
+    .. note::
+        This function performs phase alignment only. It assumes that
+        eigenvector index ``n`` corresponds to the same physical state
+        at neighboring R positions.
+
+        At eigenvalue crossings or degeneracies, eigenvector matching or
+        degenerate-subspace alignment may be required before phase fixing.
+    """
+    if V.ndim < 4:
+        raise ValueError(
+            "Expected V with shape [..., R, K, N, N]."
+        )
+
+    if eps is None:
+        eps = 100.0 * torch.finfo(V.real.dtype).eps
+
+    V_r0 = V[..., 0, :, :, :]
+    indices = V_r0.abs().argmax(
+        dim=-2,
+        keepdim=True,
+    )
+    dominant = V_r0.gather(
+        dim=-2,
+        index=indices,
+    ).squeeze(-2)
+
+    gauge_r0 = _phase_to_positive(
+        dominant,
+        eps,
+    )
+
+    overlap = (
+        V[..., :-1, :, :, :].conj()
+        * V[..., 1:, :, :, :]
+    ).sum(dim=-2)
+
+    relative_phase = _phase_to_positive(
+        overlap,
+        eps,
+    )
+
+    accumulated = torch.cumprod(
+        relative_phase,
+        dim=-3,
+    )
+
+    gauge = torch.cat(
+        (
+            gauge_r0.unsqueeze(-3),
+            gauge_r0.unsqueeze(-3) * accumulated,
+        ),
+        dim=-3,
+    )
+
+    # Apply the phase alignment in-place
+    V.mul_(gauge.unsqueeze(-2))
+
+    return V, gauge

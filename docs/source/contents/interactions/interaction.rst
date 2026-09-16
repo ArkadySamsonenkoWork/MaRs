@@ -13,7 +13,7 @@ An interaction tensor **T** is defined by its principal values :math:`(T_x, T_y,
 
    \mathbf{T}^{\text{lab}} = \mathbf{R} \cdot \text{diag}(T_x, T_y, T_z) \cdot \mathbf{R}^\top,
 
-where :math:`\mathbf{R}` is the rotation matrix derived from the specified Euler angles (ZYZ' convention).
+where :math:`\mathbf{R}` is the rotation matrix derived from the specified Euler angles (zy'z'' convention) or the spherical angles ($\theta$, $\phi$).
 
 Construction
 ------------
@@ -35,7 +35,8 @@ Construction
    # With strain (distribution of principal values)
    g_strained = Interaction((2.02, 2.04, 2.06), strain=[0.01, 0.01, 0.02])
 
-Note: All values must be provided in SI-compatible units (Hz for couplings, dimensionless for g-tensors).
+.. note::
+   All values must be provided in SI-compatible units (Hz for couplings, dimensionless for g-tensors).
 
 Addition and Interaction Summation
 ----------------------------------
@@ -59,7 +60,7 @@ Frame convention
 The molecular axes are written as :math:`(x,y,z)`. The interaction principal
 axes are written as :math:`(x_p,y_p,z_p)`.
 
-For Euler angles :math:`(\alpha,\beta,\gamma)` in the ``zyz`` convention, start
+For Euler angles :math:`(\alpha,\beta,\gamma)` in the ``zy'z''`` convention, start
 with the molecular frame and apply the intrinsic frame sequence
 
 .. math::
@@ -68,7 +69,7 @@ with the molecular frame and apply the intrinsic frame sequence
 
 until the frame coincides with the PAS.
 
-The corresponding matrix maps PAS coordinates to molecular coordinates:
+In MaRs, the corresponding matrix maps PAS coordinates to molecular coordinates:
 
 .. math::
 
@@ -81,7 +82,8 @@ Strain handling
 Strain parameters describe distributions of the principal values in the intrinsic frame. During addition:
 
 - Strain vectors from each operand are concatenated.
-- A combined ``strain_correlation`` matrix is built to map this concatenated strain vector onto perturbations of the final derivatives of principal components :math:\partial Dx,\partial Dx,\partial Dx, . (see also :ref:`strain-management-mars`)
+- A combined ``strain_correlation`` matrix is built to map this concatenated strain vector onto perturbations of the final derivatives of the principal components :math:`\partial D_x, \partial D_y, \partial D_z`.
+(see also :ref:`strain-management-mars`)
 
 This mechanism works consistently even when combining a generic :class:`mars.spin_model.Interaction` with a :class:`mars.spin_model.DEInteraction`.
 
@@ -99,7 +101,9 @@ For example::
     print("Principal values (Hz):", total.components)
     print("Strain correlation matrix:\n", total.strain_correlation)
 
-The resulting ``strain_correlation`` matrix has shape ``(3, 5)``: three rows for the output principal components (Dx, Dy, Dz) and five columns—three from the isotropic interaction (treated as independent perturbations along x, y, z) and two from the D/E parameters via the transformation:
+The resulting ``strain_correlation`` matrix has shape ``(3, 5)``: three rows for the output principal components (Dx, Dy, Dz)
+and five columns—three from the isotropic interaction (treated as independent perturbations along x, y, z)
+and two from the D/E parameters via the transformation:
 
 .. math::
 

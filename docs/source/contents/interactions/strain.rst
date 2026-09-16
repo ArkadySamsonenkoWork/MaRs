@@ -3,7 +3,8 @@
 Strain in MaRs
 =======================
 
-"Strain" in MaRs refers to the *distribution of spin Hamiltonian parameters* due to structural disorder (e.g., in frozen solutions, powders, or amorphous matrices). This leads to inhomogeneous broadening of EPR lines.
+"Strain" in MaRs refers to the *distribution of spin Hamiltonian parameters* due to structural disorder
+(e.g., in frozen solutions, powders, or amorphous matrices). This leads to inhomogeneous broadening of EPR lines.
 
 Strain is specified in MaRs as the full width at half maximum (FWHM) of the parameter distribution and is expressed in the natural units of the corresponding Hamiltonian parameter (dimensionless for the g-tensor, Hz for zero-field splitting).
 
@@ -93,12 +94,10 @@ Strain is passed as a vector with the same length as the components:
 
 Units must match those of the components (e.g., Hz for couplings, dimensionless for g).
 
-Important Notes
----------------
-
-- Strain in MaRs is **uncorrelated by default** for :class:`mars.spin_model.Interaction` (diagonal covariance).
-- Strain distributions are assumed Gaussian and static.
-- MaRs allows you to set any type of correlation within a single interaction using the :meth:`set_strain` method: ``interaction.set_strain(new_strain, new_correlation_matrix)``
+.. note::
+   - Strain in MaRs is uncorrelated by default for :class:`mars.spin_model.Interaction` (diagonal covariance).
+   - Strain distributions are assumed Gaussian and static.
+   - MaRs allows you to set any type of correlation within a single interaction using the :meth:`set_strain` method: ``interaction.set_strain(new_strain, new_correlation_matrix)``
 
 Custom Strain Correlations
 --------------------------

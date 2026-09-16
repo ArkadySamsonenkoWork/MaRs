@@ -18,6 +18,8 @@ from . import transform
 from .relaxation_channels.base_couling_channels import CouplingChannelManager,\
     combine_coupling_managers, BaseRelaxationChannel
 
+from ..utils import align_eigenvector_phases
+
 
 def transform_to_complex(vector: torch.Tensor) -> torch.Tensor:
     if vector.dtype == torch.float32:

@@ -1384,6 +1384,7 @@ class BaseResSpectra(BaseSpectra):
             full_system_vectors: tp.Optional[torch.Tensor]
     ) -> tp.Optional[torch.Tensor]:
         """Optionally mask the full eigenbasis using transition selection.
+           Additionally align the phase of the eigenvectors.
 
         :param mask: Boolean mask over transitions.
         :param full_system_vectors: Full set of eigenvectors [..., N, N].
