@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mars-epr
-Version: 0.0.6.post1
+Version: 0.0.6.post2
 Summary: A library for computation CW and time resolved spectra
 Author-email: Arkady Samsonenko <a.samsonenko@tomo.nsc.ru>, Ivan Kurganskii <kurgansky@tomo.nsc.ru>
 License-Expression: MIT
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
@@ -30,6 +31,9 @@ Requires-Dist: optuna>=4.3; extra == "opt"
 Requires-Dist: nevergrad>=1.0.12; extra == "opt"
 Requires-Dist: optuna_dashboard; extra == "opt"
 Requires-Dist: emcee; extra == "opt"
+Requires-Dist: hdbscan; extra == "opt"
+Requires-Dist: numdifftools; extra == "opt"
+Requires-Dist: optuna-integration[botorch]; extra == "opt"
 Provides-Extra: plot
 Requires-Dist: seaborn; extra == "plot"
 Requires-Dist: plotly; extra == "plot"
@@ -57,12 +61,12 @@ MaRs allows users to construct spin systems with the most widely used magnetic i
 - Zero-field splitting (ZFS)  
 - Hyperfine interaction  
 
-Both **isotropic** and **anisotropic** parameters are supported.
+Both isotropic and anisotropic parameters are supported.
 
 ---
 
 ### Orientation Support
-- Arbitrary orientation of interaction tensors using **Euler angles**
+- Arbitrary orientation of interaction tensors using Euler angles
 
 ---
 
@@ -70,22 +74,22 @@ Both **isotropic** and **anisotropic** parameters are supported.
 MaRs provides several mechanisms to model experimental linewidths:
 - Gaussian and Lorentzian line broadening  
 - Hamiltonian broadening  
-- Broadening due to distributions of Hamiltonian parameters  (so-called strains)
+- Broadening due to distributions of Hamiltonian parameters (so-called strains)
 
 ---
 
 ### EPR Spectroscopy Simulation
-- Simulation of **continuous-wave (CW) EPR spectra**
-- Support for **powder** and **single-crystal** samples
+- Simulation of continuous-wave (CW) EPR spectra
+- Support for powder and single-crystal samples
 - Field-domain and frequency-domain simulations
 
 ---
 
 ### Spin-Polarized Spectra Support
-- Simulation of stationary EPR spectra with arbitrary **non-equilibrium (spin-polarized) initial populations**, in addition to standard thermal (Boltzmann) populations
+- Simulation of stationary EPR spectra with arbitrary non-equilibrium (spin-polarized) initial populations, in addition to standard thermal (Boltzmann) populations
 - Polarization can be specified directly in any of the supported bases (e.g. eigenbasis, ZFS basis, multiplet basis, product basis, triplet xyz basis, Zeeman basis, or a custom basis), with automatic transformation into the working basis
 
----
+--- 
 
 ### Radiation Polarization Support
 - Simulation of spectra under polarized microwave radiation
@@ -101,11 +105,11 @@ MaRs provides several mechanisms to model experimental linewidths:
 ---
 
 ### CPU / CUDA Support
-- Support execution on **CPU** and **CUDA-enabled GPUs**
+- Support execution on CPU and CUDA-enabled GPUs
 ---
 
 ### Optimization Framework
-- Parameter fitting using **Optuna** and **Nevergrad** libraries
+- Parameter fitting using Optuna and Nevergrad libraries
 ---
 
 ### Post-Fitting Analysis
@@ -128,9 +132,9 @@ MaRs is a comprehensive framework for modeling time-resolved EPR experiments wit
 
 ### Flexible Relaxation Parameters Definition
 MaRs provides powerful tools for defining complex relaxation processes:
-- **Population losses** (e.g., phosphorescence from triplet states)
-- **Spontaneous transitions** (thermal transitions satisfying detailed balance)
-- **Induced transitions** (driven transitions not satisfying detailed balance)
+- **Decay rates** (e.g., phosphorescence from triplet states)
+- **Thermal transitions** (spontaneous thermal transitions satisfying detailed balance)
+- **Driven transitions** (driven transitions not satisfying detailed balance)
 - **Dephasing** (for density matrix formalism)
 
 All mechanisms can be specified in any of several predefined bases or custom transformation matrices.
@@ -202,6 +206,19 @@ or just
 pip install mars-epr
 ```
 
+### Virtual Environment
+
+We highly recommend installing the package within a Python virtual environment. For a detailed, beginner-friendly guide on creating and activating virtual environments, please refer to:
+
+- Real Python, “Python Virtual Environments: A Primer”, https://realpython.com/python-virtual-environme
+
+### Optional Dependencies
+
+To use the optimization features in MaRs, additional libraries are required. You can install them directly via pip:
+```bash
+pip install "optuna>=4.3" "nevergrad>=1.0.12" "optuna_dashboard" "emcee" "hdbscan" "numdifftools" "optuna-integration[botorch]"
+```
+
 ### Code Example
 ```bash
 
@@ -227,8 +244,8 @@ system = spin_model.SpinSystem(
 # Create a powder sample
 sample = spin_model.SolidSample(
     base_spin_system=system,
-    gauss=0.001,
-    lorentz=0.001,
+    gauss=0.002,
+    lorentz=0.002,
     dtype=dtype,
     device=device
 )
@@ -255,3 +272,10 @@ plt.title("Simulated CW EPR Spectrum")
 plt.show()
 
 ```
+
+---
+
+
+## 📚 Documentation
+
+https://mars-docks-for-users.readthedocs.io/en/latest/

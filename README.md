@@ -20,12 +20,12 @@ MaRs allows users to construct spin systems with the most widely used magnetic i
 - Zero-field splitting (ZFS)  
 - Hyperfine interaction  
 
-Both **isotropic** and **anisotropic** parameters are supported.
+Both isotropic and anisotropic parameters are supported.
 
 ---
 
 ### Orientation Support
-- Arbitrary orientation of interaction tensors using **Euler angles**
+- Arbitrary orientation of interaction tensors using Euler angles
 
 ---
 
@@ -33,22 +33,22 @@ Both **isotropic** and **anisotropic** parameters are supported.
 MaRs provides several mechanisms to model experimental linewidths:
 - Gaussian and Lorentzian line broadening  
 - Hamiltonian broadening  
-- Broadening due to distributions of Hamiltonian parameters  (so-called strains)
+- Broadening due to distributions of Hamiltonian parameters (so-called strains)
 
 ---
 
 ### EPR Spectroscopy Simulation
-- Simulation of **continuous-wave (CW) EPR spectra**
-- Support for **powder** and **single-crystal** samples
+- Simulation of continuous-wave (CW) EPR spectra
+- Support for powder and single-crystal samples
 - Field-domain and frequency-domain simulations
 
 ---
 
 ### Spin-Polarized Spectra Support
-- Simulation of stationary EPR spectra with arbitrary **non-equilibrium (spin-polarized) initial populations**, in addition to standard thermal (Boltzmann) populations
+- Simulation of stationary EPR spectra with arbitrary non-equilibrium (spin-polarized) initial populations, in addition to standard thermal (Boltzmann) populations
 - Polarization can be specified directly in any of the supported bases (e.g. eigenbasis, ZFS basis, multiplet basis, product basis, triplet xyz basis, Zeeman basis, or a custom basis), with automatic transformation into the working basis
 
----
+--- 
 
 ### Radiation Polarization Support
 - Simulation of spectra under polarized microwave radiation
@@ -64,11 +64,11 @@ MaRs provides several mechanisms to model experimental linewidths:
 ---
 
 ### CPU / CUDA Support
-- Support execution on **CPU** and **CUDA-enabled GPUs**
+- Support execution on CPU and CUDA-enabled GPUs
 ---
 
 ### Optimization Framework
-- Parameter fitting using **Optuna** and **Nevergrad** libraries
+- Parameter fitting using Optuna and Nevergrad libraries
 ---
 
 ### Post-Fitting Analysis
@@ -91,9 +91,9 @@ MaRs is a comprehensive framework for modeling time-resolved EPR experiments wit
 
 ### Flexible Relaxation Parameters Definition
 MaRs provides powerful tools for defining complex relaxation processes:
-- **Population losses** (e.g., phosphorescence from triplet states)
-- **Spontaneous transitions** (thermal transitions satisfying detailed balance)
-- **Induced transitions** (driven transitions not satisfying detailed balance)
+- **Decay rates** (e.g., phosphorescence from triplet states)
+- **Thermal transitions** (spontaneous thermal transitions satisfying detailed balance)
+- **Driven transitions** (driven transitions not satisfying detailed balance)
 - **Dephasing** (for density matrix formalism)
 
 All mechanisms can be specified in any of several predefined bases or custom transformation matrices.
@@ -165,6 +165,19 @@ or just
 pip install mars-epr
 ```
 
+### Virtual Environment
+
+We highly recommend installing the package within a Python virtual environment. For a detailed, beginner-friendly guide on creating and activating virtual environments, please refer to:
+
+- Real Python, “Python Virtual Environments: A Primer”, https://realpython.com/python-virtual-environme
+
+### Optional Dependencies
+
+To use the optimization features in MaRs, additional libraries are required. You can install them directly via pip:
+```bash
+pip install "optuna>=4.3" "nevergrad>=1.0.12" "optuna_dashboard" "emcee" "hdbscan" "numdifftools" "optuna-integration[botorch]"
+```
+
 ### Code Example
 ```bash
 
@@ -188,10 +201,10 @@ system = spin_model.SpinSystem(
 )
 
 # Create a powder sample
-sample = spin_model.MultiOrientedSample(
+sample = spin_model.SolidSample(
     base_spin_system=system,
-    gauss=0.001,
-    lorentz=0.001,
+    gauss=0.002,
+    lorentz=0.002,
     dtype=dtype,
     device=device
 )
@@ -218,3 +231,10 @@ plt.title("Simulated CW EPR Spectrum")
 plt.show()
 
 ```
+
+---
+
+
+## 📚 Documentation
+
+https://mars-docks-for-users.readthedocs.io/en/latest/

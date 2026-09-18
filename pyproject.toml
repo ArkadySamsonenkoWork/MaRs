@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mars-epr"
-version = "0.0.6.post1"
+version = "0.0.6.post2"
 authors = [
     {name = "Arkady Samsonenko", email = "a.samsonenko@tomo.nsc.ru"},
     {name = "Ivan Kurganskii", email = "kurgansky@tomo.nsc.ru"},
@@ -19,6 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
 

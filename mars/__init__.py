@@ -50,7 +50,7 @@ Quick Example (using all major components)
 """
 
 
-__version__ = "0.0.6.post1"
+__version__ = "0.0.6.post2"
 
 
 from .serialization import serialization, graph_representation, operations_interface

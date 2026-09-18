@@ -13,6 +13,9 @@ optuna>=4.3
 nevergrad>=1.0.12
 optuna_dashboard
 emcee
+hdbscan
+numdifftools
+optuna-integration[botorch]
 
 [plot]
 seaborn
