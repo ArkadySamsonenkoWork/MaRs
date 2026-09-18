@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mars-epr
-Version: 0.0.6.post3
+Version: 0.0.6.post4
 Summary: A library for computation CW and time resolved spectra
 Author-email: Arkady Samsonenko <a.samsonenko@tomo.nsc.ru>, Ivan Kurganskii <kurgansky@tomo.nsc.ru>
 License-Expression: MIT
@@ -34,6 +34,7 @@ Requires-Dist: emcee; extra == "opt"
 Requires-Dist: hdbscan; extra == "opt"
 Requires-Dist: numdifftools; extra == "opt"
 Requires-Dist: optuna-integration[botorch]; extra == "opt"
+Requires-Dist: cmaes; extra == "opt"
 Provides-Extra: plot
 Requires-Dist: seaborn; extra == "plot"
 Requires-Dist: plotly; extra == "plot"
@@ -216,8 +217,8 @@ We highly recommend installing the package within a Python virtual environment. 
 
 To use the optimization features in MaRs, additional libraries are required. You can install them directly via pip:
 ```bash
-pip install "optuna>=4.3" "nevergrad>=1.0.12" "optuna_dashboard" "emcee" "hdbscan" "numdifftools" "optuna-integration[botorch]"
-```
+pip install "optuna>=4.3" "nevergrad>=1.0.12" "optuna_dashboard" "emcee" "hdbscan" "numdifftools" "optuna-integration[botorch]" "cmaes"
+ ```
 
 ### Code Example
 ```bash

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mars-epr"
-version = "0.0.6.post3"
+version = "0.0.6.post4"
 authors = [
     {name = "Arkady Samsonenko", email = "a.samsonenko@tomo.nsc.ru"},
     {name = "Ivan Kurganskii", email = "kurgansky@tomo.nsc.ru"},
@@ -40,7 +40,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-opt = ["optuna>=4.3", "nevergrad>=1.0.12", "optuna_dashboard", "emcee", "hdbscan", "numdifftools", "optuna-integration[botorch]"]
+opt = ["optuna>=4.3", "nevergrad>=1.0.12", "optuna_dashboard", "emcee", "hdbscan", "numdifftools", "optuna-integration[botorch]", "cmaes"]
 plot = ["seaborn", "plotly", "matplotlib"]
 
 [project.urls]

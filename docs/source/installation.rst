@@ -32,4 +32,4 @@ To use the optimization features in MaRs, additional libraries are required. You
 
 ::
 
-   pip install "optuna>=4.3" "nevergrad>=1.0.12" "optuna_dashboard" "emcee" "hdbscan" "numdifftools" "optuna-integration[botorch]"
+   pip install "optuna>=4.3" "nevergrad>=1.0.12" "optuna_dashboard" "emcee" "hdbscan" "numdifftools" "optuna-integration[botorch]" "cmaes"

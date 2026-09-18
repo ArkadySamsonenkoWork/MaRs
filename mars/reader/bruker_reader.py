@@ -120,7 +120,7 @@ def _parse_par_value(value_str: str) -> tp.Any:
     return value_str
 
 
-def read_par(filename: str | pathlib.Path) -> dict:
+def read_par(filename: tp.Union[str, pathlib.Path]) -> dict:
     """Parse Bruker .par parameter files."""
     metadata = {}
     with open(filename, "r") as f:
@@ -136,7 +136,7 @@ def read_par(filename: str | pathlib.Path) -> dict:
     return metadata
 
 
-def read_spc(filepath: str | pathlib.Path, metadata: dict) -> dict:
+def read_spc(filepath: tp.Union[str, pathlib.Path], metadata: dict) -> dict:
     """Read Bruker .spc binary data files."""
     data = np.fromfile(filepath, dtype="<f4")
     if "GST" in metadata and "HSW" in metadata:
@@ -154,7 +154,7 @@ def read_spc(filepath: str | pathlib.Path, metadata: dict) -> dict:
     return {'x_values': x_axis, 'y_values': data}
 
 
-def read_bruker_spc_par_data(path: str | pathlib.Path) -> tuple[dict[str, tp.Any], dict[str, np.array]]:
+def read_bruker_spc_par_data(path: tp.Union[str, pathlib.Path]) -> tuple[dict[str, tp.Any], dict[str, np.array]]:
     """Read Bruker .par/.spc file pairs."""
     path = pathlib.Path(path)
     path_spc = path.with_suffix('.spc')
@@ -168,7 +168,7 @@ def read_bruker_spc_par_data(path: str | pathlib.Path) -> tuple[dict[str, tp.Any
     return metadata, data
 
 
-def read_bruker_dsc_dta_data(path: str | pathlib.Path) -> tuple[dict[str, tp.Any], dict[str, np.array]]:
+def read_bruker_dsc_dta_data(path: tp.Union[str, pathlib.Path]) -> tuple[dict[str, tp.Any], dict[str, np.array]]:
     """
     :param path: path to bruker file.
 
@@ -182,14 +182,20 @@ def read_bruker_dsc_dta_data(path: str | pathlib.Path) -> tuple[dict[str, tp.Any
     return metadata, data
 
 
-def read_bruker_data(path: str | pathlib.Path) -> tuple[dict[str, tp.Any], dict[str, np.array]]:
+def read_bruker_data(path: tp.Union[str, pathlib.Path]) -> tuple[dict[str, tp.Any], dict[str, np.array]]:
     """Read data from Bruker spectrometer using dta/dsc of pra/spc files."""
     path = pathlib.Path(path)
 
-    if (path.with_suffix('.dsc').exists() and path.with_suffix('.dta').exists()):
+    if (path.with_suffix(".dsc").exists() and path.with_suffix(".dta").exists()):
         return read_bruker_dsc_dta_data(path)
 
-    if (path.with_suffix('.par').exists() and path.with_suffix('.spc').exists()):
+    if (path.with_suffix(".DSC").exists() and path.with_suffix(".DTA").exists()):
+        return read_bruker_dsc_dta_data(path)
+
+    if (path.with_suffix(".par").exists() and path.with_suffix(".spc").exists()):
+        return read_bruker_spc_par_data(path)
+
+    if (path.with_suffix(".PAR").exists() and path.with_suffix(".SPC").exists()):
         return read_bruker_spc_par_data(path)
 
     raise ValueError(f"Unsupported Bruker format for path: {path}. "

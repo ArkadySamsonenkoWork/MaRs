@@ -16,6 +16,7 @@ emcee
 hdbscan
 numdifftools
 optuna-integration[botorch]
+cmaes
 
 [plot]
 seaborn
