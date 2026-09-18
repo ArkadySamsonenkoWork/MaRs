@@ -2795,6 +2795,122 @@ class BaseSample(nn.Module):
         """
         raise NotImplementedError
 
+    def get_electron_electron_interaction(
+            self,
+            interaction: torch.Tensor,
+            el_idx_1: int,
+            el_idx_2: int
+    ) -> torch.Tensor:
+        """
+        Compute the electron-electron operator term from a laboratory-frame
+        interaction tensor.
+
+        The resulting Hamiltonian term is: ``H = S_1 · Q · S_2``, where Q is the
+        interaction tensor expressed in the laboratory frame.
+
+        :param interaction: Interaction tensor of shape ``[..., 3, 3]`` expressed
+                            in the laboratory frame.
+        :param el_idx_1: Index of the first electron spin operator.
+        :param el_idx_2: Index of the second electron spin operator.
+        :return: Operator of shape ``[..., dim, dim]`` in the complex dtype.
+        """
+        interaction = interaction.to(self.complex_dtype)
+
+        S1 = self.base_spin_system.operator_cache[el_idx_1]
+        S2 = self.base_spin_system.operator_cache[el_idx_2]
+
+        return scalar_tensor_multiplication(S1, S2, interaction)
+
+    def get_electron_nuclei_interaction(
+            self,
+            interaction: torch.Tensor,
+            el_idx: int,
+            nuc_idx: int
+    ) -> torch.Tensor:
+        """
+        Compute the electron-nucleus hyperfine operator term from a laboratory-frame
+        interaction tensor.
+
+        The resulting Hamiltonian term is: ``H = S · A · I``, where A is the
+        hyperfine tensor expressed in the laboratory frame.
+
+        :param interaction: Hyperfine tensor of shape ``[..., 3, 3]`` expressed
+                            in the laboratory frame.
+        :param el_idx: Index of the electron spin operator.
+        :param nuc_idx: Index of the nucleus spin operator.
+        :return: Operator of shape ``[..., dim, dim]`` in the complex dtype.
+        """
+        interaction = interaction.to(self.complex_dtype)
+
+        S = self.base_spin_system.operator_cache[el_idx]
+        I = self.base_spin_system.operator_cache[
+            len(self.modified_spin_system.electrons) + nuc_idx
+            ]
+
+        return scalar_tensor_multiplication(S, I, interaction)
+
+    def get_nuclei_nuclei_interaction(
+            self,
+            interaction: torch.Tensor,
+            nuc_idx_1: int,
+            nuc_idx_2: int
+    ) -> torch.Tensor:
+        """
+        Compute the nucleus-nucleus operator term from a laboratory-frame
+        interaction tensor.
+
+        The resulting Hamiltonian term is: ``H = I_1 · Q · I_2``, where Q is the
+        interaction tensor expressed in the laboratory frame.
+
+        :param interaction: Interaction tensor of shape ``[..., 3, 3]`` expressed
+                            in the laboratory frame.
+        :param nuc_idx_1: Index of the first nucleus spin operator.
+        :param nuc_idx_2: Index of the second nucleus spin operator.
+        :return: Operator of shape ``[..., dim, dim]`` in the complex dtype.
+        """
+        interaction = interaction.to(self.complex_dtype)
+
+        offset = len(self.modified_spin_system.electrons)
+        I1 = self.base_spin_system.operator_cache[offset + nuc_idx_1]
+        I2 = self.base_spin_system.operator_cache[offset + nuc_idx_2]
+
+        return scalar_tensor_multiplication(I1, I2, interaction)
+
+    def get_zeeman_interaction(
+            self,
+            interaction: torch.Tensor,
+            el_idx: int
+    ) -> torch.Tensor:
+        """
+        Compute the electron Zeeman interaction operator from a laboratory-frame
+        interaction tensor.
+
+        The resulting Hamiltonian term is:
+        ``H = (μ_B/h) · S · interaction · B``, where interaction is expressed in
+        the laboratory frame and B is the external magnetic field.
+
+        :param interaction: Interaction tensor of shape ``[..., 3, 3]`` expressed
+                            in the laboratory frame.
+        :param el_idx: Index of the electron spin operator in the operator cache.
+        :return: Zeeman operator of shape ``[..., 3, dim, dim]`` in the complex
+                 dtype. The third-to-last dimension corresponds to the magnetic
+                 field components (Bx, By, Bz).
+
+        Note:
+            This method returns the operator contracted with the interaction tensor
+            but NOT yet multiplied by the magnetic field.
+
+            The result is scaled by μ_B/h to convert to frequency units (Hz) for
+            spectral simulation.
+        """
+        interaction = interaction.to(self.complex_dtype)
+
+        S = self.base_spin_system.operator_cache[el_idx]
+        zeeman_term = transform_tensor_components(S, interaction)
+        zeeman_term *= constants.BOHR / constants.PLANCK
+
+        return zeeman_term
+
     def build_electron_electron(self) -> torch.Tensor:
         """Constructs the zero-field Hamiltonian F."""
         F = torch.zeros((*self.config_shape,
@@ -3692,16 +3808,14 @@ class SolidSample(BaseSample):
 
         :param interaction: Interaction tensor of shape ``[..., 3, 3]`` in the
                            interaction tensor frame (before orientation rotation).
-        :param idx_1: Index of the first electron spin operator.
-        :param idx_2: Index of the second electron spin operator.
+        :param el_idx_1: Index of the first electron spin operator.
+        :param el_idx_1: Index of the second electron spin operator.
         :return: operator of shape ``[..., orientations, dim, dim]`` in the
                 complex dtype
         """
         rotation_matrices = self.get_effective_molecular_rotation_matrices()
         interaction_rotated = utils.apply_expanded_rotations(rotation_matrices, interaction).to(self.complex_dtype)
-        S1 = self.base_spin_system.operator_cache[el_idx_1]
-        S2 = self.base_spin_system.operator_cache[el_idx_2]
-        return scalar_tensor_multiplication(S1, S2, interaction_rotated)
+        return self.get_electron_electron_interaction(interaction_rotated, el_idx_1, el_idx_2)
 
     def get_oriented_electron_nuclei_interaction(self, interaction: torch.Tensor, el_idx: int, nuc_idx: int) ->\
             torch.Tensor:
@@ -3724,10 +3838,7 @@ class SolidSample(BaseSample):
         """
         rotation_matrices = self.get_effective_molecular_rotation_matrices()
         interaction_rotated = utils.apply_expanded_rotations(rotation_matrices, interaction).to(self.complex_dtype)
-
-        S = self.base_spin_system.operator_cache[el_idx]
-        I = self.base_spin_system.operator_cache[len(self.modified_spin_system.electrons) + nuc_idx]
-        return scalar_tensor_multiplication(S, I, interaction_rotated)
+        return self.get_electron_nuclei_interaction(interaction_rotated, el_idx, nuc_idx)
 
     def get_oriented_nuclei_nuclei_interaction(
             self, interaction: torch.Tensor, nuc_idx_1: int, nuc_idx_2: int) -> torch.Tensor:
@@ -3750,11 +3861,7 @@ class SolidSample(BaseSample):
         """
         rotation_matrices = self.get_effective_molecular_rotation_matrices()
         interaction_rotated = utils.apply_expanded_rotations(rotation_matrices, interaction).to(self.complex_dtype)
-
-        offset = len(self.modified_spin_system.electrons)
-        I1 = self.base_spin_system.operator_cache[offset + nuc_idx_1]
-        I2 = self.base_spin_system.operator_cache[offset + nuc_idx_2]
-        return scalar_tensor_multiplication(I1, I2, interaction_rotated)
+        return self.get_nuclei_nuclei_interaction(interaction_rotated, nuc_idx_1, nuc_idx_2)
 
     def get_oriented_zeeman_interaction(self, interaction: torch.Tensor, el_idx: int) -> torch.Tensor:
         """
@@ -3788,11 +3895,7 @@ class SolidSample(BaseSample):
         """
         rotation_matrices = self.get_effective_molecular_rotation_matrices()
         interaction_rotated = utils.apply_expanded_rotations(rotation_matrices, interaction).to(self.complex_dtype)
-
-        S = self.base_spin_system.operator_cache[el_idx]
-        zeeman_term = transform_tensor_components(S, interaction_rotated)
-        zeeman_term *= (constants.BOHR / constants.PLANCK)
-        return zeeman_term
+        return self.get_zeeman_interaction(interaction_rotated, el_idx)
 
     def get_librations_along_axis(self,
                                   axis: tp.Union[torch.Tensor, list[float]],
@@ -3839,25 +3942,34 @@ class SolidSample(BaseSample):
         ``dH/dθ = O_static + O_dependent @ B``
 
         Note:
-            O_static is measured in the Hz
-            O_dependent is measured in the Hz / T
+            O_static is measured in Hz
+            O_dependent is measured in  Hz / T
             So, for many computations they should be transformed to s^-1 by muttiplication on 2π
         """
 
         if isinstance(axis, list):
             axis = torch.tensor(axis, device=self.device, dtype=self.dtype)
+        else:
+            axis = axis.to(device=self.device, dtype=self.dtype)
 
         axis_norm = torch.norm(axis, dim=-1, keepdim=True)
         axis_norm = torch.where(axis_norm > 0, axis_norm, torch.ones_like(axis_norm))
         n = axis / axis_norm
+
         nx, ny, nz = n[..., 0], n[..., 1], n[..., 2]
+
         if self.mesh.disordered and laboratory:
-            if not torch.allclose(nz, torch.ones_like(nz), rtol=1e-5, atol=1e-6):
+            transverse = torch.stack([nx, ny], dim=-1)
+            if not torch.allclose(
+                    transverse, torch.zeros_like(transverse),
+                    rtol=1e-5, atol=1e-6):
                 warnings.warn(
                     "You are considering a powder (disordered sample). "
-                    "In the relaxation simulation, MaRs assumes relaxation is only defined by the Z-axis "
-                    "(parallel to the static magnetic field). Since the laboratory rotation axis contains transverse "
-                    "components (X or Y), the results may be unpredictable.",
+                    "In the relaxation simulation, MaRs assumes relaxation is "
+                    "only defined by the Z-axis (parallel to the static magnetic "
+                    "field). Since the laboratory rotation axis contains "
+                    "transverse components (X or Y), the results may be "
+                    "unpredictable.",
                     UserWarning
                 )
 
@@ -3874,55 +3986,52 @@ class SolidSample(BaseSample):
         complex_dtype = self.complex_dtype
 
         O_static = torch.zeros((*config_shape, dim, dim), dtype=complex_dtype, device=device)
-
-        def _libration_contribution(
-                Q: torch.Tensor,
-                orient_kwargs: tp.Dict[str, tp.Any],
-                build_from_lab: tp.Callable[[torch.Tensor], torch.Tensor]
-        ) -> torch.Tensor:
-            if laboratory:
-                Q_lab = self._orient_tensor(Q, **orient_kwargs)
-                dQ = Omega @ Q_lab - Q_lab @ Omega
-            else:
-                dQ_mol = Omega @ Q - Q @ Omega
-                dQ = self._orient_tensor(dQ_mol, **orient_kwargs)
-            return build_from_lab(dQ)
-
-        for el_idx_1, el_idx_2, interaction in self.base_spin_system.electron_electron:
-            Q = interaction.tensor
-            O_static += _libration_contribution(
-                Q,
-                {"el_idx_1": el_idx_1, "el_idx_2": el_idx_2},
-                lambda dQ_lab: self.get_electron_electron_interaction(
-                    dQ_lab, el_idx_1, el_idx_2)
-            )
-
-        for el_idx, nuc_idx, interaction in self.base_spin_system.electron_nuclei:
-            Q = interaction.tensor
-            O_static += _libration_contribution(
-                Q,
-                {"el_idx": el_idx, "nuc_idx": nuc_idx},
-                lambda dQ_lab: self.get_electron_nuclei_interaction(
-                    dQ_lab, el_idx, nuc_idx)
-            )
-
-        for nuc_idx_1, nuc_idx_2, interaction in self.base_spin_system.nuclei_nuclei:
-            Q = interaction.tensor
-            O_static += _libration_contribution(
-                Q,
-                {"nuc_idx_1": nuc_idx_1, "nuc_idx_2": nuc_idx_2},
-                lambda dQ_lab: self.get_nuclei_nuclei_interaction(
-                    dQ_lab, nuc_idx_1, nuc_idx_2)
-            )
-
         O_dependent = torch.zeros((*config_shape, 3, dim, dim), dtype=complex_dtype, device=device)
-        for el_idx, g_interaction in enumerate(self.base_spin_system.g_tensors):
-            Q = g_interaction.tensor
-            O_dependent += _libration_contribution(
-                Q,
-                {"rel_idx": el_idx},
-                lambda dQ_lab: self.get_zeeman_interaction(dQ_lab, el_idx)
-            )
+
+        if laboratory:
+            rotation_matrices = self.get_effective_molecular_rotation_matrices()
+            Omega = Omega.unsqueeze(-3)
+
+            for el_idx_1, el_idx_2, interaction in self.base_spin_system.electron_electron:
+                Q = utils.apply_expanded_rotations(rotation_matrices, interaction.tensor)
+                dQ_dtheta = Omega @ Q - Q @ Omega
+                O_static += self.get_electron_electron_interaction(dQ_dtheta, el_idx_1, el_idx_2)
+
+            for el_idx, nuc_idx, interaction in self.base_spin_system.electron_nuclei:
+                Q = utils.apply_expanded_rotations(rotation_matrices, interaction.tensor)
+                dQ_dtheta = Omega @ Q - Q @ Omega
+                O_static += self.get_electron_nuclei_interaction(dQ_dtheta, el_idx, nuc_idx)
+
+            for nuc_idx_1, nuc_idx_2, interaction in self.base_spin_system.nuclei_nuclei:
+                Q = utils.apply_expanded_rotations(rotation_matrices, interaction.tensor)
+                dQ_dtheta = Omega @ Q - Q @ Omega
+                O_static += self.get_nuclei_nuclei_interaction(dQ_dtheta, nuc_idx_1, nuc_idx_2)
+
+            for el_idx, interaction in enumerate(self.base_spin_system.g_tensors):
+                Q = utils.apply_expanded_rotations(rotation_matrices, interaction.tensor)
+                dQ_dtheta = Omega @ Q - Q @ Omega
+                O_dependent += self.get_zeeman_interaction(dQ_dtheta, el_idx)
+
+        else:
+            for el_idx_1, el_idx_2, interaction in self.base_spin_system.electron_electron:
+                Q = interaction.tensor
+                dQ_dtheta = Omega @ Q - Q @ Omega
+                O_static += self.get_oriented_electron_electron_interaction(dQ_dtheta, el_idx_1, el_idx_2)
+
+            for el_idx, nuc_idx, interaction in self.base_spin_system.electron_nuclei:
+                Q = interaction.tensor
+                dQ_dtheta = Omega @ Q - Q @ Omega
+                O_static += self.get_oriented_electron_nuclei_interaction(dQ_dtheta, el_idx, nuc_idx)
+
+            for nuc_idx_1, nuc_idx_2, interaction in self.base_spin_system.nuclei_nuclei:
+                Q = interaction.tensor
+                dQ_dtheta = Omega @ Q - Q @ Omega
+                O_static += self.get_oriented_nuclei_nuclei_interaction(dQ_dtheta, nuc_idx_1, nuc_idx_2)
+
+            for el_idx, interaction in enumerate(self.base_spin_system.g_tensors):
+                Q = interaction.tensor
+                dQ_dtheta = Omega @ Q - Q @ Omega
+                O_dependent += self.get_oriented_zeeman_interaction(dQ_dtheta, el_idx)
 
         return O_static, O_dependent[..., -1, :, :]
 

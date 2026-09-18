@@ -41,7 +41,7 @@ Simulate a basic EPR spectrum:
    )
 
    # Magnetic field range
-   fields = torch.linspace(0.3, 0.4, 1000, device=device, dtype=dtype)
+   fields = torch.linspace(0.33, 0.36, 1000, device=device, dtype=dtype)
 
    # Compute spectrum
    intensity = spectra(sample, fields)

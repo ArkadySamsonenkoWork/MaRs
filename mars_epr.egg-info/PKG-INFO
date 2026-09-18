@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mars-epr
-Version: 0.0.6.post2
+Version: 0.0.6.post3
 Summary: A library for computation CW and time resolved spectra
 Author-email: Arkady Samsonenko <a.samsonenko@tomo.nsc.ru>, Ivan Kurganskii <kurgansky@tomo.nsc.ru>
 License-Expression: MIT
@@ -244,8 +244,8 @@ system = spin_model.SpinSystem(
 # Create a powder sample
 sample = spin_model.SolidSample(
     base_spin_system=system,
-    gauss=0.002,
-    lorentz=0.002,
+    gauss=0.001,
+    lorentz=0.001,
     dtype=dtype,
     device=device
 )
@@ -259,7 +259,7 @@ spectra = spectra_manager.StationarySpectra(
 )
 
 # Magnetic field range
-fields = torch.linspace(0.3, 0.4, 1000, device=device, dtype=dtype)
+fields = torch.linspace(0.33, 0.36, 1000, device=device, dtype=dtype)
 
 # Compute spectrum
 intensity = spectra(sample, fields)
