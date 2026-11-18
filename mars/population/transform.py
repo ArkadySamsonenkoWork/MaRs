@@ -868,6 +868,93 @@ def _isolate_subsystem_axis(
     return U_full.permute(*perm).reshape(*batch_shape, K, dims[s], K // dims[s])
 
 
+def transform_kronecker_coherence_transfer_correction(
+        rate_list: tp.Sequence[torch.Tensor],
+        coeffs: torch.Tensor,
+) -> torch.Tensor:
+    """Calculate the missing coherence-transfer contribution for a Kronecker system.
+
+    For a local population transition from state j to state i of subsystem s,
+    the Lindblad jump operator in the composite space has the form
+
+        L_s(i,j) = sqrt(w_s[i,j]) * (I_1 ⊗ ... ⊗ |i><j|_s ⊗ ... ⊗ I_n).
+
+    The identity factors preserve the indices of all other subsystems. Therefore,
+    besides population transfer, the jump also transfers coherences between
+    product states with different spectator indices. The standard transformation
+    of the population block and coherence diagonal omits these terms.
+
+    The missing part is calculated directly from the local rate matrices and the
+    full complex basis transformation coefficients, without constructing a
+    Liouville-space superoperator.
+
+    Mathematical Formulation:
+    -------------------------
+    Let U_s[a,i,r] be the transformation coefficients reshaped so that i is the
+    index of subsystem s, and r enumerates the remaining subsystem states.
+
+        C_s[a,i,j,r] = U_s[a,i,r] * U_s*[a,j,r]
+        A_s[a,i,j]   = sum_r C_s[a,i,j,r]
+
+    The missing contribution to the coherence-dephasing matrix is
+
+        delta_Gamma[a,b] = Re sum_s sum_(i != j) w_s[i,j] *
+                (sum_r C_s[a,i,j,r] * C_s*[b,i,j,r]
+                 - A_s[a,i,j] * A_s*[b,i,j]).
+
+    The diagonal is set to zero. The result is a correction, not an additional
+    independent relaxation channel. It must be added once to the dephasing
+    calculated from the initial coherence diagonal and population-transfer block.
+
+    :param rate_list: Local thermal or driven transition matrices. Each
+                      rate_list[s] has shape [..., d_s, d_s] and matrix element
+                      [i, j] is the rate of transition j -> i. Diagonal elements
+                      are ignored. A matrix is required for every subsystem,
+                      with zero matrices for subsystems without this mechanism.
+    :param coeffs: Complex unitary from the product basis to the total eigenbasis.
+                   Shape [..., K, K], K = product(d_s).
+                   coeffs[..., a, p] = <a_new | p_product>.
+    :return: Real correction matrix with shape [..., K, K]. Diagonal elements
+             are zero; off-diagonal elements can be positive or negative.
+
+    Notes:
+    ------
+    - Thermal and driven rates can be processed separately and their corrections
+      added, as the expression is linear in the local rates.
+    - The correction is zero for a single subsystem (without spectator states).
+    - Memory scales with the local contractions, not with a K^2 by K^2
+      superoperator.
+    """
+    if not rate_list:
+        raise ValueError("rate_list must contain at least one local rate matrix")
+    dims = [int(w.shape[-1]) for w in rate_list]
+    K = coeffs.shape[-1]
+    if coeffs.shape[-2] != K or math.prod(dims) != K:
+        raise ValueError("Subsystem dimensions do not match coeffs")
+
+    correction = torch.zeros_like(coeffs.real)
+    for s, rates_s in enumerate(rate_list):
+        U_s = _isolate_subsystem_axis(coeffs, dims, s)
+
+        # C[a,i,j,r] contains a local coherence with fixed spectator index r.
+        C = U_s.unsqueeze(-2) * U_s.conj().unsqueeze(-3)
+        A = C.sum(dim=-1)
+
+        w = rates_s.to(device=coeffs.device, dtype=correction.dtype)
+        w = w - torch.diag_embed(w.diagonal(dim1=-2, dim2=-1))
+
+        complete = torch.einsum(
+            "...aij,...bij,...ij->...ab", A, A.conj(), w
+        ).real
+        included = torch.einsum(
+            "...aijr,...bijr,...ij->...ab", C, C.conj(), w
+        ).real
+        correction = correction + included - complete
+
+    return correction - torch.diag_embed(
+        correction.diagonal(dim1=-2, dim2=-1)
+    )
+
 def transform_kronecker_dephasing_to_population_transfer(
         dephasing_list: tp.Sequence[torch.Tensor],
         coeffs: torch.Tensor,
@@ -926,7 +1013,6 @@ def transform_kronecker_dephasing_to_population_transfer(
     Notes:
     ------
     - For a single subsystem (R = 1) it reduces to
-      :func:`transform_dephasing_to_population_transfer` with probabilities |U|².
     - Memory: O(K² · max d_s) per subsystem, the same as :func:`transform_kronecker_rate_matrix`.
     - Γ is symmetric (Γ[a, b] = Γ[b, a]) and non-negative.
     """

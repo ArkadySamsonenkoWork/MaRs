@@ -3037,7 +3037,7 @@ class KroneckerContext(TransformedContext):
         else:
             coeffs = self._compute_transformation_unitary(full_system_vectors)
             dephasing = self._compose_vectors(dephasing)
-        return transform.transform_dephasing_to_population_transfer(dephasing, coeffs)
+        return transform.transform_kronecker_dephasing_to_population_transfer(dephasing, coeffs)
 
     def get_transformed_init_populations(self, full_system_vectors: tp.Optional[torch.Tensor], normalize: bool = False):
         """Return initial populations transformed into the field-dependent
@@ -3225,7 +3225,7 @@ class KroneckerContext(TransformedContext):
 
         ### Add dephasing connected with population loss
 
-        if population_transfer_components is not None:
+        if population_transfer_components:
             population_transfer_components = [sum(population_transfer_components).real]
 
             rate_out = population_transfer_components[0].diagonal(dim1=-2, dim2=-1).unsqueeze(-2)
@@ -3250,6 +3250,23 @@ class KroneckerContext(TransformedContext):
         dephasing = sum(dephasing_components).real if dephasing_components else None
         population_transfer = sum(population_transfer_components).real if population_transfer_components else None
         _transformed_dephasing = self.transformed_dephasing(dephasing, population_transfer, full_system_vectors)
+
+        correction = None
+        for local_rates in (_thermal_rates_lst, _driven_rates_lst):
+            if local_rates is None:
+                continue
+            coeffs = self._compute_transformation_unitary(full_system_vectors)
+            rate_terms = self._compose_matrices(local_rates)
+            part = transform.transform_kronecker_coherence_transfer_correction(
+                rate_terms, coeffs
+            )
+            correction = part if correction is None else correction + part
+
+        if correction is not None:
+            _transformed_dephasing = (
+                correction if _transformed_dephasing is None
+                else _transformed_dephasing + correction
+            )
 
         if self.coupling_manager is not None:
             if not self.coupling_manager.eigen_basis_flag:

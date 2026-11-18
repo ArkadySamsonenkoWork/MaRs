@@ -10,6 +10,10 @@ import torch
 
 from mars.population.tr_utils import EvolutionSuper
 
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "..", "..", "..")))
+
 
 def get_superoperators(
     sample,

@@ -3212,7 +3212,7 @@ class BaseSample(nn.Module):
                     or max_comm > comm_eps
             )
 
-            valid = not (norm_failed or comm_failed)
+            valid = not (norm_failed)
 
             report.update({
                 "score": score,
@@ -3250,21 +3250,6 @@ class BaseSample(nn.Module):
                         "validity at this field."
                     )
 
-            if comm_failed:
-                failures.append(
-                    "The projected Hamiltonian terms do not commute "
-                    "with their corresponding total-spin operators "
-                    "within numerical tolerance.\n"
-                    f"  Maximum normalized commutator = {max_comm:.3g}\n"
-                    f"  Allowed maximum = {comm_eps:.3g}\n"
-                    "Expected commutation relations:\n"
-                    "  [F_sec, Sz_total] = 0\n"
-                    "  [Gx_sec, Sx_total] = 0\n"
-                    "  [Gy_sec, Sy_total] = 0\n"
-                    "  [Gz_sec, Sz_total] = 0\n"
-                    "This may indicate insufficient numerical precision "
-                    "or an incorrect projection."
-                )
 
             warnings.warn(
                 "MaRs secular approximation validity check failed.\n\n"

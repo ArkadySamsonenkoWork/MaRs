@@ -14,6 +14,10 @@ import torch
 
 from sample_generators import SampleCase
 
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "..", "..", "..")))
+
 BASES = ("multiplet", "zfs", "product")
 
 

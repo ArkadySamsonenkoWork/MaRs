@@ -1,6 +1,6 @@
 clear;
 out = load('example_parameters.mat');
-T = readtable('easy_spin_checked/spectra_8.csv');
+T = readtable('easy_spin_checked/spectra_7.csv');
 
 field_python = T.Var1 * 1000;
 spec_python = T.Var2;

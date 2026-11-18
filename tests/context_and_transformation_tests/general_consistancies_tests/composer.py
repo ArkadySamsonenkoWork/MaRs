@@ -11,6 +11,10 @@ from typing import Iterator
 from context_generators import ContextPair, generate_contexts
 from sample_generators import SampleCase, iter_sample_cases
 
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "..", "..", "..")))
+
 
 @dataclass(frozen=True)
 class ComposedCase:
