@@ -634,7 +634,7 @@ class WaveIntensityCalculator(BaseResIntensityCalculator):
         The result is scaled by ``(PLANCK/BOHR)^2``.
 
         :param Gx, Gy, Gz:
-            Cartesian magnetic-dipole/Zeeman operator components.
+            Cartesian Zeeman operator components.
 
         :param res_manifold:
             Resonance manifold. It is not used directly by this crystal geometry
@@ -649,7 +649,7 @@ class WaveIntensityCalculator(BaseResIntensityCalculator):
         :return:
             Crystal radiation-coupling factor.
         """
-        n_k, n_1, helicity = self.wave_config.compute_wave_geometry(
+        n_k, n_1, helicity = self.magnetization_config.compute_wave_geometry(
             device=Gx.device,
             dtype=Gx.real.dtype,
         )
@@ -659,7 +659,7 @@ class WaveIntensityCalculator(BaseResIntensityCalculator):
         mu_z = compute_matrix_element(vector_down, vector_up, -Gz)
 
         is_linear = (
-                self.wave_config.normalized_polarization() == Polarization.LINEAR
+                self.magnetization_config.normalized_polarization() == Polarization.LINEAR
         )
 
         if is_linear:
@@ -710,7 +710,7 @@ class WaveIntensityCalculator(BaseResIntensityCalculator):
         The result is scaled by ``(PLANCK/BOHR)^2``.
 
         :param Gx, Gy, Gz:
-            Cartesian magnetic-dipole/Zeeman operator components.
+             Cartesian Zeeman operator components.
 
         :param res_manifold:
             Resonance-dependent argument passed to the terms computer.
@@ -779,7 +779,7 @@ class WaveIntensityCalculator(BaseResIntensityCalculator):
         factor is computed by the powder or crystal path selected by the calculator.
 
         :param Gx, Gy, Gz:
-            Cartesian magnetic-dipole/Zeeman operator components.
+            Cartesian Zeeman operator components.
 
         :param res_manifold:
             Resonance fields or frequencies.

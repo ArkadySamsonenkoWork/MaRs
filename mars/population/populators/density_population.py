@@ -23,11 +23,11 @@ class RWADensityPopulator(core.BaseTimeDepPopulator):
 
     Note: The Rotating Wave Approximation introduces several important constraints:
 
-    1. The oscillating magnetic field (e.g., microwave or RF) is assumed to be circularly polarized.
-    2. The g-tensor must be isotropic or close to isotropic,
-    meaning the Zeeman operators are proportional to spin operators:
-       Gx = gx * mu_B * Sx, Gy = gy * mu_B * Sy, Gz = gz * mu_B * Sz.,
-    3. The static part of the Hamiltonian (denoted F) must commute with Gz (i.e., [F, Gz] = 0).
+    1. The oscillating magnetic field (e.g., microwave or RF) is assumed to be linearly polarized.
+    2. The g-tensor must be isotropic or close to isotropic.
+       Gx, Gy and Gz include electron and nuclear Zeeman contributions.
+    3. The static Hamiltonian terms must commute with total Sz:
+       [F, Sz] = [Gz, Sz] = 0.
     4. The relaxation superoperator Rijkl-which couples matrix elements ρ_ij
     and rho_kl - is only non-zero when i - j equals k - l.
        This covers two processes:
@@ -286,7 +286,7 @@ class RWADensityPopulator(core.BaseTimeDepPopulator):
 
         :param H0: Static (time-independent) part of the spin Hamiltonian, angular frequency expressed in
                                                                                                     (Hz * 2π = rad/s).
-        :param Sz: Electron z-moment projection operator.
+        :param Sz: Total spin z-projection operator.
         :param Ht: Time-dependent (oscillating) component of the Hamiltonian, given in angular
         frequency units (Hz * 2π = rad/s).
 
@@ -575,7 +575,7 @@ class RWADensityPopulator(core.BaseTimeDepPopulator):
         :param Gx: x-part of Hamiltonian Zeeman Term. The shape is [...., N, N]
         :param Gy: y-part of Hamiltonian Zeeman Term. The shape is [...., N, N]
         :param Gz: z-part of Hamiltonian Zeeman Term. The shape is [...., N, N]
-        :param Sz: z-part of electron z-projection. The shape is [...., N, N]
+        :param Sz: total spin z-projection. The shape is [...., N, N]
 
         :param resonance_frequency: Resonance frequency of the spin transition, in hertz (Hz).
         Scalar value (shape: `[]`).
@@ -616,8 +616,9 @@ class PropagatorDensityPopulator(RWADensityPopulator):
     the signal is averaged over the Euler angle γ by evaluating two orthogonal field polarizations.
 
     While more computationally demanding than RWA-based methods, this approach is necessary
-    for systems where RWA assumptions (close to isotropic g, circular polarization, [F, Gz] = 0) are violated,
-    such as in single-molecule magnets, metal complexes, or high-field EPR.
+    for systems where RWA assumptions (close to isotropic g and a total-Sz-conserving
+    static Hamiltonian) are violated, such as in single-molecule magnets,
+    metal complexes, or high-field EPR.
     """
     def __init__(self,
                  b1_field: tp.Optional[tp.Union[torch.Tensor, float]] = 1e-8,
@@ -631,7 +632,7 @@ class PropagatorDensityPopulator(RWADensityPopulator):
                  difference_out: bool = False,
                  disordered: bool = True,
                  angle_average_steps: int = 4,
-                 n_steps: int = 100,
+                 n_steps: int = 16,
                  device: torch.device = torch.device("cpu"),
                  dtype: torch.dtype = torch.float32):
         """
@@ -675,7 +676,7 @@ class PropagatorDensityPopulator(RWADensityPopulator):
         the avergae signal with the general formula Gperp = Gx * cos (phi) + Gy * sin(phi)
 
         :param n_steps: the number of steps to find U(2pi) and Integral U sin(phi) at the interval (0, 2pi].
-            This is quite crucial value for rk4 loop. If this value is small then the results will be dramatic
+            If this value is small then the results will be dramatic
 
         :param device: device to compute (cpu / gpu)
         :param dtype: dtype of computation
@@ -1021,7 +1022,7 @@ class PropagatorDensityPopulator(RWADensityPopulator):
         :param Gx: x-part of Hamiltonian Zeeman Term. The shape is [...., N, N]
         :param Gy: y-part of Hamiltonian Zeeman Term. The shape is [...., N, N]
         :param Gz: z-part of Hamiltonian Zeeman Term. The shape is [...., N, N]
-        :param Sz: z-part of electron projections. The shape is [...., N, N]
+        :param Sz: total spin z-projection. The shape is [...., N, N]
 
         :param resonance_frequency: Resonance frequency of the spin transition, in hertz (Hz).
         Scalar value (shape: `[]`).

@@ -90,6 +90,9 @@ def calculate_deriv_max(g_tensors_el: torch.Tensor, g_factors_nuc: torch.Tensor,
     return nuclear_contrib + electron_contrib
 
 
+
+
+
 def euler_angles_to_matrix(angles: torch.Tensor, convention: str = "zyz"):
     """Convert Euler angles to rotation matrices.
 
@@ -760,6 +763,8 @@ def align_eigenvector_phases(
         At eigenvalue crossings or degeneracies, eigenvector matching or
         degenerate-subspace alignment may be required before phase fixing.
     """
+    return V, None
+
     if V.ndim < 4:
         raise ValueError(
             "Expected V with shape [..., R, K, N, N]."
@@ -769,15 +774,18 @@ def align_eigenvector_phases(
         eps = 100.0 * torch.finfo(V.real.dtype).eps
 
     V_r0 = V[..., 0, :, :, :]
-    indices = V_r0.abs().argmax(
-        dim=-2,
-        keepdim=True,
-    )
+    abs_v = V_r0.abs()
+    max_v = abs_v.max(dim=-2, keepdim=True).values
+    dominant_mask = abs_v >= max_v * (1.0 - eps)
+
+    # among tied components take the last one (|-1> comes last in MaRs order)
+    n = abs_v.shape[-2]
+    indices = n - 1 - dominant_mask.flip(-2).int().argmax(dim=-2, keepdim=True)
+
     dominant = V_r0.gather(
         dim=-2,
         index=indices,
     ).squeeze(-2)
-
     gauge_r0 = _phase_to_positive(
         dominant,
         eps,
@@ -807,7 +815,6 @@ def align_eigenvector_phases(
     )
 
     V_aligned = V * gauge.unsqueeze(-2)
-
     return V_aligned, gauge
 
 
@@ -870,6 +877,7 @@ def align_eigenvector_phases_(
         At eigenvalue crossings or degeneracies, eigenvector matching or
         degenerate-subspace alignment may be required before phase fixing.
     """
+    return V, None
     if V.ndim < 4:
         raise ValueError(
             "Expected V with shape [..., R, K, N, N]."
@@ -879,10 +887,13 @@ def align_eigenvector_phases_(
         eps = 100.0 * torch.finfo(V.real.dtype).eps
 
     V_r0 = V[..., 0, :, :, :]
-    indices = V_r0.abs().argmax(
-        dim=-2,
-        keepdim=True,
-    )
+    abs_v = V_r0.abs()
+    max_v = abs_v.max(dim=-2, keepdim=True).values
+    dominant_mask = abs_v >= max_v * (1.0 - eps)
+
+    # among tied components take the last one (|-1> comes last in MaRs order)
+    n = abs_v.shape[-2]
+    indices = n - 1 - dominant_mask.flip(-2).int().argmax(dim=-2, keepdim=True)
     dominant = V_r0.gather(
         dim=-2,
         index=indices,
@@ -918,5 +929,4 @@ def align_eigenvector_phases_(
 
     # Apply the phase alignment in-place
     V.mul_(gauge.unsqueeze(-2))
-
     return V, gauge

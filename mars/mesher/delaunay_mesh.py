@@ -14,6 +14,7 @@ import torch.nn as nn
 
 from sklearn.metrics import pairwise_distances
 from .general_mesh import BaseMeshPowder
+from ._spherical_delaunay import hemisphere_mesh
 
 
 class BoundaryHandler:
@@ -593,8 +594,8 @@ class BarycentricInterpolator(BaseInterpolator):
 class MeshProcessorBase(nn.Module):
     """Base class for mesh processing pipelines with adaptive vertex generation.
 
-    Generates spherical meshes with density increasing toward poles to maintain
-    approximately uniform area per triangle.
+    Generates approximately uniform solid-angle sampling and a spherical
+    Delaunay triangulation during construction.
     """
     def __init__(self,
                  init_grid_frequency: int,
@@ -621,117 +622,9 @@ class MeshProcessorBase(nn.Module):
         self.boundaries_cond = boundaries_cond
         self.last_point = boundaries_cond != "periodic"
 
-    def _create_theta_lines(self, grid_frequency: int, last_point: bool) -> list[ThetaLine]:
-        """
-        Create theta lines with adaptive vertex density.
-        Generates lines with increasing vertex count toward poles for uniform area.
-
-        :param grid_frequency:
-        :param last_point: Include or not the last point to computations. It is necessary to exclude the phi=2pi point.
-        :return:
-        """
-        eps = 1e-8
-        init_lines = [
-            ThetaLine(theta=0.0, points=1, phi_limits=self.phi_limits, last_point=True),
-            ThetaLine(theta=eps, points=2, phi_limits=self.phi_limits, last_point=True),
-            ThetaLine(theta=2 * eps, points=3, phi_limits=self.phi_limits, last_point=last_point)
-        ]
-
-        return init_lines + [
-            ThetaLine(
-                theta=np.arccos(1 - (point - 3) ** 2 / (grid_frequency - 3) ** 2),
-                points=point,
-                phi_limits=self.phi_limits,
-                last_point=last_point,
-            ) for point in range(4, grid_frequency + 1)
-        ]
-
-    def _assemble_vertices(self, theta_lines: list[ThetaLine]) -> np.ndarray:
-        """Concatenate vertices from all theta lines into single array.
-
-        :param theta_lines: List of ThetaLine objects
-        :type theta_lines: list[ThetaLine]
-        :return: Array of shape (N, 2) with [phi, theta] coordinates
-        :rtype: np.ndarray
-        """
-        return np.concatenate(
-            [np.array(tl.phi_theta(), dtype=np.float32) for tl in theta_lines],
-            axis=0
-        )
-
-    def _build_triangles(self, theta_lines: tp.List[ThetaLine]) -> np.ndarray:
-        """Generate triangle connectivity for a spherical mesh with adaptive phi sampling.
-
-        Handles variable numbers of vertices per theta line and correctly enforces periodic
-        boundary conditions in the azimuthal (phi) direction. When a `ThetaLine` has
-        `last_point=False`, its logical endpoint at φ = 2π is not stored as a separate vertex;
-        instead, it is identified with the first vertex of the same line (φ = 0).
-
-        As a result:
-        - If `last_point=True`, all `latent_points` are stored as distinct vertices.
-        - If `last_point=False`, only `latent_points - 1` vertices are stored, and any reference
-          to the missing φ = 2π point during triangle construction maps to the first vertex
-          of that theta line.
-
-        The total number of triangles remains unchanged compared to a fully sampled mesh;
-        only vertex indices are adjusted to reflect the wrapping.
-
-        Example 1 (all lines include φ = 2π):
-            ThetaLines (4 total, all `last_point=True`) yield vertices:
-                Line 0: [v0]
-                Line 1: [v1, v2]
-                Line 2: [v3, v4, v5]
-                Line 3: [v6, v7, v8, v9]
-            Triangles include: [2, 4, 5], etc.
-
-        Example 2 (last two lines exclude φ = 2π):
-            Same logical structure, but stored vertices:
-                Line 0: [v0]
-                Line 1: [v1, v2]
-                Line 2: [v3, v4]          # latent=3 → stores 2 points
-                Line 3: [v5, v6, v7]      # latent=4 → stores 3 points
-            Triangle [2, 4, 3] appears because the logical point at φ=2π on line 2
-            wraps to index 3 (its first vertex).
-
-        :param theta_lines: List of `ThetaLine` objects defining the mesh rows.
-                            The first two lines must have `last_point=True` to anchor the poles.
-        :type theta_lines: list[ThetaLine]
-        :return: Array of shape `(M, 3)` containing vertex indices for each triangle.
-        :rtype: np.ndarray
-        """
-        K = len(theta_lines)
-
-        n_actual = [line._compute_visible_points() for line in theta_lines]
-        offsets = np.cumsum([0] + n_actual[:-1])
-        def idx(k: int, q: int) -> int:
-            return offsets[k] + (q % n_actual[k]) if n_actual[k] > 0 else 0
-
-        upward = [
-            [idx(k, q), idx(k + 1, q), idx(k + 1, q + 1)]
-            for k in range(K - 1)
-            for q in range(theta_lines[k].latent_points)
-            if len({idx(k, q), idx(k + 1, q), idx(k + 1, q + 1)}) == 3
-        ]
-
-        downward = [
-            [idx(k, q), idx(k, q - 1), idx(k + 1, q)]
-            for k in range(1, K - 1)
-            for q in range(1, theta_lines[k].latent_points)
-            if len({idx(k, q), idx(k, q - 1), idx(k + 1, q)}) == 3
-        ]
-
-        return np.array(upward + downward, dtype=int)
-
-    def _triangulate(self, theta_lines: tp.List[ThetaLine]) -> np.ndarray:
-        """Generate triangle connectivity for given grid resolution.
-
-        :param theta_lines: List of `ThetaLine` objects defining the mesh rows.
-                            The first two lines must have `last_point=True` to anchor the poles.
-        :type theta_lines: list[ThetaLine]
-        :return: Triangle connectivity array
-        :rtype: np.ndarray
-        """
-        return self._build_triangles(theta_lines)
+    @staticmethod
+    def _create_mesh(grid_frequency, phi_limits):
+        return hemisphere_mesh(grid_frequency, phi_limits)
 
 
 class InterpolatorsName(Enum):
@@ -743,8 +636,8 @@ class InterpolatorsName(Enum):
 class InterpolatingMeshProcessor(MeshProcessorBase):
     """Mesh processor with interpolation from coarse to fine grid.
 
-    Uses nearest-neighbor interpolation to transfer function values from
-    initial mesh to higher-resolution target mesh.
+    Uses the configured spherical interpolator to transfer values from the
+    initial mesh to the higher-resolution target mesh.
     """
     def __init__(self,
                  interpolate_grid_frequency: int,
@@ -785,25 +678,14 @@ class InterpolatingMeshProcessor(MeshProcessorBase):
         )
         self.interpolate_grid_frequency = interpolate_grid_frequency
 
-        self.base_theta_lines = self._create_theta_lines(self.init_grid_frequency, last_point=False)
-        self.interpolating_theta_lines = self._create_theta_lines(self.interpolate_grid_frequency, last_point=False)
-
-        self.final_vertices, self.simplices = self._get_post_mesh()
-
-        self.init_vertices = self._assemble_vertices(self.base_theta_lines)
+        (self.init_vertices, self.base_geometry, self.base_simplices,
+         self.base_gather) = self._create_mesh(self.init_grid_frequency, self.phi_limits)
+        (self.target_vertices, self.final_vertices, self.simplices,
+         target_gather) = self._create_mesh(self.interpolate_grid_frequency, self.phi_limits)
+        self.register_buffer("_target_gather", torch.as_tensor(target_gather, dtype=torch.long, device=device))
         self.interpolator = self._get_interpolator(interpolator, interpolator_kwargs, device=device, dtype=dtype)
 
         self.extended_size = self.final_vertices.shape[0]
-
-    def _get_post_mesh(self):
-        """Generate vertices and triangles for target resolution mesh.
-
-       :return: Tuple of (vertices, triangles)
-       :rtype: tuple[np.ndarray, np.ndarray]
-       """
-        extended_vertices = self._assemble_vertices(self.interpolating_theta_lines)
-        simplices = self._triangulate(self.interpolating_theta_lines)
-        return extended_vertices, simplices
 
     def _get_interpolator(self,
                           interpolator: tp.Union[InterpolatorsName, tp.Type[BaseInterpolator]],
@@ -827,24 +709,28 @@ class InterpolatingMeshProcessor(MeshProcessorBase):
         interpolator_kwargs = interpolator_kwargs or {}
 
         if interpolator == InterpolatorsName.RBF:
-            return RBFInterpolator(init_vertices=self.init_vertices,
-                                   extended_vertices=self.final_vertices,
-                                   device=device, dtype=dtype, **interpolator_kwargs)
-
+            result = RBFInterpolator(init_vertices=self.base_geometry,
+                                     extended_vertices=self.target_vertices,
+                                     device=device, dtype=dtype, **interpolator_kwargs)
         elif interpolator == InterpolatorsName.BARYCENTRIC:
-            return BarycentricInterpolator(
-                init_vertices=self.init_vertices,
-                extended_vertices=self.final_vertices,
-                init_triangulation=self._build_triangles(self.base_theta_lines),
+            result = BarycentricInterpolator(
+                init_vertices=self.base_geometry,
+                extended_vertices=self.target_vertices,
+                init_triangulation=self.base_simplices,
                 device=device, dtype=dtype, **interpolator_kwargs)
-
-        elif issubclass(interpolator, BaseInterpolator):
+        elif isinstance(interpolator, type) and issubclass(interpolator, BaseInterpolator):
             return interpolator(
                 init_vertices=self.init_vertices,
-                extended_vertices=self.final_vertices,
+                extended_vertices=self.target_vertices,
                 device=device, dtype=dtype, **interpolator_kwargs)
         else:
-            raise NotImplementedError("The interpolator can be only rbf and baricentric or custom class")
+            raise NotImplementedError("The interpolator must be rbf, barycentric or a BaseInterpolator subclass")
+        if len(self.base_geometry) != len(self.init_vertices):
+            weights = result.transform_matrix
+            combined = weights.new_zeros((len(self.init_vertices), weights.shape[1]))
+            combined.index_add_(0, torch.as_tensor(self.base_gather, device=device), weights)
+            result._transform_matrix = combined
+        return result
 
     def forward(self, f_values: torch.Tensor) -> torch.Tensor:
         """
@@ -859,6 +745,8 @@ class InterpolatingMeshProcessor(MeshProcessorBase):
         init_vert_dim = shape[-1]
         f_new = f_values.reshape((-1, init_vert_dim))
         out = self.interpolator(f_new)
+        if len(self.target_vertices) != self.extended_size:
+            out = out.index_select(-1, self._target_gather)
         return out.reshape((*shape[:-1], out.shape[-1]))
 
 
@@ -896,33 +784,23 @@ class BoundaryMeshProcessor(MeshProcessorBase):
             dtype=dtype
         )
 
-        self.base_theta_lines = self._create_theta_lines(self.init_grid_frequency, last_point=False)
-        self.final_vertices, self.simplices = self._get_post_mesh()
-
-        self.init_vertices = self._assemble_vertices(self.base_theta_lines)
+        (self.init_vertices, self.final_vertices, self.simplices,
+         gather) = self._create_mesh(self.init_grid_frequency, self.phi_limits)
+        self.register_buffer("_gather", torch.as_tensor(gather, dtype=torch.long, device=device))
         self.extended_size = self.final_vertices.shape[0]
-
-    def _get_post_mesh(self) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Generate vertices and triangles for target resolution mesh.
-
-        :return: Tuple of (vertices, triangles)
-        :rtype: tuple[np.ndarray, np.ndarray]
-        """
-        vertices = self._assemble_vertices(self.base_theta_lines)
-        simplices = self._triangulate(self.base_theta_lines)
-        return vertices, simplices
 
     def forward(self, f_values: torch.Tensor) -> torch.Tensor:
         """
-        Pass through function values unchanged (no interpolation).
+        Reuse values at a symmetry-sector seam without new evaluations.
 
-        :param f_values: Function values at mesh vertices
+        :param f_values: Function values at independently evaluated vertices
         :type f_values: torch.Tensor
-        :return: Same values (identity operation)
+        :return: Values at geometric vertices (identity for a full azimuth)
         :rtype: torch.Tensor
         """
-        return f_values
+        if self.extended_size == len(self.init_vertices):
+            return f_values
+        return f_values.index_select(-1, self._gather)
 
 
 def delaunay_mesh_processor_factory(init_grid_frequency: int,
@@ -1000,7 +878,7 @@ class DelaunayMesh(BaseMeshPowder):
                  dtype: torch.dtype = torch.float32):
         """Initialize Delaunay mesh with geometric and processing parameters.
 
-        :param eps: Small value for numerical stability near poles
+        :param eps: Legacy configuration parameter; no artificial pole offset is used
         :type eps: float
         :param phi_limits: (phi_min, phi_max) bounds in radians
         :type phi_limits: tuple[float, float]

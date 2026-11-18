@@ -20,6 +20,16 @@ class ResonatorMode(str, Enum):
     PERPENDICULAR = "perpendicular"
     PARALLEL = "parallel"
 
+    @classmethod
+    def from_value(
+        cls,
+        value: "ResonatorMode | str",
+    ) -> "ResonatorMode":
+        """Return ``value`` normalized to a :class:`ResonatorMode`."""
+        if isinstance(value, cls):
+            return value
+        return cls(value)
+
 
 class Polarization(str, Enum):
     """Polarization of an incident electromagnetic wave."""
@@ -31,16 +41,78 @@ class Polarization(str, Enum):
 
     @classmethod
     def from_value(
-        cls,
-        value: "Polarization | str",
+            cls,
+            value: "Polarization | str",
     ) -> "Polarization":
+        """Return ``value`` normalized to a :class:`Polarization`.
+
+        Both compact values (``"lin"``, ``"un"``) and readable aliases
+        (``"linear"``, ``"right-hand polarized"``, ``"left-hand polarized"``,
+        ``"clockwise"``, ``"counter-clockwise"``) are accepted. Matching is
+        case-insensitive and surrounding whitespace is ignored.
+
+        Circular-polarization aliases follow the source-view convention used
+        by Wikipedia for the IEEE/quantum-physics convention: the observer
+        looks in the direction of propagation. With that convention:
+
+        - right-hand / clockwise -> ``+1`` helicity;
+        - left-hand / counter-clockwise -> ``-1`` helicity.
+        """
         if isinstance(value, cls):
             return value
 
-        if value == "1":
-            value = "+1"
+        aliases = {
+            "1": "+1",
+            "+1": "+1",
+            "plus 1": "+1",
+            "circular plus": "+1",
+            "positive helicity": "+1",
+            "right": "+1",
+            "right hand": "+1",
+            "right handed": "+1",
+            "right hand polarized": "+1",
+            "right handed polarized": "+1",
+            "right circular": "+1",
+            "rhcp": "+1",
+            "clockwise": "+1",
+            "cw": "+1",
 
-        return cls(value)
+            "-1": "-1",
+            "minus 1": "-1",
+            "circular minus": "-1",
+            "negative helicity": "-1",
+            "left": "-1",
+            "left hand": "-1",
+            "left handed": "-1",
+            "left hand polarized": "-1",
+            "left handed polarized": "-1",
+            "left circular": "-1",
+            "lhcp": "-1",
+            "counter clockwise": "-1",
+            "counterclockwise": "-1",
+            "anti clockwise": "-1",
+            "anticlockwise": "-1",
+            "ccw": "-1",
+
+            "linear": "lin",
+            "linearly polarized": "lin",
+            "lin": "lin",
+
+            "unpolarised": "un",
+            "un": "un",
+        }
+        normalized = aliases.get(value, value)
+        try:
+            return cls(normalized)
+        except ValueError:
+            raise ValueError(
+                f"Unsupported polarization {value!r}. "
+                "Expected one of: linear ('lin' or 'linear'), "
+                "unpolarized ('un' or 'unpolarized'), "
+                "right-hand circular ('+1', 'right-hand polarized', 'clockwise', or 'rhcp'), "
+                "or left-hand circular ('-1', 'left-hand polarized', "
+                "'counter-clockwise', or 'lhcp')."
+            ) from None
 
 
 @dataclass(frozen=True)
@@ -69,7 +141,11 @@ class ResonatorMagnetizationConfig:
 
        Default is ``MagneticFieldMode.PERPENDICULAR``.
    """
-    mode: ResonatorMode = ResonatorMode.PERPENDICULAR
+    mode: tp.Union[ResonatorMode, str] = ResonatorMode.PERPENDICULAR
+
+    def normalized_mode(self) -> ResonatorMode:
+        """Return ``mode`` as a normalized :class:`ResonatorMode`."""
+        return ResonatorMode.from_value(self.mode)
 
 
 @dataclass(frozen=True)
@@ -87,10 +163,10 @@ class WaveMagnetizationConfig:
 
         Supported values are:
 
-        - ``Polarization.CIRCULAR_PLUS`` or ``"+1"`` for positive-helicity
-          circular polarization;
-        - ``Polarization.CIRCULAR_MINUS`` or ``"-1"`` for negative-helicity
-          circular polarization;
+        - ``Polarization.CIRCULAR_PLUS``, ``"+1"``, ``"right-hand polarized"``
+          or ``"clockwise"`` for positive-helicity circular polarization;
+        - ``Polarization.CIRCULAR_MINUS``, ``"-1"``, ``"left-hand polarized"``
+          or ``"counter-clockwise"`` for negative-helicity circular polarization;
         - ``Polarization.UNPOLARIZED`` or ``"un"`` for unpolarized radiation;
         - ``Polarization.LINEAR`` or ``"lin"`` for linearly polarized
           radiation.
@@ -99,6 +175,7 @@ class WaveMagnetizationConfig:
         oscillating magnetic field B1 in the plane perpendicular to ``k``.
 
         Default is ``Polarization.LINEAR``.
+
 
     :param theta:
         Polar angle, in radians, between the wave propagation direction ``k``
@@ -203,7 +280,7 @@ class WaveMagnetizationConfig:
         Default is ``None``.
     """
 
-    polarization: Polarization | str = Polarization.LINEAR
+    polarization: tp.Union[Polarization, str] = Polarization.LINEAR
     theta: float = 0.0
     phi: tp.Optional[float] = math.pi / 2
     terms_computer: tp.Optional[WaveTermsComputer] = None

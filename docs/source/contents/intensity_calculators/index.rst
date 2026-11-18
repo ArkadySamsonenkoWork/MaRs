@@ -28,7 +28,7 @@ where:
 - :math:`Z` is the partition function.
 
 For density matrix-based time-dependent methods, the signal is computed directly as :math:`\mathrm{Tr}(\hat{G}_{\perp} \hat{\rho}(t))`,
-where :math:`\hat{G}_{\perp}` is the detected transverse spin component (e.g., :math:`\hat{G}_x`, :math:`\hat{G}_y`, or circular combinations depending on detection method and computational approach).
+where :math:`\hat{G}_{\perp}` is the detected transverse component of the Zeeman operator (e.g., :math:`\hat{G}_X`, :math:`\hat{G}_Y`, or circular combinations depending on detection method and computational approach).
 
 Intensity Calculator Classes
 -----------------------------

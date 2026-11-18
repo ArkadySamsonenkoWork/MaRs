@@ -3,8 +3,8 @@
 project = 'MaRs'
 copyright = '2026, Arkady Samsonenko, Ivan Kurganskii'
 author = 'Arkady Samsonenko, Ivan Kurganskii'
-release = '2026.09.18'
-version = '0.0.6.post4'
+release = '2026.11.18'
+version = '0.0.6.post5'
 
 # -- General configuration ---------------------------------------------------
 
@@ -46,6 +46,7 @@ autodoc_mock_imports = [
     "torchdiffeq",
     "safetensors",
     "pywt",
+    ""opt_einsum",
     
     # Optional dependencies
     "optuna",
@@ -55,7 +56,7 @@ autodoc_mock_imports = [
     "hdbscan",
     "numdifftools",
     "optuna-integration[botorch]",
-    "cmaes"
+    "cmaes",
     
     # Visualization
     "seaborn",

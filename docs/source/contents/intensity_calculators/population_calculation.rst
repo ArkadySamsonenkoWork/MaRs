@@ -29,7 +29,7 @@ Factorization vs. Non-Factorization
   .. math::
      I(t) \propto \mathrm{Tr}\!\left( \hat{G}_\perp \, \hat{\rho}(t) \right),
 
-  where :math:`\hat{G}_\perp` is the transverse component of the spin operator (e.g., :math:`\hat{G}_x` or :math:`\hat{G}_y`), and :math:`\hat{\rho}(t)` is the time-evolved density matrix.
+  where :math:`\hat{G}_\perp` is the transverse component of the Zeeman operator (e.g., :math:`\hat{G}_X` or :math:`\hat{G}_Y`), and :math:`\hat{\rho}(t)` is the time-evolved density matrix.
 
 Thermal Equilibrium
 -------------------
@@ -83,7 +83,7 @@ The observable EPR signal is then computed as:
 Two computational strategies are supported:
 
 1. **Rotating Wave Approximation (RWA)**  
-   Assumes isotropic :math:`g`-tensor and commutation :math:`[\hat{F}, \hat{G}_z] = 0`. The Hamiltonian is transformed into a rotating frame, yielding an effective time-independent problem. Implemented in:
+   Assumes isotropic :math:`g`-tensor and commutation :math:`[\hat{F}, \hat{G}_Z] = 0`. The Hamiltonian is transformed into a rotating frame, yielding an effective time-independent problem. Implemented in:
    - :class:`mars.population.populators.density_population.RWADensityPopulator`
 
 2. **Full Propagator Method**  

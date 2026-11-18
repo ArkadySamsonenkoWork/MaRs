@@ -24,23 +24,23 @@ The construction of an EPR spectrum in MaRs follows a sequence of computational 
    The next workflow is managed by the abstract class :class:`mars.spectra_manager.spectra_manager.BaseResSpectra`.
 
 4. **Construct Hamiltonian matrices**  
-   MaRs computes four matrices that define the spin Hamiltonian under an external magnetic field **B** = (Bx, By, Bz):
+   MaRs computes four matrices that define the spin Hamiltonian under an external magnetic field **B** = (B_X, B_Y, B_Z):
 
    .. math::
-      \hat{H} = \hat{F} + B_X \hat{G}_X + B_X \hat{G}_Y + B_Z \hat{G}_Z
+      \hat{H} = \hat{F} + B_X \hat{G}_X + B_Y \hat{G}_Y + B_Z \hat{G}_Z
 
-   - **F**: Field-independent term (zero-field splitting, hyperfine, nuclear couplings, etc.)
-   - **Gx, Gy, Gz**: Zeeman coupling operators, defined explicitly as:
+   - :math:`\hat{F}`: Field-independent term (zero-field splitting, hyperfine, nuclear couplings, etc.)
+   - :math:`\hat{G}_X, \hat{G}_Y, \hat{G}_Z`: Zeeman coupling operators, the derivatives of the Hamiltonian (in Hz) with respect to the magnetic field, :math:`\hat{G}_\alpha \equiv \partial \hat{H} / \partial B_\alpha = -\hat{\mu}_\alpha / h`, where :math:`\hat{\mu}_\alpha` is the magnetic dipole moment operator. Defined explicitly as:
 
      .. math::
-        \hat{G}_\alpha = \mu_B \sum_{e} \sum_{\beta} g^{(e)}_{\alpha\beta} \hat{S}^{(e)}_\beta
-                        + \sum_{n} \gamma_n \hat{I}^{(n)}_\alpha, \quad \alpha \in \{x, y, z\}
+        \hat{G}_\alpha = \frac{\mu_B}{h} \sum_{e} \sum_{\beta} g^{(e)}_{\alpha\beta} \hat{S}^{(e)}_\beta
+                        - \frac{\mu_N}{h} \sum_{n} g_n \hat{I}^{(n)}_\alpha, \quad \alpha \in \{X, Y, Z\}
 
      where:
        - The first sum runs over all electrons (*e*), with :math:`g^{(e)}_{\alpha\beta}` the components of the electron g-tensor,
        - :math:`\hat{S}^{(e)}_\beta` is the β-component of the electron spin operator,
        - The second sum runs over all nuclei (*n*),
-       - :math:`\gamma_n = g_n \mu_N / \hbar` is the gyromagnetic ratio of nucleus *n*, expressed via its g-factor :math:`g_n` and the nuclear magneton :math:`\mu_N`,
+       - :math:`g_n` is the g-factor of nucleus *n* and :math:`\mu_N` is the nuclear magneton,
        - :math:`\hat{I}^{(n)}_\alpha` is the α-component of the nuclear spin operator.
 
 5. **Determine resonance conditions**  
@@ -50,22 +50,40 @@ The construction of an EPR spectrum in MaRs follows a sequence of computational 
         This method solves :math:`\hbar \omega = E_i(B_{ij}) - E_j(B_{ij})` for resonance fields :math:`B_{ij}` at fixed frequency.  
         This is a batched, GPU-accelerated implementation of the method used in EasySpin [doi:10.1016/j.jmr.2005.08.013]. In MaRs this method is default for solid-state simulations.
 
-   5.2. **Secular approximation** (:class:`mars.secular_approximation_algorithm.ResSecular`)
-        This method applies a two-step approximation to the spin Hamiltonian:
-        
-        1. Zeeman term projection: Modifies :math:`G_X, G_Y, G_Z` to zero matrix elements where the corresponding total spin projection (:math:`S_X, S_Y, S_Z`) has magnitude below threshold. Enforces :math:`[G_\alpha, S_\alpha] \approx 0`.
-        
-        2. Zero-field term projection: Modifies :math:`F` to zero elements connecting states with different Zeeman energies (:math:`|(G_Z)_{ii} - (G_Z)_{jj}| > \varepsilon`), enforcing :math:`[F, G_Z] \approx 0`.
-        
-        This method is udsed by default in :class:`mars.spectra_manager.spectra_manager.DensityTimeSpectra` for time-resolved EPR.
-   
+   5.2. **Secular approximation** (:meth:`mars.spin_model.BaseSample.get_hamiltonian_terms_secular`)
+        The secular Hamiltonian is projected onto sectors of the total spin components,
+        including both electron and nuclear spins:
+
+        .. math::
+
+           \hat{S}^{\mathrm{tot}}_\alpha
+           = \sum_e \hat{S}^{(e)}_\alpha + \sum_n \hat{I}^{(n)}_\alpha,
+           \qquad \alpha\in\{X,Y,Z\}.
+
+        The projector :math:`\mathcal{P}_Q(A)=\sum_m P_m A P_m` retains matrix
+        elements between states with equal eigenvalues of :math:`Q`, including
+        entire degenerate total-projection sectors.
+
+        1. The field-independent term :math:`\hat F` and longitudinal Zeeman
+           operator :math:`\hat G_Z` are projected using :math:`\hat S_Z^{\mathrm{tot}}`.
+           Therefore :math:`[\hat F_{\mathrm{sec}},\hat S_Z^{\mathrm{tot}}]=0` and
+           :math:`[\hat G_{Z,\mathrm{sec}},\hat S_Z^{\mathrm{tot}}]=0`.
+
+        2. The transverse Zeeman operators :math:`\hat G_X,\hat G_Y` are projected
+           using :math:`\hat S_X^{\mathrm{tot}},\hat S_Y^{\mathrm{tot}}`, respectively.
+           Their secular forms commute with those corresponding components.
+
+        This does not generally imply :math:`[\hat F_{\mathrm{sec}},\hat G_{Z,\mathrm{sec}}]=0`.
+        Secularization is used by default in
+        :class:`mars.spectra_manager.DensityTimeSpectra` for time-resolved EPR.
+
    5.3. **Resonance-frequency search** (:class:`mars.spectra_manager.res_freq_algorithm.ResFreq`)  
         This method finds resonant frequencies in a given interval at fixed magnetic field. It requires only one matrix eigenvalues and eigenvectors computation
 
 6. **Compute transition intensities**  
    Intensities are computed by :class:`mars.spectra_manager.intensity_base.BaseResIntensityCalculator`.
 
-   Assuming the quantization axis aligns with the magnetic field direction (e.g., :math:`\mathbf{B} \parallel z`), the intensity of a transition in stationart EPR spectroscopy between eigenstates :math:`|i\rangle` and :math:`|j\rangle` is:
+   Assuming the quantization axis aligns with the magnetic field direction (e.g., :math:`\mathbf{B} \parallel Z`), the intensity of a transition in stationart EPR spectroscopy between eigenstates :math:`|i\rangle` and :math:`|j\rangle` is:
 
    .. math::
 
@@ -77,10 +95,10 @@ The construction of an EPR spectrum in MaRs follows a sequence of computational 
 
       p_k = \frac{e^{-E_k / k_B T}}{Z}, \quad Z = \sum_k e^{-E_k / k_B T} 
 
-   In the crystal case, :math:`I_{ij} \propto \left| \langle i | \hat{G}_x | j \rangle \right|^2 \cdot (p_j - p_i)`.
+   In the crystal case, :math:`I_{ij} \propto \left| \langle i | \hat{G}_X | j \rangle \right|^2 \cdot (p_j - p_i)`.
 
    In disordered (powder) systems, the signal must be averaged over all molecular orientations.
-   This is typically done by sampling three Euler angles (:math:'\alpha', '\beta', '\gamma') that define the rotation from the molecular frame to the lab frame.
+   This is typically done by sampling three Euler angles (:math:'\alpha', '\beta', '\gamma') that define the rotation from the molecular (x, y, z) frame to the laboratory (X, Y, Z) frame.
    However, the final averaging over the third Euler angle (:math:'\gamma') can be performed analytically, reducing computational cost:
    
    .. math::
@@ -90,7 +108,7 @@ The construction of an EPR spectrum in MaRs follows a sequence of computational 
    In **time-resolved** or **spin-polarized** simulations, populations :math:`p_i(t)` are not thermal and are managed via Context tool: see :class:`mars.population.contexts.Context`.
 
    For density matrix-based time dependant methods, the signal is computed directly as :math:`\mathrm{Tr}(\hat{G}_{\perp} \hat{\rho}(t))`,
-   where :math:`\hat{G}_{\perp}` is the detected transverse spin component (e.g., :math:`\hat{G}_X`, :math:`\hat{G}_Y`, or circular combinations depending on detection computation method)
+   where :math:`\hat{G}_{\perp}` is the detected transverse component of the Zeeman operator (e.g., :math:`\hat{G}_X`, :math:`\hat{G}_Y`, or circular combinations depending on detection computation method)
 
 7. **Account for line broadening**  
    The total Gaussian linewidth is computed as the square root of the sum of squares of all independent broadening contributions:
@@ -109,7 +127,7 @@ The construction of an EPR spectrum in MaRs follows a sequence of computational 
      - in Hz for zero-field splitting parameters (D/E),
 
 8. **Field-sweep Jacobian correction**  
-   When converting from frequency-domain to field-swept spectra, intensities are scaled by :math:`|d\nu/dB|` to preserve spectral weight, consistent with standard EPR theory.
+   When converting from frequency-domain to field-swept spectra, intensities are scaled by :math:`1/|d\nu/dB|` to preserve spectral weight, consistent with standard EPR theory.
 
 9. **Powder averaging with operation parallelism**  
    For powder samples, all matrix operations act on a batched tensor that combines orientation and sample dimensions. This enables full GPU parallelism across orientations without explicit loops.

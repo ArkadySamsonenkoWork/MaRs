@@ -57,6 +57,33 @@ if tp.TYPE_CHECKING:
     from .serialization.graph_representation import GraphSample, GraphSpinSystem
 
 
+def project_on_spin_commutant(
+        operator: torch.Tensor,
+        spin_operator: torch.Tensor,
+        projection_tolerance: float = 1e-9,
+) -> torch.Tensor:
+    """Project ``operator`` onto the commutant of a diagonal spin operator.
+
+    The total Sz operator is diagonal in the product-state basis. Its
+    diagonal entries give the spin projections directly; diagonalization
+    is unnecessary. Equal projections retain the complete corresponding
+    block, including electron-nuclear flip-flop matrix elements.
+
+    The Frobenius-orthogonal projection is ``sum_m P_m @ operator @ P_m``.
+    ``projection_tolerance`` is an absolute tolerance in dimensionless
+    spin-projection units, distinct from the secular norm-error tolerance.
+    Supports broadcastable operator and spin-operator batch dimensions.
+    For a non-diagonal spin axis, first rotate to the total-Sz basis.
+    """
+    projections = spin_operator.diagonal(dim1=-2, dim2=-1).real
+    numerical_floor = (32 * torch.finfo(projections.dtype).eps
+                       * projections.abs().amax(dim=-1, keepdim=True).clamp_min(1.0))
+    tol = torch.maximum(projections.new_tensor(projection_tolerance), numerical_floor)
+    same_sector = ((projections.unsqueeze(-1) - projections.unsqueeze(-2)).abs()
+                   <= tol.unsqueeze(-1))
+    return operator * same_sector.to(operator.dtype)
+
+
 # Подумать над изменением логики.
 def kronecker_product(matrices: list) -> torch.Tensor:
     """Computes the Kronecker product of a list of matrices."""
@@ -2563,7 +2590,6 @@ class BaseSample(nn.Module):
         self.base_ham_strain = copy.deepcopy(self._ham_strain)
         self.register_buffer("gauss", self._init_gauss_lorentz(gauss, device, dtype))
         self.register_buffer("lorentz", self._init_gauss_lorentz(lorentz, device, dtype))
-        self.register_buffer("secular_threshold", torch.tensor(1e-9, device=device, dtype=dtype))
         self.to(device)
         self.to(dtype)
 
@@ -2994,7 +3020,7 @@ class BaseSample(nn.Module):
         operator_cache = self.modified_spin_system.operator_cache
         for idx, nucleus in enumerate(self.modified_spin_system.nuclei):
             g = nucleus.g_factor
-            G += operator_cache[len(self.modified_spin_system.electrons) + idx] * g
+            G -= operator_cache[len(self.modified_spin_system.electrons) + idx] * g
         G *= (constants.NUCLEAR_MAGNETRON / constants.PLANCK)
         return G
 
@@ -3023,79 +3049,283 @@ class BaseSample(nn.Module):
         return (electron_contrib * (constants.BOHR / constants.PLANCK) +
             nuclei_contrib * (constants.NUCLEAR_MAGNETRON / constants.PLANCK)).squeeze(dim=-1)
 
-    def get_hamiltonian_terms(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Returns F, Gx, Gy, Gz.
+    def _secularize_terms(
+            self, terms: tp.Sequence[torch.Tensor],
+            projection_tolerance: float = 1e-9,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Project F and Gz on total Sz, Gx on total Sx, Gy on total Sy.
+
+        Total Sz is diagonal in the original product basis, so its
+        projection uses an elementwise mask. Sx and Sy are not diagonal
+        in that basis: rotate them into the Sz basis, apply the same
+        diagonal projector, and rotate back (no eigendecomposition).
+        """
+        total_spin = self.modified_spin_system.operator_cache.sum(dim=0)
+        Sx, Sy, Sz = total_spin.unbind(dim=0)
+        F, Gx, Gy, Gz = terms
+
+        F_sec = project_on_spin_commutant(F, Sz, projection_tolerance)
+        Gz_sec = project_on_spin_commutant(Gz, Sz, projection_tolerance)
+
+        Ry = torch.matrix_exp((-0.5j * math.pi) * Sy)
+        Rx = torch.matrix_exp((+0.5j * math.pi) * Sx)
+        Gx_in_z = Ry.mH @ Gx @ Ry
+        Gy_in_z = Rx.mH @ Gy @ Rx
+        Gx_sec = Ry @ project_on_spin_commutant(Gx_in_z, Sz, projection_tolerance) @ Ry.mH
+        Gy_sec = Rx @ project_on_spin_commutant(Gy_in_z, Sz, projection_tolerance) @ Rx.mH
+        return F_sec, Gx_sec, Gy_sec, Gz_sec
+
+    def _check_secularity(
+            self,
+            full_terms: tp.Optional[tp.Sequence[torch.Tensor]] = None,
+            secular_terms: tp.Optional[tp.Sequence[torch.Tensor]] = None,
+            field: tp.Optional[tp.Union[float, torch.Tensor]] = 0.3,
+            secular_relative_tolerance: float = 0.05,
+            secular_projection_tolerance: float = 1e-9,
+            warn: bool = True,
+    ) -> dict[str, tp.Union[float, bool, str, None]]:
+        """Check the total-spin secular approximation.
+
+        The report always calculates the relative discarded Frobenius norms
+        of F and Gz independently. If field is not None, it additionally
+        calculates the norm for the complete static Hamiltonian
+        H = F + field * Gz, together with the maximum eigenvalue shift.
+
+        Only one norm criterion determines validity and warnings:
+
+        - field is None:
+            max(F_ratio, Gz_ratio) <= secular_relative_tolerance
+        - field is not None:
+            H_ratio <= secular_relative_tolerance
+
+        The commutators of all four secular terms with their corresponding
+        total-spin components are checked independently in both cases..
+
+        :param full_terms: Full Hamiltonian terms (F, Gx, Gy, Gz).
+        :param secular_terms: Corresponding secular Hamiltonian terms.
+        :param field: Static magnetic field in tesla, or None.
+        :param secular_relative_tolerance: Maximum allowed relative
+            discarded Frobenius norm for the selected validity criterion.
+        :param secular_projection_tolerance: Absolute tolerance for
+            grouping equal total-spin projections.
+        :param warn: Whether to emit a warning when the check fails.
+        :return: Dictionary containing all available diagnostic ratios,
+            the selected validity score, commutator residual, and validity.
+        """
+        if full_terms is None:
+            full_terms = self.get_hamiltonian_terms()
+
+        if secular_terms is None:
+            secular_terms = self._secularize_terms(
+                full_terms, secular_projection_tolerance
+            )
+
+        def norm(A: torch.Tensor) -> torch.Tensor:
+            return torch.linalg.matrix_norm(A, ord="fro", dim=(-2, -1))
+
+        def relative(A: torch.Tensor, dA: torch.Tensor) -> float:
+            base = norm(A)
+            discarded = norm(dA)
+            tiny = torch.finfo(A.real.dtype).tiny
+
+            values = torch.where(
+                base > 0,
+                discarded / base.clamp_min(tiny),
+                torch.where(
+                    discarded == 0,
+                    torch.zeros_like(discarded),
+                    torch.full_like(discarded, float("inf")),
+                ),
+            )
+            return float(values.max())
+
+        with torch.no_grad():
+            F, _, _, Gz = full_terms
+            F_sec, _, _, Gz_sec = secular_terms
+            f_ratio = relative(F, F - F_sec)
+            gz_ratio = relative(Gz, Gz - Gz_sec)
+
+            report = {
+                "field_T": None,
+                "criterion": None,
+                "F_ratio": f_ratio,
+                "Gz_ratio": gz_ratio,
+                "H_ratio": None,
+                "zeeman_ratio": None,
+                "max_level_shift_hz": None,
+            }
+
+            if field is None:
+                score = max(f_ratio, gz_ratio)
+                report["criterion"] = "separate F and Gz"
+
+            else:
+                B = torch.as_tensor(
+                    field, dtype=F.real.dtype, device=F.device
+                )
+                if B.numel() != 1 or not bool(torch.isfinite(B).all()):
+                    raise ValueError(
+                        "secular_field must be a finite scalar field in tesla"
+                    )
+                B = B.reshape(())
+
+                H = F + B * Gz
+                H_sec = F_sec + B * Gz_sec
+                dH = H - H_sec
+                h_ratio = relative(H, dH)
+                score = h_ratio
+
+                report.update({
+                    "field_T": float(B),
+                    "criterion": "full H = F + B * Gz",
+                    "H_ratio": h_ratio,
+                    "zeeman_ratio": (
+                        float("nan") if float(B) == 0.0
+                        else relative(B * Gz, dH)
+                    ),
+                    "max_level_shift_hz": float(
+                        (torch.linalg.eigvalsh(H) - torch.linalg.eigvalsh(H_sec)).abs().max()
+                    ),
+                })
+
+            spin = self.modified_spin_system.operator_cache.sum(dim=0)
+            max_comm = 0.0
+
+            for approx, S in zip(
+                    secular_terms,
+                    (spin[2], spin[0], spin[1], spin[2])
+            ):
+                comm = norm(approx @ S - S @ approx)
+                scale = norm(approx) * norm(S)
+                tiny = torch.finfo(approx.real.dtype).tiny
+
+                residual = comm / scale.clamp_min(tiny)
+                max_comm = max(max_comm, float(residual.max()))
+            comm_eps = max(1e-8, 128 * torch.finfo(F.real.dtype).eps)
+
+            norm_failed = (
+                    not math.isfinite(score)
+                    or score > secular_relative_tolerance
+            )
+            comm_failed = (
+                    not math.isfinite(max_comm)
+                    or max_comm > comm_eps
+            )
+
+            valid = not (norm_failed or comm_failed)
+
+            report.update({
+                "score": score,
+                "commutator_residual": max_comm,
+                "valid": valid,
+            })
+
+        if warn and not valid:
+            failures = []
+
+            if norm_failed:
+                if field is None:
+                    failures.append(
+                        "The field-independent Hamiltonian F and the "
+                        "longitudinal Zeeman operator Gz were checked "
+                        "independently because secular_field=None.\n"
+                        f"  F:  discarded relative norm = {f_ratio:.3g}\n"
+                        f"  Gz: discarded relative norm = {gz_ratio:.3g}\n"
+                        f"  Allowed maximum = "
+                        f"{secular_relative_tolerance:.3g}\n"
+                        "At least one term loses more than the allowed "
+                        "fraction of its Frobenius norm."
+                    )
+                else:
+                    failures.append(
+                        "The combined static Hamiltonian "
+                        "H = F + B * Gz was checked"
+                        f"  H: discarded relative norm = {score:.3g}\n"
+                        f"  Allowed maximum = "
+                        f"{secular_relative_tolerance:.3g}\n"
+                        "The secular projection removes more than the "
+                        "allowed fraction of the complete static "
+                        "Hamiltonian. The separate F and Gz ratios "
+                        "are diagnostic only and do not determine "
+                        "validity at this field."
+                    )
+
+            if comm_failed:
+                failures.append(
+                    "The projected Hamiltonian terms do not commute "
+                    "with their corresponding total-spin operators "
+                    "within numerical tolerance.\n"
+                    f"  Maximum normalized commutator = {max_comm:.3g}\n"
+                    f"  Allowed maximum = {comm_eps:.3g}\n"
+                    "Expected commutation relations:\n"
+                    "  [F_sec, Sz_total] = 0\n"
+                    "  [Gx_sec, Sx_total] = 0\n"
+                    "  [Gy_sec, Sy_total] = 0\n"
+                    "  [Gz_sec, Sz_total] = 0\n"
+                    "This may indicate insufficient numerical precision "
+                    "or an incorrect projection."
+                )
+
+            warnings.warn(
+                "MaRs secular approximation validity check failed.\n\n"
+                + "\n\n".join(failures)
+                + "\n\nThe approximation may affect energy levels, "
+                  "transition frequencies, intensities, and relaxation "
+                  "dynamics. Passing this norm test does not guarantee "
+                  "spectral accuracy. Consider using "
+                  "hamiltonian_mode='direct' for comparison, "
+                  "or adjusting the secular settings.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return report
+
+    def get_hamiltonian_terms(
+            self, **kwargs: tp.Any,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Returns the full (non-secular) Hamiltonian terms F, Gx, Gy, Gz.
+
+        ``**kwargs`` is accepted for compatibility with the secular getter;
+        the secular settings do not change the full Hamiltonian.
 
         F is the magnetic field-independent part of the spin Hamiltonian.
-        Gx, Gy, and Gz are the Zeeman coupling matrices corresponding to the x, y, and z components
-        of the external magnetic field (Bx, By, Bz). The full EPR Hamiltonian is expressed as:
-
-            H = F + Gx * Bx + Gy * By + Gz * Bz
-
-        All matrices are represented in the basis of product states formed from individual electron
-        and nuclear spin projections.
-
-        F includes contributions from:
-          - Zero-field splitting (for systems with S >= 1)
-          - Electron-nuclear hyperfine interactions
-          - Nuclear-nuclear dipolar or scalar couplings
-          - Other field-independent terms (e.g., exchange)
-
-        Gx, Gy, and Gz are defined as the sum of electron and nuclear Zeeman operators weighted by
-        their respective g-tensors and magnetogyric ratios:
-
-          - For electrons: the contribution is proportional to the electron g-tensor (typically anisotropic),
-            such that the electron Zeeman term is mu_B * g_tensor @ B, where mu_B is the Bohr magneton.
-
-          - For nuclei: the contribution is gamma_n * I, where gamma_n is the nuclear gyromagnetic ratio
-            and I is the nuclear spin operator.
+        Gx, Gy, and Gz are the full electron and nuclear Zeeman operators.
+        H = F + Gx * Bx + Gy * By + Gz * Bz.
+        All operators are represented in the product-state basis.
         """
         return self.build_zero_field_term(), *self.build_zeeman_terms()
 
-    def get_hamiltonian_terms_secular(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Returns F0, Gx, Gy, Gz after secular approximation.
+    def get_hamiltonian_terms_secular(
+            self, **kwargs: tp.Any,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Return the total-spin secular Hamiltonian terms (F, Gx, Gy, Gz).
 
-        F0 is a part of magnetic field free term, which commutes with Gz
-        Gx, Gy, Gz are terms multiplied to Bx, By, Bz respectively
+        F and Gz commute with total Sz, Gx with total Sx, and Gy with
+        total Sy. Both electron and nuclear spins contribute to total Si.
 
-        Applies two transformations:
-        1. For Zeeman terms (Gx, Gy, Gz): Zero matrix elements where the absolute value
-           of the corresponding total spin projection operator (Sx, Sy, Sz) is below
-           threshold. This enforces approximate commutation relations:
-              [Gx, Sx] ≈ 0, [Gy, Sy] ≈ 0, [Gz, Sz] ≈ 0
-           For single spins with isotropic g-tensors this is exact. For anisotropic cases and one particle,
-           it retains only the diagonal part of the g-tensor in the spin projection basis
+        Keyword arguments:
+            secular_relative_tolerance (float): Maximum relative discarded
+                Frobenius norm allowed for F and Gz independently when
+                secular_field is None, or for H = F + B * Gz otherwise.
+                Default 0.05.
+            secular_projection_tolerance (float): Absolute tolerance for
+                equal dimensionless total-spin projections. Default 1e-9.
+            secular_field (float or None): Field in tesla for checking only
+                H = F + B * Gz. If None, check F and Gz separately instead.
+                Alias: field. Default 0.3 T.
 
-        2. For zero-field term (F0): Zero matrix elements where the difference in diagonal
-           elements of Gz exceeds threshold. This enforces [F0, Gz] ≈ 0.
-
-        Both steps use self.secular_threshold. The approach assumes Gz is approximately diagonal
+        An invalid approximation warns and returns the projected matrices.
         """
-        Gx, Gy, Gz = self.build_zeeman_terms()
-        n_spins = len(self.base_spin_system.electrons) + len(self.base_spin_system.nuclei)
-        dim = Gx.shape[-1]
-
-        total_S = torch.zeros(3, dim, dim, dtype=Gx.dtype, device=Gx.device)
-        [total_S.add_(self.base_spin_system.operator_cache[idx]) for idx in range(n_spins)]
-
-        components = [Gx, Gy, Gz]
-        abs_tensor = torch.zeros(
-            dim, dim, dtype=self.base_spin_system.dtype, device=self.base_spin_system.device)
-        for i, comp in enumerate(components):
-            mask = torch.abs(total_S[i], out=abs_tensor) <= self.secular_threshold
-            comp.masked_fill_(mask, 0)
-
-        diag = torch.diagonal(Gz, dim1=-2, dim2=-1).real
-        diag_i = diag.unsqueeze(-1)
-        diag_j = diag.unsqueeze(-2)
-
-        diag_diff = torch.abs(diag_i - diag_j)
-        mask = diag_diff.lt_(self.secular_threshold).bool()
-
-        F0 = self.build_zero_field_term()
-        F0.masked_fill_(~mask, 0)
-
-        return F0, Gx, Gy, Gz
+        secular_relative_tolerance = float(kwargs.get("secular_relative_tolerance", 0.05))
+        secular_projection_tolerance = float(kwargs.get("secular_projection_tolerance", 1e-9))
+        field = kwargs.get("secular_field", kwargs.get("field", 0.3))
+        full = self.get_hamiltonian_terms(**kwargs)
+        secular = self._secularize_terms(full, secular_projection_tolerance)
+        self._check_secularity(
+            full, secular, field=field, secular_relative_tolerance=secular_relative_tolerance,
+            secular_projection_tolerance=secular_projection_tolerance,
+        )
+        return secular
 
     def build_field_dep_strain(self) -> tp.Generator[tuple[torch.Tensor, torch.Tensor, torch.Tensor], None, None]:
         """Calculate electron Zeeman field dependant strained part.
@@ -3259,7 +3489,7 @@ class BaseSample(nn.Module):
         _, zeeman_eigenvectors = torch.linalg.eigh(Gz)
 
         basis, _ = utils.align_eigenvector_phases_(zeeman_eigenvectors.unsqueeze_(-3))
-        return zeeman_eigenvectors.squeeze_(-3)
+        return basis.squeeze_(-3)
 
     def __repr__(self):
         spin_system_summary = str(self.base_spin_system)
@@ -3425,7 +3655,8 @@ class SolidSample(BaseSample):
 
         :param device: device to compute (cpu / gpu)
         """
-        super().__init__(base_spin_system, ham_strain, gauss, lorentz, molecular_frame, device=device, dtype=dtype)
+        super().__init__(base_spin_system, ham_strain, gauss, lorentz, molecular_frame,
+                         device=device, dtype=dtype)
         self.mesh = self._init_mesh(mesh, device=device, dtype=dtype)
         rotation_matrices = self.mesh.rotation_matrices
 

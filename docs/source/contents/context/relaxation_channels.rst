@@ -195,7 +195,7 @@ Oriented interaction operators (all orientations)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 These methods belong to :class:`~mars.spin_model.SolidSample` and provide
-the full spin operator for a given interaction tensor, rotated into the
+the full interaction operator for a given interaction tensor, rotated into the
 laboratory frame and contracted with the appropriate spin operators.
 They are essential for building field‑dependent coupling terms.
 

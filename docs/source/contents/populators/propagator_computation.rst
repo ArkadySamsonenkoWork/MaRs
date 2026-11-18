@@ -47,13 +47,13 @@ with the initial condition :math:`\hat{U}(0, 0) = \hat{I}` (the identity superop
 Driving Amplitude
 ~~~~~~~~~~~~~~~~~~
 
-The oscillating microwave field is applied along the laboratory-frame x-axis:
+The oscillating microwave field is applied along the laboratory-frame X-axis:
 
 .. math::
 
    B_1(t) = b_1 \cos(\omega t)
 
-where :math:`b_1` is the ``b1_field`` parameter of :class:`~mars.population.populators.density_population.PropagatorDensityPopulator` (the full peak amplitude of the oscillating field, not a rotating-frame half-amplitude). Internally this is converted to an angular Rabi coupling scale :math:`2\pi b_1` before being combined with the transformed Zeeman operators :math:`\hat{G}_x, \hat{G}_y` to build the time-dependent part of the Liouvillian.
+where :math:`b_1` is the ``b1_field`` parameter of :class:`~mars.population.populators.density_population.PropagatorDensityPopulator` (the full peak amplitude of the oscillating field, not a rotating-frame half-amplitude). Internally this is converted to an angular Rabi coupling scale :math:`2\pi b_1` before being combined with the transformed Zeeman operators :math:`\hat{G}_X, \hat{G}_Y` to build the time-dependent part of the Liouvillian.
 
 Floquet Theory for Periodic Hamiltonians
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -88,7 +88,7 @@ The continuous-time integrated signal that this discretized construction approxi
 
 .. math::
 
-   I(t) = \int_0^t \text{Tr}[\hat{G}_X \hat{\rho}(\tau)] \sin(\omega\tau) d\tau
+   I(t) = -\int_0^t \text{Tr}[\hat{G}_X \hat{\rho}(\tau)] \sin(\omega\tau) d\tau
 
 Computational Implementation
 ----------------------------
@@ -150,7 +150,7 @@ Unlike the RWA method, the propagator approach makes no simplifying assumptions 
 Consequently, the signal depends on all three Euler angles, and the :math:`\gamma` integration must be performed numerically.
 
 Full numerical integration over :math:`\gamma \in [0,2\pi]` is therefore the
-default, implemented as a Riemann sum over polarizations :math:`\hat{G}_\perp = \hat{G}_x\cos\gamma + \hat{G}_y\sin\gamma`. The number of :math:`\gamma` points can be controlled via the
+default, implemented as a Riemann sum over polarizations :math:`\hat{G}_\perp = \hat{G}_X\cos\gamma + \hat{G}_Y\sin\gamma`. The number of :math:`\gamma` points can be controlled via the
 ``angle_average_steps`` parameter of
 :class:`mars.population.populators.density_population.PropagatorDensityPopulator`:
 
@@ -168,7 +168,7 @@ default, implemented as a Riemann sum over polarizations :math:`\hat{G}_\perp = 
 Alternatively, ``angle_average_steps`` can be set globally via
 :class:`mars.spectra_manager.spectra_manager.ComputationalDetails`.
 
-For ordered (single-crystal) samples, set ``disordered=False``; in that case only the fixed :math:`\hat{G}_x` polarization is used and no :math:`\gamma` averaging is performed.
+For ordered (single-crystal) samples, set ``disordered=False``; in that case only the fixed :math:`\hat{G}_X` polarization is used and no :math:`\gamma` averaging is performed.
 
 Advantages
 ----------

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mars-epr"
-version = "0.0.6.post4"
+version = "0.0.6.post5"
 authors = [
     {name = "Arkady Samsonenko", email = "a.samsonenko@tomo.nsc.ru"},
     {name = "Ivan Kurganskii", email = "kurgansky@tomo.nsc.ru"},
@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 license = "MIT"
-license-files = ["LICENSE.md"]
+license-files = ["LICENSE"]
 requires-python = ">=3.8"
 
 dependencies = [
@@ -36,12 +36,20 @@ dependencies = [
     "PyWavelets",
     "matplotlib",
     "safetensors",
-    "seaborn"
+    "seaborn",
+    "opt_einsum"
 ]
 
 [project.optional-dependencies]
 opt = ["optuna>=4.3", "nevergrad>=1.0.12", "optuna_dashboard", "emcee", "hdbscan", "numdifftools", "optuna-integration[botorch]", "cmaes"]
 plot = ["seaborn", "plotly", "matplotlib"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mars", "mars.*"]
+
+[tool.setuptools.package-data]
+"mars.particles" = ["nuclei_db/nuclear_data.pkl"]
 
 [project.urls]
 "Homepage" = "https://github.com/ArkadySamsonenkoWork/MaRs"

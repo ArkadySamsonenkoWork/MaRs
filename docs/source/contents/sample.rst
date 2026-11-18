@@ -13,7 +13,7 @@ Simulate a frozen solution of a diradical with D = 0.35 GHz, E = 0, using a defa
 
 .. code-block:: python
 
-   from mars import spin_model. particles
+   from mars import spin_model, particles
 
    g_tensor = spin_model.Interaction(2.002)  # g = 2.002
    D_tensor = spin_model.DEInteraction(components=0.35 * 1e9)  # D = 0.35 GHz
@@ -63,7 +63,7 @@ In MaRs it is possible to modify mesh to increse resolution of increase speed. A
 
 **4. Sample spin system orientation**
 
-In some cases, it's convenient to rotate not just one interaction, but all interactions at once (rotate the entire spin system relative laboratory frame).
+In some cases, it's convenient to rotate not just one interaction, but all interactions at once (express the entire spin system in the laboratory (X, Y, Z) frame).
 This doesn't change the final spectrum of the sample, but it can be convinient for creation of complex systems.
 
 .. code-block:: python
@@ -81,24 +81,30 @@ The total spin Hamiltonian in the presence of a magnetic field **B** = (B_X, B_Y
 
 .. math::
 
-   \mathcal{H}(\mathbf{B}) = F + B_X G_X + B_Y G_Y + B_Z G_Z
+   \hat{\mathcal{H}}(\mathbf{B}) = \hat{F} + B_X \hat{G}_X + B_Y \hat{G}_Y + B_Z \hat{G}_Z
 
 where:
 
-- **F** is the field-independent (zero-field) part of the Hamiltonian,
-- **G_X**, **G_Y**, **G_Z** are the Zeeman coupling operators that encode the system’s response to the external magnetic field via electron and nuclear g‑tensors.
+- :math:`\hat{F}` is the field-independent (zero-field) part of the Hamiltonian,
+- :math:`\hat{G}_X`, :math:`\hat{G}_Y`, :math:`\hat{G}_Z` are the Zeeman coupling operators that encode the system’s response to the external magnetic field via electron and nuclear g‑tensors.
+
+The operators :math:`\hat{G}_\alpha` are defined as the derivatives of the Hamiltonian (in Hz) with respect to the magnetic field and are related to the magnetic dipole moment operator :math:`\hat{\mu}_\alpha` by:
+
+.. math::
+
+   \hat{G}_\alpha \equiv \frac{\partial \hat{\mathcal{H}}}{\partial B_\alpha} = -\frac{\hat{\mu}_\alpha}{h}, \quad \alpha \in \{X, Y, Z\}
 
 Explicitly, these operators are defined as:
 
 .. math::
 
    \begin{aligned}
-   G_X &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,XX} \hat{S}_i^{(X)} + g_{i,XY} \hat{S}_i^{(Y)} + g_{i,XZ} \hat{S}_i^{(Z)} \right)
-         + \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(X)}, \\
-   G_Y &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,yx} \hat{S}_i^{(X)} + g_{i,YY} \hat{S}_i^{(Y)} + g_{i,YZ} \hat{S}_i^{(Z)} \right)
-         + \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(Y)}, \\
-   G_Z &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,ZX} \hat{S}_i^{(X)} + g_{i,ZY} \hat{S}_i^{(Y)} + g_{i,ZZ} \hat{S}_i^{(Z)} \right)
-         + \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(Z)},
+   \hat{G}_X &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,XX} \hat{S}_i^{(X)} + g_{i,XY} \hat{S}_i^{(Y)} + g_{i,XZ} \hat{S}_i^{(Z)} \right)
+         - \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(X)}, \\
+   \hat{G}_Y &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,YX} \hat{S}_i^{(X)} + g_{i,YY} \hat{S}_i^{(Y)} + g_{i,YZ} \hat{S}_i^{(Z)} \right)
+         - \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(Y)}, \\
+   \hat{G}_Z &= \frac{\mu_\mathrm{B}}{h} \sum_{i} \left( g_{i,ZX} \hat{S}_i^{(X)} + g_{i,ZY} \hat{S}_i^{(Y)} + g_{i,ZZ} \hat{S}_i^{(Z)} \right)
+         - \frac{\mu_\mathrm{N}}{h} \sum_{j} g_{n,j} \hat{I}_j^{(Z)},
    \end{aligned}
 
 where:
@@ -113,45 +119,118 @@ where:
 
 These operators act on the full product-state Hilbert space and are returned by the sample methods as complex-valued tensors.
 
-You can retrieve them directly:
+You can retrieve the full Hamiltonian terms directly:
 
 .. code-block:: python
 
-   # Full Hamiltonian decomposition
    F, G_X, G_Y, G_Z = sample.get_hamiltonian_terms()
 
-   # Secular approximation: only retain elements of F that commute with Gz.
-   #   1. Zero non-commuting elements in Zeeman terms (GX/GY/GZ) with respect to spin projections, making GX,Y,Z[SX,Y,Z == 0] = 0
-   #   2. Zero non-commuting elements in F with respect to GZ, making F[Gz == 0] = 0
-   F_sec, G_X, G_Y, G_Z sample.get_hamiltonian_terms_secular()
+.. _hamiltonian-secularization:
 
-The secular approximation modifies the Hamiltonian terms in two steps:
+Hamiltonian Secularization
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1. Zeeman term modification  
-   For each component :math:`\alpha \in \{X, Y, Z\}`, matrix elements of :math:`G_\alpha` are zeroed where the corresponding spin projection operator :math:`S_\alpha` has negligible magnitude:
-   
-   .. math::
-   
-      (G_\alpha)_{ij} \leftarrow 
-      \begin{cases} 
-      (G_\alpha)_{ij} & \text{if } |(S_\alpha)_{ij}| > \varepsilon \\
-      0 & \text{otherwise}
-      \end{cases}
-   
-   This enforces approximate commutation :math:`[G_\alpha, S_\alpha] \approx 0`. For single spins with isotropic g-tensors this is exact. For anisotropic cases it retains only the diagonal part of the g-tensor.
+Hamiltonian secularization is requested at the sample level through
+``get_hamiltonian_terms_secular()``:
 
-2. Zero-field term modification 
-   Matrix elements of :math:`F` are zeroed where diagonal elements of :math:`G_Z` differ:
-   
-   .. math::
-   
-      F_{ij}^{\text{sec}} = 
-      \begin{cases}
-        F_{ij}, & \text{if } |(G_Z)_{ii} - (G_Z)_{jj}| < \varepsilon \\
-        0,      & \text{otherwise}
-      \end{cases}
-   
-   This enforces :math:`[F^{\text{sec}}, G_Z] \approx 0` with threshold :math:`\varepsilon` (default: :math:`10^{-9}`).
+.. code-block:: python
+
+   F_sec, G_X_sec, G_Y_sec, G_Z_sec = sample.get_hamiltonian_terms_secular()
+
+The returned terms define the Hamiltonian used in a secular calculation. For a
+static field along the laboratory Z-axis, it is written as
+
+.. math::
+
+   \hat{\mathcal{H}}_{\mathrm{sec}}(B_0)
+   = \hat{F}_{\mathrm{sec}} + B_0\hat{G}_{Z,\mathrm{sec}}.
+
+The projection uses the total spin operators, including both electrons and nuclei:
+
+.. math::
+
+   \hat{S}_\alpha^{\mathrm{tot}}
+   =\sum_e\hat{S}_{e,\alpha}+\sum_n\hat{I}_{n,\alpha},
+   \qquad \alpha\in\{X,Y,Z\}.
+
+The field-independent term and longitudinal Zeeman operator retain all matrix
+elements within each eigenspace of :math:`\hat{S}^{\mathrm{tot}}_Z` and remove
+matrix elements connecting different total-spin projections. In particular,
+electron--nuclear flip-flops that conserve total projection may remain. The
+corresponding conditions are
+
+.. math::
+
+   [\hat{F}_{\mathrm{sec}},\hat{S}^{\mathrm{tot}}_Z]=0,
+   \qquad
+   [\hat{G}_{Z,\mathrm{sec}},\hat{S}^{\mathrm{tot}}_Z]=0.
+
+The transverse terms are projected onto the commutants of their corresponding
+total spin components:
+
+.. math::
+
+   [\hat{G}_{X,\mathrm{sec}},\hat{S}^{\mathrm{tot}}_X]=0,
+   \qquad
+   [\hat{G}_{Y,\mathrm{sec}},\hat{S}^{\mathrm{tot}}_Y]=0.
+
+These conditions do not generally imply
+:math:`[\hat{F}_{\mathrm{sec}},\hat{G}_{Z,\mathrm{sec}}]=0`.
+The Zeeman operators include both electron and nuclear contributions.
+
+The secular validity check is controlled by ``ComputationalDetails``.
+With ``secular_field=None``, the discarded Frobenius norm is checked for
+:math:`F` and :math:`G_Z` separately. For a specified ``secular_field``
+(default ``0.3`` T), only :math:`H=F+B G_Z` is checked against its secular
+counterpart. The total-spin commutator checks apply in either case.
+
+Where Secularization Is Applied
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In the spectrum calculation, Hamiltonian secularization is selected by the
+``hamiltonian_mode`` argument:
+
+.. code-block:: python
+
+   from mars.spectra_manager import StationarySpectra
+
+   spectra = StationarySpectra(
+       freq=9.8e9,
+       sample=sample,
+       hamiltonian_mode="secular",
+   )
+
+With ``hamiltonian_mode="secular"``, the spectrum object obtains its terms from
+``sample.get_hamiltonian_terms_secular()``. With
+``hamiltonian_mode="direct"``, ``sample.get_hamiltonian_terms()`` is called.
+The equivalent enum values are ``HamComputationMethod.SECULAR`` and
+``HamComputationMethod.DIRECT`` from ``mars.spectra_manager``.
+
+The method is selected during initialization of the spectrum object. During
+``BaseResSpectra.forward()``, the selected sample method is called before
+resonance finding. The returned :math:`F` and :math:`G_Z` are passed to the
+resonance-field solver, and the returned set
+:math:`(F,G_X,G_Y,G_Z)` is passed to the subsequent intensity and population
+calculations. Secularization is thus applied when the Hamiltonian terms are
+obtained, before eigenvalues and eigenvectors are calculated.
+
+``StationarySpectra``, ``TruncTimeSpectra``, and ``CoupledTimeSpectra`` use
+``hamiltonian_mode="direct"`` by default. ``DensityTimeSpectra`` uses
+``hamiltonian_mode="secular"`` by default, consistent with its default RWA
+population model.
+
+Hamiltonian secularization and the rotating-wave approximation are separate
+parts of the calculation. The former determines the static Hamiltonian terms;
+the latter determines how the microwave interaction is treated during
+rotating-frame density-matrix evolution. Selecting ``hamiltonian_mode="direct"``
+does not by itself disable the RWA in a density-matrix populator. See
+:ref:`rotating-wave-approximation` for the rotating-frame requirements.
+
+The secular approximation is appropriate when the neglected couplings are
+small compared with the relevant Zeeman energy separations. Its accuracy
+should be checked against a direct calculation when the zero-field splitting
+parameters :math:`D` and :math:`E`, or other interactions, become comparable
+with those separations, particularly near level crossings.
 
 
 Useful Features
@@ -167,14 +246,14 @@ The following methods allow you to construct and switch between common represent
 
 .. code-block:: python
 
-   Mul = sample.get_spin_multiplet_basis()      # |S, M> basis (eigenbasis of S^2 and S_Z)
+   Mul = sample.get_spin_multiplet_basis()      # Electron |S, M> basis (S_e^2 and S_ez)
    PR  = sample.get_product_state_basis()       # Computational |m1, m2, ...> basis
 
 - :meth:`mars.spin_model.SolidSample.get_spin_multiplet_basis`
-  Constructs a unitary transformation matrix that converts from the product-state basis to the total-spin multiplet basis :math:`|S, M\rangle`.
+  Constructs a basis from the total **electron** spin operators :math:`\hat S_e^2` and :math:`\hat S_{e,Z}`. Nuclear-spin projections are not included in these two operators.
 
-  - **Output**: A matrix whose columns are eigenvectors of :math:`\hat{S}^2` and :math:`\hat{S}_z`, sorted first by :math:`S`, then by :math:`M`.
-  - **Ordering**: States are arranged in ascending order of total spin :math:`S`, and within each :math:`S` manifold, by increasing :math:`M`.
+  - **Output**: A matrix whose columns are eigenvectors of :math:`\hat{S}_e^2` and :math:`\hat{S}_{e,Z}`, sorted first by electron spin :math:`S`, then by electron projection :math:`M_e`.
+  - **Ordering**: Electron-spin states are arranged in ascending order of :math:`S`, then :math:`M_e`; nuclear degeneracies are not resolved by these operators.
   - **Example**: For two spin-½ electrons, the basis order is  
     :math:`|S=0, M=0\rangle,\ |S=1, M=-1\rangle,\ |S=1, M=0\rangle,\ |S=1, M=+1\rangle`.
 
@@ -203,16 +282,16 @@ The following methods allow you to construct and switch between common represent
        Tz = T[..., 2]               # z-component, shape: [..., orientations, 3]
 
 - :meth:`mars.spin_model.SolidSample.get_zero_field_splitting_basis`
-  Returns the eigenbasis of the zero-field splitting (ZFS) Hamiltonian, denoted as :math:`\mathbf{F}`.
+  Returns the eigenbasis of the zero-field splitting (ZFS) Hamiltonian, denoted as :math:`\hat{F}`.
 
-  The eigenvectors are ordered from the lowest to the highest eigenvalue of :math:`\mathbf{F}`.
+  The eigenvectors are ordered from the lowest to the highest eigenvalue of :math:`\hat{F}`.
 
   - **Return**: A tensor of shape ``[..., N, N]``, where :math:`N` is the spin Hilbert space dimension.
 
 - :meth:`mars.spin_model.SolidSample.get_zeeman_basis`
-  Returns the eigenbasis of the Zeeman operator :math:`\mathbf{G}_z`, corresponding to the infinite magnetic field limit along the laboratory z-axis.
+  Returns the eigenbasis of the Zeeman operator :math:`\hat{G}_Z`, corresponding to the infinite magnetic field limit along the laboratory Z-axis.
  
-  The eigenvectors are ordered from the lowest to the highest eigenvalue of  :math:`\mathbf{G}_z`.
+  The eigenvectors are ordered from the lowest to the highest eigenvalue of  :math:`\hat{G}_Z`.
   - **Return**: A tensor of shape [..., N, N], where :math:N is the spin Hilbert space dimension.
 
 Concatenating Samples

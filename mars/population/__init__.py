@@ -69,4 +69,4 @@ from .relaxation_channels.lindblad import LindbladRelaxationChannel
 from .relaxation_channels.base_couling_channels import CouplingChannelManager
 
 from .tr_utils import EvolutionPopulationSolver, EvolutionPropagatorSolver, EvolutionRWASolver
-from . import matrix_generators, tr_utils, transform
+from . import matrix_generators, tr_utils, transform, choi_transforms, check_transforms

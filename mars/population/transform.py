@@ -843,52 +843,143 @@ def transform_kronecker_rate_matrix_v2(
     )
 
 
-def transform_kronecker_dephasing_to_population_transfer(
-        dephasing_list: list[torch.Tensor],
-        probabilities: torch.Tensor,
+def _isolate_subsystem_axis(
+        coeffs: torch.Tensor,
+        dims: tp.Sequence[int],
+        s: int,
 ) -> torch.Tensor:
+    """Reshape the product→target unitary so that the s-th subsystem index is isolated.
+
+    :param coeffs: Unitary U[..., m, j] = ⟨m | j⟩, where j is the flattened (row-major)
+                   product-basis index (i₁, …, iₙ). Shape [..., K, K], K = ∏ d_k.
+    :param dims: Subsystem dimensions [d₁, …, dₙ].
+    :param s: Index of the subsystem to isolate.
+    :return: Ũ with shape [..., K, d_s, R], R = K / d_s, such that
+             Ũ[..., m, i, r] = ⟨m | i₁ … i_s=i … iₙ⟩, where r enumerates all the other
+             subsystem indices (in their original order).
     """
-    Transform pure dephasing rates from a list of tensors to an effective population-transfer matrix.
+    batch_shape = coeffs.shape[:-2]
+    nb = len(batch_shape)
+    K = coeffs.shape[-2]
+    U_full = coeffs.reshape(*batch_shape, K, *dims)
+    perm = list(range(U_full.dim()))
+    perm.pop(nb + 1 + s)
+    perm.insert(nb + 1, nb + 1 + s)
+    return U_full.permute(*perm).reshape(*batch_shape, K, dims[s], K // dims[s])
 
-    Computes: K_new = P @ kron_sum(gamma_i) @ P^T
 
-    where gamma_i are the dephasing rates from the input list and P is the probability matrix.
-    This implementation avoids creating diag(Σ gamma) explicitly by using broadcasting.
+def transform_kronecker_dephasing_to_population_transfer(
+        dephasing_list: tp.Sequence[torch.Tensor],
+        coeffs: torch.Tensor,
+) -> torch.Tensor:
+    """Transform local (per-subsystem) pure-dephasing rates of a composite system into the
+    population-transfer (kinetic) rate matrix in the total eigenbasis.
 
-    For pure dephasing defined in the initial basis by rates gamma_a, the effective population-transfer
-    rates in the new basis are
+    Each subsystem s carries its own dephasing vector γ_s, defined in that subsystem's basis
+    exactly as for a single :class:`Context`:
 
-        K_new[i, j] = Σ_a gamma_a * |⟨i|a⟩|² * |⟨j|a⟩|²
+        dρ_ij/dt = -(γ_s[i] + γ_s[j]) / 2 · ρ_ij          (inside subsystem s)
 
-    or, in matrix form,
-        K_new = probabilities @ diag(kron_sum(dephasing_rates)) @ probabilities.transpose(-1, -2)
+    which corresponds to the Lindblad jump operators L_s(i) = √γ_s[i] · |i⟩⟨i|_s
+    (see :meth:`Liouvilleator.lindblad_dephasing_from_rates`). Embedded into the composite
+    space, the jump operator is a projector onto a whole subspace, not onto a single product
+    state:
 
-    Works for basis. Automatically satisfies population-transfer structure
-    when the basis transformation is defined by probabilities.
+        L_s(i) = √γ_s[i] · (𝟙₁ ⊗ … ⊗ |i⟩⟨i|_s ⊗ … ⊗ 𝟙ₙ)
+               = √γ_s[i] · Σ_r |i, r⟩⟨i, r|,
 
-    :param dephasing_list: List of pure dephasing rate tensors [..., K]
-                  Each tensor represents dephasing rates in the initial basis
-                  The list is combined using batched_sum_kron to handle Kronecker structure
+    where r runs over the indices of all other subsystems. Under the secular approximation,
+    the population-transfer rate from eigenstate |b⟩ to eigenstate |a⟩ is
 
-    :param probabilities: Basis-transformation probabilities, defined as
-                          probabilities[i, a] = |⟨i_new | a_old⟩|².
-                          Shape [..., K, K]
+        Γ[a, b] = Σ_s Σ_i γ_s[i] · |⟨a| L_s(i)/√γ_s[i] |b⟩|²
+                = Σ_s Σ_i γ_s[i] · |Σ_r ⟨a|i, r⟩ ⟨i, r|b⟩|²
+                = Σ_s Σ_i γ_s[i] · |Σ_r Ũ_s[a, i, r] · Ũ_s*[b, i, r]|²
 
-                          Transformation probabilities from initial basis to system basis
-                          The initial basis has shape [..., K]
-                          The system basis has shape [..., K]
+    with Ũ_s the unitary U reshaped to [..., K, d_s, R] (see :func:`_isolate_subsystem_axis`).
 
-    :return: Effective population-transfer matrix in the new basis. Shape [..., K, K]
+    The result is identical to the population-population block of the Kronecker-sum
+    dephasing superoperator transformed to the eigenbasis
+    (``extract_transition_matrix_from_superoperator(transform_kronecker_superoperator(...))``),
+    for all off-diagonal elements.
+
+    This is the dephasing analogue of :func:`transform_kronecker_rate_matrix`: it is the
+    i = j ("diagonal jump") part that that function deliberately discards.
+
+    :param dephasing_list: Local dephasing vectors. dephasing_list[s] has shape [..., d_s] and
+                           is defined in the basis of subsystem s.
+    :param coeffs: Unitary from the product basis to the total eigenbasis, shape [..., K, K],
+                   U[..., m, j] = ⟨m | j⟩ (rows: eigenstates, columns: flattened product
+                   states, row-major). It is the output of
+                   ``get_product_to_target_unitary(compute_clebsch_gordan_coeffs(...))``.
+                   NOTE: the complex unitary is required, not the probabilities |U|².
+    :return: Population-transfer matrix Γ, shape [..., K, K], real.
+             Γ[..., a, b] is the rate from |b⟩ to |a⟩.
+             The diagonal contains the "self-transfer" Γ[a, a], which has no physical effect
+             on populations; the caller is expected to zero it and to set outgoing rates
+             (as ``get_transformed_thermal_rates`` does).
 
     Mathematical Formulation:
     -------------------------
-    K_new = C @ diag(gamma) @ C^T
-    K_new[i, j] = Σ_a C[i, a] * gamma[a] * C[j, a]
+        T_s[a, b, i] = Σ_r Ũ_s[a, i, r] · Ũ_s*[b, i, r]          (einsum '...air,...bir->...abi')
+        Γ[a, b]      = Σ_s Σ_i |T_s[a, b, i]|² · γ_s[i]             (einsum '...abi,...i->...ab')
+
+    Notes:
+    ------
+    - For a single subsystem (R = 1) it reduces to
+      :func:`transform_dephasing_to_population_transfer` with probabilities |U|².
+    - Memory: O(K² · max d_s) per subsystem, the same as :func:`transform_kronecker_rate_matrix`.
+    - Γ is symmetric (Γ[a, b] = Γ[b, a]) and non-negative.
     """
-    return transform_dephasing_to_population_transfer(
-        batched_sum_kron_diagonal(dephasing_list),
-        probabilities
-    )
+    dims = [int(g.shape[-1]) for g in dephasing_list]
+    result = None
+    for s, gamma_s in enumerate(dephasing_list):
+        U_s = _isolate_subsystem_axis(coeffs, dims, s)
+        T = torch.einsum("...air,...bir->...abi", U_s, U_s.conj())
+        T_sq = T.abs().square()
+        term = torch.einsum("...abi,...i->...ab", T_sq, gamma_s.to(T_sq.dtype))
+        result = term if result is None else result + term
+    return result
+
+
+def batched_sum_kron_dephasing_matrix(
+        dephasing_list: tp.Sequence[torch.Tensor],
+) -> torch.Tensor:
+    """Build the coherence-dephasing matrix of a composite system in the product basis from
+    local (per-subsystem) dephasing vectors.
+
+    For the Kronecker sum of the local Lindblad dephasing superoperators, the coherence
+    ρ_{(i₁…iₙ),(j₁…jₙ)} decays with rate
+
+        Γ[(i₁…iₙ), (j₁…jₙ)] = Σ_s [i_s ≠ j_s] · (γ_s[i_s] + γ_s[j_s]) / 2
+
+    i.e. a subsystem contributes only if its own indices differ. This equals
+
+        Γ = Σ_s 𝟏 ⊗ … ⊗ G_s ⊗ … ⊗ 𝟏,     G_s = construct_dephasing_matrix(γ_s)
+
+    where 𝟏 is the all-ones matrix (not the identity), and G_s has zero diagonal.
+    Note: construct_dephasing_matrix(batched_sum_kron_diagonal(γ_list)) is NOT the same,
+    because it adds γ_s of subsystems whose indices coincide (i_s = j_s).
+
+    :param dephasing_list: Local dephasing vectors, dephasing_list[s] has shape [..., d_s].
+    :return: Coherence-dephasing matrix in the product basis, shape [..., D, D],
+             D = ∏ d_s, row-major product ordering. Diagonal is zero.
+    """
+    dims = [int(g.shape[-1]) for g in dephasing_list]
+    batch_shape = torch.broadcast_shapes(*[g.shape[:-1] for g in dephasing_list])
+    n = len(dims)
+    D = math.prod(dims)
+    full_shape = tuple(batch_shape) + tuple(dims) + tuple(dims)
+    out = None
+    for s, gamma_s in enumerate(dephasing_list):
+        G_s = construct_dephasing_matrix(gamma_s)
+        view_shape = (
+            tuple(G_s.shape[:-2])
+            + tuple(dims[s] if k == s else 1 for k in range(n))
+            + tuple(dims[s] if k == s else 1 for k in range(n))
+        )
+        term = G_s.reshape(view_shape).expand(full_shape)
+        out = term if out is None else out + term
+    return out.reshape(*batch_shape, D, D)
 
 
 def transform_kronecker_operator(
@@ -1623,6 +1714,24 @@ def construct_dephasing_matrix(dephasing: torch.Tensor) -> torch.Tensor:
     out = 0.5 * (gamma_col + gamma_row)
     out[..., diag_indexes, diag_indexes] = 0
     return out
+
+
+def propagator_from_generator(generator: torch.Tensor, time: tp.Union[float, torch.Tensor]) -> torch.Tensor:
+    """Return the propagator exp(L t) of a time-independent generator.
+
+    :param generator: torch.Tensor
+        Generator L of dρ/dt = L ρ. Shape: [..., N², N²]
+    :param time: float or torch.Tensor
+        Time in seconds. A tensor of shape [T] gives one propagator for each time.
+
+    :return: torch.Tensor
+        Propagator. Shape: [..., N², N²] for a scalar time and [T, ..., N², N²] for a time tensor.
+    """
+    if not isinstance(time, torch.Tensor):
+        return torch.linalg.matrix_exp(generator * time)
+    time = time.to(generator.device)
+    time = time.reshape(time.shape + (1,) * generator.dim())
+    return torch.linalg.matrix_exp(generator.unsqueeze(0) * time)
 
 
 class Liouvilleator:

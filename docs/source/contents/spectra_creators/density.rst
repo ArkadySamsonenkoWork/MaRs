@@ -42,8 +42,8 @@ Two computational strategies are available for time propagation:
 
 While RWA reduces computational cost, it suffers from limitations:
 
-- The electron Zeeman interaction must be isotropic or close to isotropic: :math:`\hat{G}_x = g \mu_B \hat{S}_x`, etc.
-- The static part of the Hamiltonian :math:`\hat{F}` (all terms except Zeeman) must commute with :math:`\hat{G}_z`: :math:`[\hat{F}, \hat{G}_z] = 0`.
+- The electron Zeeman interaction must be isotropic or close to isotropic: :math:`\hat{G}_X = g \mu_B \hat{S}_X`, etc.
+- The static part of the Hamiltonian :math:`\hat{F}` (all terms except Zeeman) must commute with :math:`\hat{G}_Z`: :math:`[\hat{F}, \hat{G}_Z] = 0`.
 - The relaxation superoperator only couples matrix elements :math:`\rho_{ij}` and :math:`\rho_{kl}` when :math:`i - j = k - l`.
 
 All relaxation terms and jump operators alike are first defined in the user-specified basis (e.g., ``"zfs"``, ``"eigen"``) and then transformed into the Hamiltonian eigenbasis.

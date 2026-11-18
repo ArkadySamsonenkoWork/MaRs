@@ -1840,8 +1840,6 @@ class Context(TransformedContext):
             in the chosen eigenbasis. It is not a full secular projection: couplings inside
             degenerate or near-degenerate Bohr-frequency blocks may be missed.
 
-            Default is True.
-
         :param relaxation_coupling_channels: list of BaseRelaxationChannel or None, optional
             List of relaxation channel objects defining the system-bath coupling.
             It can be both Bloch-Redfield or Lindblad channels.
@@ -3037,9 +3035,9 @@ class KroneckerContext(TransformedContext):
         if dephasing is None:
             return None
         else:
-            coeffs = self._compute_transformation_probabilities(full_system_vectors)
+            coeffs = self._compute_transformation_unitary(full_system_vectors)
             dephasing = self._compose_vectors(dephasing)
-        return transform.transform_kronecker_dephasing_to_population_transfer(dephasing, coeffs)
+        return transform.transform_dephasing_to_population_transfer(dephasing, coeffs)
 
     def get_transformed_init_populations(self, full_system_vectors: tp.Optional[torch.Tensor], normalize: bool = False):
         """Return initial populations transformed into the field-dependent
@@ -3203,10 +3201,9 @@ class KroneckerContext(TransformedContext):
 
         _dephasing_lst = self._get_dephasing_tensor(time_dep_values)
         if _dephasing_lst is not None:
+            _dephasing_lst = self._compose_vectors(_dephasing_lst)
             dephasing_components.append(
-                transform.construct_dephasing_matrix(
-                    transform.batched_sum_kron_diagonal(_dephasing_lst)
-                )
+                transform.batched_sum_kron_dephasing_matrix(_dephasing_lst)
             )
         _thermal_rates_lst = self._get_thermal_rates_tensor(time_dep_values)
 

@@ -1,0 +1,5 @@
+{
+  "status": "supplied-unverified",
+  "reference": "last column of supplied CSV; not rerun in MATLAB",
+  "energy_model": "current Python model; supplied Example 2 MAT has a different DFrame"
+}

@@ -1,3 +1,4 @@
+import math
 import typing as tp
 import warnings
 from functools import wraps
@@ -517,6 +518,7 @@ class BaseSpectra(nn.Module, ABC):
             "threshold",
             torch.tensor(computational_details.intensity_threshold, device=device, dtype=dtype),
         )
+        self.intensity_threshold_percentile = computational_details.intensity_threshold_percentile
         self.register_buffer("tolerance", torch.tensor(1e-7, device=device, dtype=dtype))
         self.register_buffer("intensity_std", torch.tensor(1e-14, device=device, dtype=dtype))
 
@@ -535,10 +537,15 @@ class BaseSpectra(nn.Module, ABC):
             dtype=dtype,
         )
 
+        self._hamiltonian_kwargs = {
+            "secular_relative_tolerance": computational_details.secular_relative_tolerance,
+            "secular_projection_tolerance": computational_details.secular_projection_tolerance,
+            "secular_field": 0.3,
+        }
         if hamiltonian_mode == HamComputationMethod.SECULAR:
-            self._hamiltonian_getter = lambda s: s.get_hamiltonian_terms_secular()
+            self._hamiltonian_getter = lambda s, **kwargs: s.get_hamiltonian_terms_secular(**kwargs)
         else:
-            self._hamiltonian_getter = lambda s: s.get_hamiltonian_terms()
+            self._hamiltonian_getter = lambda s, **kwargs: s.get_hamiltonian_terms(**kwargs)
 
         self.intensity_calculator = self._get_intensity_calculator(
             intensity_calculator,
@@ -575,6 +582,7 @@ class BaseSpectra(nn.Module, ABC):
 
         self.to(device)
         self.to(dtype)
+
 
     def _init_cached_parameters(self) -> None:
         """Initialize cache placeholders for spin parameters."""
@@ -631,6 +639,22 @@ class BaseSpectra(nn.Module, ABC):
         safe_diff = torch.where(diff < self.tolerance * constants.BOHR / constants.PLANCK,
                                 self.tolerance * constants.BOHR / constants.PLANCK, diff)
         return safe_diff.reciprocal()
+
+    def _reference_intensity(self, abs_intensities: torch.Tensor) -> torch.Tensor:
+        """Reference intensity for the intensity threshold.
+
+        :param abs_intensities: Absolute intensities of transitions. Any shape.
+        :return: The maximum of abs_intensities. If intensity_threshold_percentile of ComputationalDetails is given,
+            the intensity_threshold_percentile-th percentile of abs_intensities over all elements
+            (the maximum is used if this percentile is zero).
+        """
+        max_intensity = abs_intensities.max()
+        if self.intensity_threshold_percentile is None:
+            return max_intensity
+        flat = abs_intensities.flatten()
+        k = max(1, int(math.ceil(self.intensity_threshold_percentile / 100.0 * flat.numel())))
+        reference = torch.kthvalue(flat, k).values
+        return torch.where(reference > 0, reference, max_intensity)
 
     def _mask_components(self, intensities_mask: torch.Tensor, *extras) -> list:
         """Apply intensity‑based masking to auxiliary parameters using ParamSpec."""
@@ -818,9 +842,17 @@ class BaseResSpectra(BaseSpectra):
             - **res_field_split_max_iterations** (`int`, default=20):
               Maximum depth of recursive field-sector splitting.
 
+            - **res_field_chunk_size** (`int`, `str` or None, default=None):
+              Number of Hamiltonians processed together during res-field procedures.
+              None: all at once; "auto": chosen from the spin system dimension; int: the given number.
+
             - **intensity_threshold** (`float`, default=1e-2):
               Minimum relative intensity (as a fraction of the strongest transition) required for
               transition to be included.
+
+            - **intensity_threshold_percentile** (`float` or None, default=None):
+              If it is given, intensity_threshold is taken as a fraction of this percentile of the absolute
+              intensities instead of the strongest transition.
 
             -for other parameters specifications, read
              docs of :class:'mars.spectra_manager.utils.ComputationalDetails'
@@ -914,10 +946,15 @@ class BaseResSpectra(BaseSpectra):
             computational_details=computational_details,
             device=device, dtype=dtype)
 
+        self._hamiltonian_kwargs = {
+            "secular_relative_tolerance": computational_details.secular_relative_tolerance,
+            "secular_projection_tolerance": computational_details.secular_projection_tolerance,
+            "secular_field": 1.0,
+        }
         if hamiltonian_mode == HamComputationMethod.SECULAR:
-            self._hamiltonian_getter = lambda s: s.get_hamiltonian_terms_secular()
+            self._hamiltonian_getter = lambda s, **kwargs: s.get_hamiltonian_terms_secular(**kwargs)
         else:
-            self._hamiltonian_getter = lambda s: s.get_hamiltonian_terms()
+            self._hamiltonian_getter = lambda s, **kwargs: s.get_hamiltonian_terms(**kwargs)
 
         self.intensity_calculator = self._get_intensity_calculator(intensity_calculator,
                                                                    temperature, populator, context,
@@ -1004,6 +1041,7 @@ class BaseResSpectra(BaseSpectra):
             batch_dims=self.batch_dims,
             splitting_max_iterations=computational_details.res_field_split_max_iterations,
             r_tol=computational_details.res_field_r_tol,
+            chunk_size=computational_details.res_field_chunk_size,
             output_full_eigenvector=output_eigenvector,
             device=device,
             dtype=dtype
@@ -1229,8 +1267,9 @@ class BaseResSpectra(BaseSpectra):
         Generate a boolean mask to filter out transitions with intensities below a threshold.
 
         The mask is created by comparing the absolute intensities, normalized by the
-        global maximum absolute intensity, against `self.threshold`. It evaluates to
-        True if any value along all dimensions (except the last one) exceeds the threshold.
+        reference intensity, against `self.threshold`. The reference intensity is the global maximum
+        absolute intensity, or its percentile if intensity_threshold_percentile of ComputationalDetails is given.
+        It evaluates to True if any value along all dimensions (except the last one) exceeds the threshold.
 
         :param intensities: Tensor of transition intensities.
         :param res_manifold: Resonance fields / frequencies (passed for signature consistency).
@@ -1242,7 +1281,9 @@ class BaseResSpectra(BaseSpectra):
                  intensity to be kept.
         """
         lines_dimension = tuple(range(intensities.ndim - 1))
-        intensities_mask = (intensities.abs() / intensities.abs().max() > self.threshold).any(dim=lines_dimension)
+        abs_intensities = intensities.abs()
+        reference = self._reference_intensity(abs_intensities)
+        intensities_mask = (abs_intensities / reference > self.threshold).any(dim=lines_dimension)
         return intensities_mask
 
     def forward(self,
@@ -1265,7 +1306,7 @@ class BaseResSpectra(BaseSpectra):
         B_low = B_low.unsqueeze(-1).repeat(*([1] * B_low.ndim), *self.mesh_size)
         B_high = B_high.unsqueeze(-1).repeat(*([1] * B_high.ndim), *self.mesh_size)
 
-        F, Gx, Gy, Gz = self._hamiltonian_getter(sample)
+        F, Gx, Gy, Gz = self._hamiltonian_getter(sample, **self._hamiltonian_kwargs)
         (vector_down, vector_up), (lvl_down, lvl_up), res_fields,\
             resonance_energies, full_system_vectors = self._resfield_method(sample, B_low, B_high, F, Gz)
 
@@ -1589,9 +1630,17 @@ class StationarySpectra(BaseResSpectra):
             - **res_field_split_max_iterations** (`int`, default=20):
               Maximum depth of recursive field-sector splitting.
 
+            - **res_field_chunk_size** (`int`, `str` or None, default=None):
+              Number of Hamiltonians processed together during res-field procedures.
+              None: all at once; "auto": chosen from the spin system dimension; int: the given number.
+
             - **intensity_threshold** (`float`, default=1e-2):
               Minimum relative intensity (as a fraction of the strongest transition) required for
               transition to be included.
+
+            - **intensity_threshold_percentile** (`float` or None, default=None):
+              If it is given, intensity_threshold is taken as a fraction of this percentile of the absolute
+              intensities instead of the strongest transition.
 
             -for other parameters meaning read
              docs of :class:'mars.spectra_manager.utils.ComputationalDetails'
@@ -1865,9 +1914,17 @@ class TruncTimeSpectra(BaseResSpectra):
             - **res_field_split_max_iterations** (`int`, default=20):
               Maximum depth of recursive field-sector splitting.
 
+            - **res_field_chunk_size** (`int`, `str` or None, default=None):
+              Number of Hamiltonians processed together during res-field procedures.
+              None: all at once; "auto": chosen from the spin system dimension; int: the given number.
+
             - **intensity_threshold** (`float`, default=1e-2):
               Minimum relative intensity (as a fraction of the strongest transition) required for
               transition to be included.
+
+            - **intensity_threshold_percentile** (`float` or None, default=None):
+              If it is given, intensity_threshold is taken as a fraction of this percentile of the absolute
+              intensities instead of the strongest transition.
 
             -for other parameters meaning read
              docs of :class:'mars.spectra_manager.utils.ComputationalDetails'
@@ -2079,10 +2136,12 @@ class TruncTimeSpectra(BaseResSpectra):
         Generate a boolean mask to filter out transitions with intensities below a threshold.
 
         The mask evaluates to True if *either* of the following conditions is met:
-        1. The absolute intensity multiplied by polarization, normalized by its global
-           maximum, exceeds `self.threshold`.
-        2. The absolute intensity alone, normalized by its global maximum, exceeds
+        1. The absolute intensity multiplied by polarization, normalized by its reference
+           intensity, exceeds `self.threshold`.
+        2. The absolute intensity alone, normalized by its reference intensity, exceeds
            `self.threshold`.
+        The reference intensity is the global maximum, or the percentile if intensity_threshold_percentile
+        of ComputationalDetails is given.
 
         :param intensities: Tensor of transition intensities.
         :param res_manifold: Resonance fields / frequencies (passed for signature consistency).
@@ -2105,11 +2164,11 @@ class TruncTimeSpectra(BaseResSpectra):
         abs_pol = polarization.abs()
 
         abs_int_with_pop = abs_int * abs_pol
-        max_with_pop = abs_int_with_pop.max()
+        max_with_pop = self._reference_intensity(abs_int_with_pop)
         thresh_with_pop = self.threshold * max_with_pop
         mask_1 = abs_int_with_pop > thresh_with_pop
 
-        max_raw = abs_int.max()
+        max_raw = self._reference_intensity(abs_int)
         thresh_raw = self.threshold * max_raw
         mask_2 = abs_int > thresh_raw
 
@@ -2234,9 +2293,17 @@ class DensityTimeSpectra(CoupledTimeSpectra):
             - **res_field_split_max_iterations** (`int`, default=20):
               Maximum depth of recursive field-sector splitting.
 
+            - **res_field_chunk_size** (`int`, `str` or None, default=None):
+              Number of Hamiltonians processed together during res-field procedures.
+              None: all at once; "auto": chosen from the spin system dimension; int: the given number.
+
             - **intensity_threshold** (`float`, default=1e-2):
               Minimum relative intensity (as a fraction of the strongest transition) required for
               transition to be included.
+
+            - **intensity_threshold_percentile** (`float` or None, default=None):
+              If it is given, intensity_threshold is taken as a fraction of this percentile of the absolute
+              intensities instead of the strongest transition.
 
             -for other parameters meaning read
              docs of :class:'mars.spectra_manager.utils.ComputationalDetails'
@@ -2292,7 +2359,7 @@ class DensityTimeSpectra(CoupledTimeSpectra):
                                 Gz: torch.Tensor, full_system_vectors: tp.Optional[torch.Tensor],
                                 time: torch.Tensor, *extras, **kwargs):
         lvl_down, lvl_up, resonance_energies, vector_down, vectors_up, *extras = extras
-        Sz = sample.base_spin_system.get_electron_z_operator()
+        Sz = sample.base_spin_system.get_total_z_operator()
 
         if resonance_energies.dtype == torch.float32:
             warnings.warn(
@@ -2440,6 +2507,10 @@ class StationaryFreqSpectra(StationarySpectra):
             - **intensity_threshold** (`float`, default=1e-2):
               Minimum relative intensity (as a fraction of the strongest transition) required for
               transition to be included.
+
+            - **intensity_threshold_percentile** (`float` or None, default=None):
+              If it is given, intensity_threshold is taken as a fraction of this percentile of the absolute
+              intensities instead of the strongest transition.
 
             -for other parameters specifications, read
              docs of :class:'mars.spectra_manager.utils.ComputationalDetails'

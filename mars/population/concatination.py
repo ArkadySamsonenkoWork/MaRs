@@ -163,16 +163,14 @@ def _group_components_by_position(
 
     if max_none_basis:
         warnings.warn(
-            "Concatenation with context with the default (eigen or None) basis"
-            "may lead to unexpected behavior. \n"
-            "In this configuration, relaxation parameters for subsystems with "
-            "basis=None` are interpreted directly in the final (field-dependent eigen) basis"
-            "they will NOT be transformed from any other representation.  \n"
-            "This is only physically meaningful if: \n"
-            "(1) there is no coupling between subsystems, OR  \n"
-            "(2) you intentionally define relaxation rates in the eigenbasis of the full Hamiltonian. \n"
-            "To avoid ambiguity, consider explicitly specifying a consistent basis"
-            "(e.g., 'zfs', 'xyz', or 'multiplet') for all subsystems."
+            "Some of the concatenated contexts use the default basis (basis=None): their relaxation "
+            "parameters and initial states refer to the eigenstates sorted by energy. After concatenation, "
+            "they are applied to the eigenstates of the composite Hamiltonian, which are sorted by energy over "
+            "all subsystems together. If the energy levels of different subsystems interleave (e.g., at the "
+            "resonance field), a parameter defined for a level of one subsystem is applied to a level of another "
+            "subsystem. To avoid this, specify an explicit basis (e.g., 'zfs', 'xyz' or 'multiplet') "
+            "for every subsystem.",
+            UserWarning,
         )
 
     padded_component_lists = []
@@ -268,6 +266,17 @@ def concat_contexts(contexts: tp.Sequence[tp.Union[Context, SummedContext]],
     if mode != "direct_sum":
         raise NotImplementedError("Current version of 'concat_contexts'"
                                   "supports only direct_sum concatenation")
+
+    warnings.warn(
+        "Contexts are combined by direct sum (block-diagonal composition). The subsystems evolve "
+        "independently until transitions between them are added, e.g., "
+        "mars.concat((context_1, context_2)) + context_exchange. Transitions between subsystems with "
+        "different Hamiltonians are treated as incoherent population transfer; spectral (chemical) exchange "
+        "is not described. This is valid only in the slow-exchange limit, when the transition rates between "
+        "subsystems are much smaller than the differences between their resonance frequencies.",
+        UserWarning,
+    )
+
     groups, device, dtype = organize_contexts_for_concatenation(contexts)
     time_dimension = groups[0][0].time_dimension
     results = [_concat_homogeneous_contexts(group, device, dtype, time_dimension) for group in groups]
@@ -326,16 +335,14 @@ def _concat_sametype_contexts(contexts: tp.Sequence[Context]) -> tp.Union[Contex
 
     if not all_non_none:
         warnings.warn(
-            "Concatenation with context with the default (eigen or None) basis"
-            "may lead to unexpected behavior. \n"
-            "In this configuration, relaxation parameters for subsystems with "
-            "basis=None` are interpreted directly in the final (field-dependent eigen) basis"
-            "they will NOT be transformed from any other representation.  \n"
-            "This is only physically meaningful if: \n"
-            "(1) there is no coupling between subsystems, OR  \n"
-            "(2) you intentionally define relaxation rates in the eigenbasis of the full Hamiltonian. \n"
-            "To avoid ambiguity, consider explicitly specifying a consistent basis"
-            "(e.g., 'zfs', 'xyz', or 'multiplet') for all subsystems."
+            "Some of the concatenated contexts use the default basis (basis=None): their relaxation "
+            "parameters and initial states refer to the eigenstates sorted by energy. After concatenation, "
+            "they are applied to the eigenstates of the composite Hamiltonian, which are sorted by energy over "
+            "all subsystems together. If the energy levels of different subsystems interleave (e.g., at the "
+            "resonance field), a parameter defined for a level of one subsystem is applied to a level of another "
+            "subsystem. To avoid this, specify an explicit basis (e.g., 'zfs', 'xyz' or 'multiplet') "
+            "for every subsystem.",
+            UserWarning,
         )
 
     if all_none or all_non_none:
@@ -535,6 +542,16 @@ def _concat_homogeneous_contexts(
         superops = [getattr(ctx, attr_name) for ctx in contexts]
         if all(sop is None for sop in superops):
             return None
+
+        warnings.warn(
+            "Contexts with user-defined relaxation superoperators (relaxation_superop) are concatenated. "
+            "Each superoperator is placed in the Liouville subspace of its own subsystem, so it does not act on "
+            "coherences between states of different subsystems: these coherences are not damped by it. "
+            "If they should decay, specify the relaxation via rates (decay_rates, thermal_rates, driven_rates, "
+            "dephasing) or relaxation channels (Lindblad, Bloch-Redfield), "
+            "or add the corresponding elements to the composite superoperator explicitly.",
+            UserWarning,
+        )
 
         batch_shapes = [sop.shape[:-2] for sop in superops if sop is not None]
         common_batch_shape = torch.Size(torch.broadcast_shapes(*batch_shapes)) if batch_shapes else torch.Size()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mars-epr
-Version: 0.0.6.post4
+Version: 0.0.6.post5
 Summary: A library for computation CW and time resolved spectra
 Author-email: Arkady Samsonenko <a.samsonenko@tomo.nsc.ru>, Ivan Kurganskii <kurgansky@tomo.nsc.ru>
 License-Expression: MIT
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: numpy>=1.19.4
 Requires-Dist: torch>=2.2
 Requires-Dist: scipy>=1.15
@@ -26,6 +27,7 @@ Requires-Dist: PyWavelets
 Requires-Dist: matplotlib
 Requires-Dist: safetensors
 Requires-Dist: seaborn
+Requires-Dist: opt_einsum
 Provides-Extra: opt
 Requires-Dist: optuna>=4.3; extra == "opt"
 Requires-Dist: nevergrad>=1.0.12; extra == "opt"
@@ -39,6 +41,7 @@ Provides-Extra: plot
 Requires-Dist: seaborn; extra == "plot"
 Requires-Dist: plotly; extra == "plot"
 Requires-Dist: matplotlib; extra == "plot"
+Dynamic: license-file
 
 # MaRs
 

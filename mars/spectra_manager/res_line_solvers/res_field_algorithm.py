@@ -60,10 +60,63 @@ class BaseEigenSolver(nn.Module, ABC):
         pass
 
 class EighEigenSolver(BaseEigenSolver):
-    """Default eigen solver based on torch.linalg.eigh."""
+    """Default eigen solver based on torch.linalg.eigh.
+
+    Inside a degenerate (or nearly degenerate) eigenspace the basis is fixed canonically: each degenerate
+    block of eigenvectors is rotated to the eigenbasis of a fixed generic Hermitian matrix projected onto
+    this block. Hence the same eigenspace has the same basis at different magnetic fields, which is required
+    for the interpolation of eigenvectors between the ends of a field interval.
+    """
+    def __init__(self, degeneracy_rel_tol: float = 1e-9):
+        """
+        :param degeneracy_rel_tol: Relative tolerance of degeneracy. Two neighbouring eigenvalues are treated
+            as degenerate if their difference is smaller than degeneracy_rel_tol * max(|E|).
+        """
+        super().__init__()
+        self.degeneracy_rel_tol = degeneracy_rel_tol
+        self._aux_cache = {}
+
+    def _aux_operator(self, K: int, dtype: torch.dtype, device: torch.device) -> torch.Tensor:
+        """Fixed generic Hermitian matrix used to define the basis inside degenerate eigenspaces.
+
+        :param K: The dimension of the spin system
+        :param dtype: dtype of eigenvectors
+        :param device: device of eigenvectors
+        :return: Hermitian matrix with the shape [K, K]. It is the same for every call with the same arguments.
+        """
+        key = (K, dtype, device)
+        if key not in self._aux_cache:
+            gen = torch.Generator().manual_seed(12345)
+            X = torch.randn(K, K, generator=gen, dtype=torch.float64)
+            if dtype.is_complex:
+                X = torch.complex(X, torch.randn(K, K, generator=gen, dtype=torch.float64))
+            X = 0.5 * (X + X.conj().T)
+            self._aux_cache[key] = X.to(dtype=dtype, device=device)
+        return self._aux_cache[key]
+
     def forward(self, Hamiltonian: torch.Tensor):
+        """Compute eigenvalues and eigenvectors of the Hamiltonian.
+
+        :param Hamiltonian: Hamiltonian matrices with the shape [..., K, K]
+        :return: Tuple of (eigenvalues, eigenvectors).
+            eigenvalues in the ascending order with the shape [..., K],
+            eigenvectors with the shape [..., K, K], the last dimension enumerates the levels.
+            Degenerate blocks of eigenvectors are rotated to the canonical basis.
+        """
         vals, vecs = torch.linalg.eigh(Hamiltonian)
-        return vals, vecs
+        scale = vals.abs().amax(dim=-1, keepdim=True).clamp_min(1.0)
+        is_deg = (vals[..., 1:] - vals[..., :-1]) < self.degeneracy_rel_tol * scale
+        if not bool(is_deg.any()):
+            return vals, vecs
+        group = torch.cumsum(
+            torch.cat([torch.zeros_like(is_deg[..., :1]), ~is_deg], dim=-1).to(vals.dtype), dim=-1)
+        same_block = group.unsqueeze(-1) == group.unsqueeze(-2)
+        X = self._aux_operator(vals.shape[-1], vecs.dtype, vecs.device)
+        A = vecs.conj().transpose(-1, -2) @ X @ vecs
+        A = torch.where(same_block, A, torch.zeros_like(A))
+        A = A + torch.diag_embed((group * 10.0 * (X.abs().sum() + 1.0)).to(A.dtype))
+        _, W = torch.linalg.eigh(A)
+        return vals, vecs @ W
 
     def compute_eigenvalues(self, F: torch.Tensor, G: torch.Tensor, B: torch.Tensor):
         return torch.linalg.eigvalsh(F + G * B)
@@ -231,10 +284,23 @@ class BaseResonanceIntervalSolver(nn.Module, ABC):
         gap = eig_values[..., 1:] - eig_values[..., :-1]
         deg = gap < deg_tol
         if deg.any():
-            warnings.warn("The degenerated or near-degenerated levels were found."
-                          "Convergence may be incorrect."
-                          "Increase the spatial grid and decrease the res_field_r_tol if necessary.",
-                          UserWarning)
+            warnings.warn(
+                "Near-degenerate energy levels were detected in this spin system. "
+                "Resonance-field results may require additional convergence checks.\n"
+                "Increase the orientation mesh density; for spherical powder integration, "
+                "consider increasing opt.integration_level. Tighten the resonance-field "
+                "tolerance by decreasing opt.res_field_r_tol (a larger value is less "
+                "accurate), and increase opt.res_field_split_max_iterations if necessary.\n"
+                "For time-resolved EPR, the rotating-wave approximation (RWA) may be "
+                "unreliable because secularization can become invalid near degenerate "
+                "levels. Prefer the kinetic-rate approach (CoupledTimeSpectra) or the "
+                "direct propagator approach (DensityTimeSpectra with "
+                "populator='propagator' and hamiltonian_mode='direct'). Alternatively, "
+                "compare CW spectra with and without secularization "
+                "(hamiltonian_mode='direct' versus 'secular').",
+                UserWarning,
+                stacklevel=2,
+            )
             a = deriv[..., :-1]
             d = deriv[..., 1:]
             b = torch.diagonal(G_full, offset=1, dim1=-2, dim2=-1)  # <i|G|i+1>
@@ -253,7 +319,7 @@ class BaseResonanceIntervalSolver(nn.Module, ABC):
                       eig_vectors_high: torch.Tensor,
                       B_low: torch.Tensor, B_high: torch.Tensor,
                       G: torch.Tensor,
-                      row_indexes: torch.Tensor, degeneracy_tol: float = 1e-10):
+                      row_indexes: torch.Tensor):
         """Compute the error after division of the interval.
 
         :param eig_values_low: energies in the ascending order at B_low magnetic field.
@@ -270,26 +336,19 @@ class BaseResonanceIntervalSolver(nn.Module, ABC):
         :param B_high: The higher magnetic field The shape is [..., 1, 1]
         :param row_indexes: Indexes where Gz must be sliced. The long-indexes tensor. The shape == reduced number of  indexes
         :param G: The magnetic field dependant part of the Hamiltonian: F + G * B. The shape is [..., K, K]
-        :return: epsilon is epsilon mistake. The tensor with the shape [...]
+        :return: epsilon is epsilon mistake. The tensor with the shape [..., 1].
+        It is the doubled deviation of the energies at B_mid from the cubic Hermite interpolation
+        between B_low and B_high, maximal over the levels.
         """
         G_idx = G.index_select(0, row_indexes)
         derivatives_low = self._compute_derivative(eig_vectors_low, eig_values_low, G_idx)
         derivatives_high = self._compute_derivative(eig_vectors_high, eig_values_high, G_idx)
 
+        delta_B = (B_high - B_low).squeeze(-1)
         eig_values_estimation = 0.5 * (eig_values_high + eig_values_low) +\
-                                      (B_high - B_low) / 8 * (derivatives_high - derivatives_low)
-        epsilon_deriv = 2 * (eig_values_estimation - eig_values_mid).abs()
-
-
-        plain_err = (eig_values_high - eig_values_low).abs()
-        gaps_low = torch.diff(eig_values_low, dim=-1).abs()
-        gaps_high = torch.diff(eig_values_high, dim=-1).abs()
-        min_gap = torch.minimum(gaps_low.min(dim=-1, keepdim=True)[0],
-                                gaps_high.min(dim=-1, keepdim=True)[0])
-        is_degenerate = (min_gap < degeneracy_tol)
-
-        epsilon = torch.where(is_degenerate, plain_err, epsilon_deriv).max(dim=-1)[0]
-
+            delta_B / 8 * (derivatives_low - derivatives_high)
+        epsilon = 2 * (eig_values_estimation - eig_values_mid).abs()
+        epsilon = epsilon.max(dim=-1, keepdim=True)[0]
         return epsilon, (derivatives_low, derivatives_high)
 
     @abstractmethod
@@ -676,9 +735,11 @@ class BaseResonanceIntervalSolver(nn.Module, ABC):
             raw_indexes
         )]
 
+        max_iterations = int(self.max_iterations)
         while current_batches:
+            tol = a_tol if iterations < max_iterations else torch.full_like(a_tol, float("inf"))
             iteration_results = [
-                self._iterate_batch(batch, F, Gz, resonance_frequency, a_tol, baseline_sign, derivative_max)
+                self._iterate_batch(batch, F, Gz, resonance_frequency, tol, baseline_sign, derivative_max)
                 for batch in current_batches]
             current_batches = [current_batch for batches in iteration_results for current_batch in batches[0]]
             final_batches.extend([current_batch for batches in iteration_results for current_batch in batches[1]])
@@ -884,8 +945,8 @@ class BaseResonanceLocator(nn.Module):
 
         :return:
         """
-        weights_low = step_B.unsqueeze(-1)
-        weights_high = (1 - step_B).unsqueeze(-1)
+        weights_low = (1 - step_B).unsqueeze(-1)
+        weights_high = step_B.unsqueeze(-1)
         return weights_low, weights_high
 
     def _compute_resonance_fields(self, diff_eig_low: torch.Tensor,
@@ -918,13 +979,12 @@ class BaseResonanceLocator(nn.Module):
     def _interpolate_vectors(self, vec_low: torch.Tensor, vec_high: torch.Tensor,
                              weights_low: torch.Tensor, weights_high: torch.Tensor, eps=1e-12
                              ):
-        """Differences / improvements:
+        """
+	  Interpolate two vectros from the two borders of the interval to the some point in the interval
 
         - Avoids computing a division for entries where the inner product is (near) zero by using a boolean mask
           and doing the division only for true entries (reduces work and avoids creating large temporaries).
         - Uses vec.abs().square().sum(...).sqrt() for norm which is usually cheaper than conj()*sum or linalg.norm.
-        - Minimizes number of intermediate tensors.
-        - Keeps the same numerical handling for tiny magnitudes (controlled by eps).
         """
         inner = torch.sum(vec_low.conj() * vec_high, dim=-1, keepdim=True)
         abs_inner = inner.abs()
@@ -936,7 +996,7 @@ class BaseResonanceLocator(nn.Module):
 
         vec_high_aligned = vec_high * phase.conj()
         vec = vec_low * weights_low + vec_high_aligned * weights_high
-        return vec
+        return vec / vec.abs().square().sum(dim=-1, keepdim=True).sqrt().clamp_min(eps)
 
     def _split_mask(self, mask_res: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
@@ -1254,22 +1314,30 @@ class BaseResonanceLocator(nn.Module):
         original_shape = mask_trans.shape
         outputs = []
         #for mask_triu_new, row_indexes_new, pattern_local_indices, pattern_true_indices, step_B in resonance_field_data[2:]:
+        scaled_deriv_low = delta_B * deriv_low
+        scaled_deriv_high = delta_B * deriv_high
         for mask_triu_new, row_indexes_new, pattern_local_indices, pattern_true_indices, step_B in resonance_field_data:
-            resonance_energies = self._compute_resonance_energies(step_B,
-                                                                  eig_values_low, eig_values_high,
-                                                                  delta_B * deriv_low, delta_B * deriv_high
-                                                                  )
-            Bres = B_low.squeeze(dim=-1) + step_B * delta_B.squeeze(dim=-1)
-
             row_idx = pattern_local_indices.view(-1, 1)
             col_idx = pattern_true_indices.view(1, -1)
             idx = [slice(None)] * len(original_shape)
             idx[0] = row_idx
             idx[-1] = col_idx
-
-            resonance_energies_new = resonance_energies[tuple(idx)]
             step_B_new = step_B[tuple(idx)]
-            Bres = Bres[tuple(idx)]
+
+            if len(original_shape) == 2:
+                rows = pattern_local_indices
+                resonance_energies_new = self._compute_resonance_energies(
+                    step_B_new,
+                    eig_values_low.index_select(0, rows), eig_values_high.index_select(0, rows),
+                    scaled_deriv_low.index_select(0, rows), scaled_deriv_high.index_select(0, rows))
+                Bres = B_low.index_select(0, rows).squeeze(dim=-1) +\
+                    step_B_new * delta_B.index_select(0, rows).squeeze(dim=-1)
+            else:
+                resonance_energies = self._compute_resonance_energies(
+                    step_B, eig_values_low, eig_values_high, scaled_deriv_low, scaled_deriv_high)
+                Bres = B_low.squeeze(dim=-1) + step_B * delta_B.squeeze(dim=-1)
+                resonance_energies_new = resonance_energies[tuple(idx)]
+                Bres = Bres[tuple(idx)]
 
 
             eig_vectors_low_new = eig_vectors_low[pattern_local_indices]
@@ -1538,6 +1606,7 @@ class ResField(nn.Module):
                  eigen_finder: BaseEigenSolver = EighEigenSolver(), output_full_eigenvector: bool = False,
                  r_tol: float = 1e-5,
                  splitting_max_iterations: int = 20,
+                 chunk_size: tp.Optional[tp.Union[int, str]] = None,
                  device: torch.device = torch.device("cpu"),
                  dtype: torch.dtype = torch.float32):
         """Initialize the ResField resonance solver for spin systems.
@@ -1565,6 +1634,16 @@ class ResField(nn.Module):
 
         :param splitting_max_iterations: maximum iterations of sectors splitting
         :type splitting_max_iterations: int
+
+        :param chunk_size: Number of Hamiltonians (orientations and batch elements) processed together by the
+            interval solver and the locator. The intermediate interval data (eigenvalues, eigenvectors and
+            derivatives at the ends of every interval) are stored only for one chunk, so the chunk size bounds the
+            memory, while the final resonance data are identical for any chunk size.
+
+            - None: all Hamiltonians are processed together (one chunk).
+            - "auto": max(64, 65536 // spin_system_dim ** 2) Hamiltonians per chunk.
+            - int: the given number of Hamiltonians per chunk.
+        :type chunk_size: int, str or None, optional
 
         :param device: Device on which all internal tensors and computations are allocated (e.g., CPU or CUDA).
                        Default is CPU.
@@ -1594,6 +1673,7 @@ class ResField(nn.Module):
         self.batch_dims = batch_dims
         self.device = device
         self.eigen_finder = eigen_finder
+        self.chunk_size = self._resolve_chunk_size(chunk_size, spin_system_dim)
 
     def _solver_fabric(self, system, F: torch.Tensor, resonance_frequency: torch.Tensor)\
             -> tuple[BaseResonanceIntervalSolver, BaseResonanceLocator, tuple[tp.Any]]:
@@ -1721,6 +1801,97 @@ class ResField(nn.Module):
                 occurences.append((bi, row_indexes, col_idx))
         return cached_batches, occurences
 
+    @staticmethod
+    def _resolve_chunk_size(chunk_size: tp.Optional[tp.Union[int, str]], spin_system_dim: int) -> tp.Optional[int]:
+        """Convert the chunk_size argument to the number of Hamiltonians per chunk.
+
+        :param chunk_size: None, "auto" or a positive integer
+        :param spin_system_dim: The dimension of the spin system
+        :return: None (all Hamiltonians in one chunk) or the number of Hamiltonians per chunk
+        """
+        if chunk_size is None:
+            return None
+        if isinstance(chunk_size, str):
+            if chunk_size.lower() != "auto":
+                raise ValueError(f"chunk_size must be None, 'auto' or a positive integer, got {chunk_size!r}")
+            return max(64, 65536 // int(spin_system_dim) ** 2)
+        chunk_size = int(chunk_size)
+        if chunk_size < 1:
+            raise ValueError(f"chunk_size must be a positive integer, got {chunk_size}")
+        return chunk_size
+
+    @staticmethod
+    def _slice_rows(tensor: tp.Optional[torch.Tensor], start: int, stop: int, num_rows: int):
+        """Select the rows start:stop of a per-row tensor.
+
+        :param tensor: Tensor whose first dimension enumerates the rows, a tensor with one row, or None
+        :param start: First row
+        :param stop: Last row (exclusive)
+        :param num_rows: Total number of rows
+        :return: The selected rows. Tensors with one row and None are returned unchanged.
+        """
+        if tensor is None or tensor.dim() == 0 or tensor.shape[0] != num_rows:
+            return tensor
+        return tensor[start:stop]
+
+    @staticmethod
+    def _shift_row_indexes(batch: tuple, shift: int) -> tuple:
+        """Convert the row indexes of a locator batch from the chunk numbering to the global numbering.
+
+        :param batch: Locator output: ((vectors_u, vectors_v), (lvl_down, lvl_up), Bres, mask_triu,
+            row_indexes, resonance_energies, vector_full_system)
+        :param shift: Index of the first row of the chunk
+        :return: The batch with row_indexes + shift
+        """
+        if shift == 0:
+            return batch
+        return (*batch[:4], batch[4] + shift, *batch[5:])
+
+    def _order_resonances_by_field(self, res_fields: torch.Tensor, vectors_u: torch.Tensor, vectors_v: torch.Tensor,
+                                   resonance_energies: torch.Tensor, full_eigen_vectors: tp.Optional[torch.Tensor],
+                                   valid_lvl_down: torch.Tensor, valid_lvl_up: torch.Tensor):
+        """Order the resonances of the same pair of levels by the resonance field.
+
+        A pair of levels can have several resonances in the field range. They occupy several columns with the same
+        (lvl_down, lvl_up). In every row (orientation) these columns are sorted by the resonance field in the
+        ascending order, absent resonances (NaN) are placed last. Hence the k-th column of the pair contains the
+        k-th resonance for all orientations, which is required for the integration over the mesh.
+
+        :param res_fields: Resonance fields. The shape is [rows, M], where M is the number of columns
+        :param vectors_u: Eigen vectors of the low levels. The shape is [rows, M, K]
+        :param vectors_v: Eigen vectors of the high levels. The shape is [rows, M, K]
+        :param resonance_energies: Energies of levels at the resonance fields. The shape is [rows, M, K]
+        :param full_eigen_vectors: Eigen vectors of all levels with the shape [rows, M, K, K] or None
+        :param valid_lvl_down: Indexes of the low levels of the columns. The shape is [M]
+        :param valid_lvl_up: Indexes of the high levels of the columns. The shape is [M]
+        :return: res_fields, vectors_u, vectors_v, resonance_energies, full_eigen_vectors with the reordered columns
+        """
+        num_columns = res_fields.shape[-1]
+        if num_columns < 2:
+            return res_fields, vectors_u, vectors_v, resonance_energies, full_eigen_vectors
+        pair_id = valid_lvl_down * self.spin_system_dim + valid_lvl_up
+        _, inverse, counts = torch.unique(pair_id, return_inverse=True, return_counts=True)
+        repeated = torch.nonzero(counts > 1).flatten()
+        if repeated.numel() == 0:
+            return res_fields, vectors_u, vectors_v, resonance_energies, full_eigen_vectors
+
+        order = torch.arange(num_columns, device=res_fields.device).expand(res_fields.shape[0], -1).clone()
+        for group in repeated.tolist():
+            cols = torch.nonzero(inverse == group).flatten()
+            fields = res_fields.index_select(1, cols)
+            key = torch.where(torch.isnan(fields), torch.full_like(fields, float("inf")), fields)
+            order[:, cols] = cols[torch.argsort(key, dim=-1)]
+
+        K = self.spin_system_dim
+        res_fields = torch.gather(res_fields, 1, order)
+        index_vec = order.unsqueeze(-1).expand(-1, -1, K)
+        vectors_u = torch.gather(vectors_u, 1, index_vec)
+        vectors_v = torch.gather(vectors_v, 1, index_vec)
+        resonance_energies = torch.gather(resonance_energies, 1, index_vec)
+        if full_eigen_vectors is not None:
+            full_eigen_vectors = torch.gather(full_eigen_vectors, 1, order[..., None, None].expand(-1, -1, K, K))
+        return res_fields, vectors_u, vectors_v, resonance_energies, full_eigen_vectors
+
     def _combine_resonance_data(self,
                                 dtype: torch.dtype,
                                 device: torch.device,
@@ -1801,6 +1972,9 @@ class ResField(nn.Module):
                 if self.output_full_eigenvector:
                     full_eigen_vectors[row_indexes[:, None], col_base_idx, :, :] = eigen_vectors_batched
 
+        res_fields, vectors_u, vectors_v, resonance_energies, full_eigen_vectors = self._order_resonances_by_field(
+            res_fields, vectors_u, vectors_v, resonance_energies, full_eigen_vectors, valid_lvl_down, valid_lvl_up)
+
         vectors_u = vectors_u.view(*config_dims, max_columns, self.spin_system_dim)
         vectors_v = vectors_v.view(*config_dims, max_columns, self.spin_system_dim)
         resonance_energies = resonance_energies.view(*config_dims, max_columns, self.spin_system_dim)
@@ -1840,11 +2014,25 @@ class ResField(nn.Module):
 
         interval_solver, locator, args = self._solver_fabric(sample, F, resonance_frequency)
 
-        batches = interval_solver(
-            F.flatten(0, -3) / resonance_frequency,
-            Gz.flatten(0, -3) / resonance_frequency, B_low.flatten(0, -1),
-            B_high.flatten(0, -1), resonance_frequency / resonance_frequency, *args)
-        batches = locator(batches, resonance_frequency / resonance_frequency, *args)
+        F_flat = F.flatten(0, -3) / resonance_frequency
+        Gz_flat = Gz.flatten(0, -3) / resonance_frequency
+        B_low_flat = B_low.flatten(0, -1)
+        B_high_flat = B_high.flatten(0, -1)
+        unit_frequency = resonance_frequency / resonance_frequency
+        num_rows = F_flat.shape[0]
+        chunk_size = num_rows if self.chunk_size is None else self.chunk_size
+
+        batches = []
+        for start in range(0, num_rows, chunk_size):
+            stop = min(start + chunk_size, num_rows)
+            chunk_args = tuple(self._slice_rows(arg, start, stop, num_rows) for arg in args)
+            chunk_batches = interval_solver(
+                F_flat[start:stop], self._slice_rows(Gz_flat, start, stop, num_rows),
+                self._slice_rows(B_low_flat, start, stop, num_rows),
+                self._slice_rows(B_high_flat, start, stop, num_rows),
+                unit_frequency, *chunk_args)
+            chunk_batches = locator(chunk_batches, unit_frequency, *chunk_args)
+            batches.extend(self._shift_row_indexes(batch, start) for batch in chunk_batches)
         out = self._combine_resonance_data(dtype=resonance_frequency.dtype,
                                            device=Gz.device, batches=batches, resonance_frequency=resonance_frequency)
 

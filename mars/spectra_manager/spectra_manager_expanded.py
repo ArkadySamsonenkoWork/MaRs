@@ -300,8 +300,9 @@ class StationarySpectraExpanded(StationarySpectra):
         Generate a boolean mask to filter out transitions with intensities below a threshold.
 
         The mask is created by comparing the absolute intensities, normalized by the
-        global maximum absolute intensity, against `self.threshold`. It evaluates to
-        True if any value along all dimensions (except the last one) exceeds the threshold.
+        reference intensity, against `self.threshold`. The reference intensity is the global maximum
+        absolute intensity, or its percentile if intensity_threshold_percentile of ComputationalDetails is given.
+        It evaluates to True if any value along all dimensions (except the last one) exceeds the threshold.
 
         :param intensities: Tensor of transition intensities.
         :param res_fields: Resonance fields (passed for signature consistency).
@@ -313,7 +314,9 @@ class StationarySpectraExpanded(StationarySpectra):
                  intensity to be kept.
         """
         lines_dimension = tuple(range(intensities.ndim - 1))
-        intensities_mask = (intensities.abs() / intensities.abs().max() > self.threshold).any(dim=lines_dimension)
+        abs_intensities = intensities.abs()
+        reference = self._reference_intensity(abs_intensities)
+        intensities_mask = (abs_intensities / reference > self.threshold).any(dim=lines_dimension)
         return intensities_mask
 
     def compute_parameters(self, sample: spin_model.SolidSample,

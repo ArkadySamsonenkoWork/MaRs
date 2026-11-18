@@ -323,7 +323,7 @@ class BaseMeshPowder(BaseMesh):
     def spherical_triangle_areas(vertices: torch.Tensor, triangles: torch.Tensor) -> torch.Tensor:
         """Compute spherical excess areas for triangles on a unit sphere.
 
-        Uses L'Huilier's formula for numerical stability with small triangles.
+        Uses the solid-angle atan2 formula, avoiding acos cancellation near poles.
 
         :param vertices: Spherical coordinates [phi, theta] of shape (N, 2)
         :type vertices: torch.Tensor
@@ -332,38 +332,14 @@ class BaseMeshPowder(BaseMesh):
         :return: Spherical areas of shape (M,)
         :rtype: torch.Tensor
         """
-        def _angle_between(u, v):
-            dot = (u * v).sum(dim=1)
-            dot = torch.clamp(dot, -1.0, 1.0)
-            return torch.acos(dot)
-        phi = vertices[:, 0]
-        theta = vertices[:, 1]
-
-        x = torch.sin(theta) * torch.cos(phi)
-        y = torch.sin(theta) * torch.sin(phi)
-        z = torch.cos(theta)
-        xyz = torch.stack([x, y, z], dim=1)
-
-        v0 = xyz[triangles[:, 0]]
-        v1 = xyz[triangles[:, 1]]
-        v2 = xyz[triangles[:, 2]]
-
-        a = _angle_between(v1, v2)
-        b = _angle_between(v2, v0)
-        c = _angle_between(v0, v1)
-
-        s = (a + b + c) / 2
-
-        # L'Huilier's formula for spherical excess
-        tan_E_4 = torch.sqrt(
-            torch.clamp(
-                torch.tan(s / 2) * torch.tan((s - a) / 2) * torch.tan((s - b) / 2) * torch.tan((s - c) / 2),
-                min=0.0
-            )
-        )
-
-        excess = 4 * torch.atan(tan_E_4)
-        return excess
+        phi, theta = vertices.unbind(dim=-1)
+        sin_theta = torch.sin(theta)
+        xyz = torch.stack((sin_theta * torch.cos(phi),
+                           sin_theta * torch.sin(phi), torch.cos(theta)), dim=-1)
+        u, v, w = xyz[triangles].unbind(dim=-2)
+        numerator = (u * torch.linalg.cross(v - u, w - u, dim=-1)).sum(dim=-1).abs()
+        denominator = 1 + (u * v).sum(dim=-1) + (v * w).sum(dim=-1) + (w * u).sum(dim=-1)
+        return 2 * torch.atan2(numerator, denominator)
 
     @property
     @abstractmethod

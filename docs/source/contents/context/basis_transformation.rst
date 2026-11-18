@@ -13,7 +13,7 @@ MaRs provides four predefined bases:
 
 1. **"eigen"** (default)
    
-   The eigenbasis of the full Hamiltonian :math:`\hat{H}_0 = \hat{F} + g\mu_B B_z \hat{S}_z` at the resonance magnetic field.
+   The eigenbasis of the full Hamiltonian :math:`\hat{H}_0 = \hat{F} + g\mu_B B_Z \hat{S}_Z` at the resonance magnetic field.
    
    - States are sorted by increasing energy
    - This is the natural basis for most EPR calculations
@@ -31,7 +31,7 @@ MaRs provides four predefined bases:
    The total spin basis :math:`|S, M\rangle`, where:
    
    - :math:`S` is the total spin quantum number
-   - :math:`M` is the projection of total spin on the z-axis
+   - :math:`M` is the projection of total spin on the Z-axis
    - States sorted by increasing :math:`S`, then increasing :math:`M`
 
 4. **"product"**
@@ -96,7 +96,7 @@ MaRs provides four predefined bases:
 
 5. **"zeeman"**
 
-   The eigenbasis of the Z-projections of the Zeeman operator. It is the basis of the system in an infinite magnetic field :math:`\hat{Gz}`.
+   The eigenbasis of the Z-projections of the Zeeman operator. It is the basis of the system in an infinite magnetic field :math:`\hat{G}_Z`.
    - States are sorted by increasing energy
 
 

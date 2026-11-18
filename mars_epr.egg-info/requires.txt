@@ -7,6 +7,7 @@ PyWavelets
 matplotlib
 safetensors
 seaborn
+opt_einsum
 
 [opt]
 optuna>=4.3

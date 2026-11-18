@@ -718,7 +718,7 @@ class EvolutionPropagatorSolver(EvolutionSolver):
         """
         mean_over_measurement, resip_term_2pi_M = self._get_resips(U_2pi, M_power)
         torch.linalg.solve(mean_over_measurement, resip_term_2pi_M, out=mean_over_measurement)
-        torch.matmul(integral, mean_over_measurement, out=integral)
+        integral = torch.matmul(integral, mean_over_measurement)
         torch.add(integral, resip_term_2pi_M, alpha=d_phi/12, out=integral)
         integral.mul_(d_phi)
         return integral

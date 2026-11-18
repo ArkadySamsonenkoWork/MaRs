@@ -356,3 +356,35 @@ def fourier_transform_time(
             ft = fft.fftshift(ft, axes=axis)
 
     return freqs, ft
+
+
+def project_spectrum(spectrum: torch.Tensor, fields: torch.Tensor, proj_points: torch.Tensor) ->\
+        tuple[torch.Tensor, torch.Tensor]:
+    """
+    Interpolates a spectrum from arbitrary field points onto a new equidistant grid.
+
+    :param spectrum: The spectral intensities. Shape [N] or [*batch_dims, N].
+    :param fields: The original magnetic field points corresponding to the spectrum.
+                   Shape [N] or [*batch_dims, N]. Must be monotonically increasing.
+    :param proj_points: The new equidistant magnetic field points for projection.
+                        Shape [M].
+    :return: A tuple containing:
+             - new_fields: The projected field points (identical to proj_points).
+             - spectrum_proj: The interpolated spectrum values. Shape matches spectrum,
+                              but with the last dimension equal to M.
+    """
+    if fields.dim() > 1:
+        batch_shape = fields.shape[:-1]
+        M = proj_points.shape[-1]
+        spectrum_proj = torch.zeros(*batch_shape, M, device=spectrum.device, dtype=spectrum.dtype)
+
+        flat_fields = fields.view(-1, fields.shape[-1])
+        flat_spectrum = spectrum.view(-1, spectrum.shape[-1])
+        flat_proj = spectrum_proj.view(-1, M)
+
+        for i in range(flat_fields.shape[0]):
+            flat_proj[i] = torch.interp(proj_points, flat_fields[i], flat_spectrum[i])
+    else:
+        spectrum_proj = torch.interp(proj_points, fields, spectrum)
+
+    return proj_points, spectrum_proj

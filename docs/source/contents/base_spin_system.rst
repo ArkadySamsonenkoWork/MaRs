@@ -9,7 +9,7 @@ Examples
 
 **1. Simple triplet system (S = 1) with axial zero-field splitting**
 
-Model a single electron with spin 1 and a D-tensor aligned with the lab frame:
+Model a single electron with spin 1 and a D-tensor aligned with the laboratory Z-axis:
 
 .. code-block:: python
 
@@ -19,7 +19,7 @@ Model a single electron with spin 1 and a D-tensor aligned with the lab frame:
    D_tensor = spin_model.DEInteraction(components=0.35 * 1e9)  # D = 0.35 GHz
    triplet = spin_model.SpinSystem(electrons=[1.0], g_tensors=[g_tensor], electron_electron=[(0, 0, D_tensor)])
 
-This creates a three-level system with Hamiltonian :math:`H = gβBSz + D(S_z^2 - S(S+1)/3)`.
+This creates a three-level system with Hamiltonian :math:`H = gβB S_Z + D(S_Z^2 - S(S+1)/3)`.
 
 **2. Two coupled doublets with anisotropic g-tensors**
 
@@ -27,7 +27,7 @@ Model two interacting S = 1/2 centers with distinct g-anisotropy and a dipolar c
 
 .. code-block:: python
 
-   g1 = spin_model.Interaction([2.002, 2.004, 2.008])  # gx, gy, gz
+   g1 = spin_model.Interaction([2.002, 2.004, 2.008])  # g_x, g_y, g_z (molecular principal axes)
    g2 = spin_model.Interaction([1.998, 2.000, 2.006])
 
    anisotropic = spin_model.Interaction([0.01 * 1e9, 0.0 * 1e9, 0.02 * 1e9])  # Dx, Dy, Dz
@@ -58,6 +58,37 @@ Model a nitroxide radical with isotropic hyperfine interaction with 14N nucleus 
 
 The resulting system has dimension :math:`(2S+1)(2I+1) = 6`
 
+Hamiltonian Secularization in Spectrum Calculations
+--------------------------------------------------
+
+``SpinSystem`` defines the spins, interaction tensors, and spin operators. To
+select a secular Hamiltonian for a spectrum calculation, wrap the spin system
+in a ``SolidSample`` and set ``hamiltonian_mode="secular"`` on the spectrum
+object:
+
+.. code-block:: python
+
+   from mars import spin_model
+   from mars.spectra_manager import StationarySpectra
+
+   sample = spin_model.SolidSample(base_spin_system=system)
+   spectra = StationarySpectra(
+       freq=9.8e9,
+       sample=sample,
+       hamiltonian_mode="secular",
+   )
+
+The Hamiltonian terms are obtained through
+``sample.get_hamiltonian_terms_secular()`` before resonance finding.
+With ``hamiltonian_mode="direct"``, they are obtained through
+``sample.get_hamiltonian_terms()``. The approximation is selected at this stage
+of the spectrum calculation; constructing a ``SpinSystem`` or retrieving its
+spin-projection operators does not select the spectrum's Hamiltonian mode.
+The secularized static terms commute with the total electron-and-nuclear
+spin projection, not necessarily with the full Zeeman operator :math:`G_Z`.
+See :ref:`hamiltonian-secularization` for the returned terms and their use in
+the simulation pipeline.
+
 Useful Features
 ---------------
 
@@ -72,20 +103,21 @@ In MaRs, all operators and vectors are initially defined in the product basis of
 
 .. code-block:: python
 
-   Mz = system.get_electron_z_operator()        # Total electron S_z operator
+   SZ = system.get_total_z_operator()           # Total electron + nuclear S_Z (laboratory)
    S2 = system.get_electron_squared_operator()  # Total electron S^2 operator
    Me = system.get_electron_projections()       # Electron-only Mₑ per product state
    Mt = system.get_total_projections()          # Total M = Σmₑ + Σmₙ per product state
 
-- :meth:`mars.spin_model.SpinSystem.get_electron_z_operator`
-  Returns the total electron spin projection operator along the *z*-axis:
+- :meth:`mars.spin_model.SpinSystem.get_total_z_operator`
+  Returns the total electron and nuclear spin projection operator along the laboratory *Z*-axis,
+  used in secularization and the RWA rotating frame:
 
   .. math::
 
-     \hat{S}_z = \sum_{i \in \text{electrons}} \hat{S}_{i}^{(z)}
+     \hat{S}_Z^{\mathrm{tot}} = \sum_{e} \hat{S}_{e}^{(Z)} + \sum_{n} \hat{I}_{n}^{(Z)}
 
   - **Shape**: ``(spin_dim, spin_dim)``
-  - **Example**: For two spin-½ electrons, returns a 4×4 diagonal matrix with entries ``[1, 0, 0, -1]``.
+  - **Example**: For one spin-½ electron and one spin-½ nucleus, returns a 4×4 diagonal matrix with entries ``[1, 0, 0, -1]``.
 
 - :meth:`mars.spin_model.SpinSystem.get_electron_squared_operator`
   Returns the total electron spin-squared operator:
@@ -93,7 +125,7 @@ In MaRs, all operators and vectors are initially defined in the product basis of
   .. math::
 
      \hat{S}^2 = \left( \sum_i \hat{\mathbf{S}}_i \right) \cdot \left( \sum_j \hat{\mathbf{S}}_j \right)
-               = \hat{S}_x^2 + \hat{S}_y^2 + \hat{S}_z^2
+               = \hat{S}_X^2 + \hat{S}_Y^2 + \hat{S}_Z^2
 
   - **Shape**: ``(spin_dim, spin_dim)``
   - **Eigenvalues**: :math:`S(S+1)`, where :math:`S` is the total electron spin quantum number.

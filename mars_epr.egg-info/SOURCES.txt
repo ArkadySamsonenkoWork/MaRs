@@ -1,3 +1,4 @@
+LICENSE
 README.md
 pyproject.toml
 mars/__init__.py
@@ -6,6 +7,7 @@ mars/multiplication.py
 mars/spin_model.py
 mars/utils.py
 mars/mesher/__init__.py
+mars/mesher/_spherical_delaunay.py
 mars/mesher/axial_mesh.py
 mars/mesher/delaunay_mesh.py
 mars/mesher/experimental.py
@@ -32,10 +34,14 @@ mars/optimization/spece_searcher_plot.py
 mars/optimization/uncertanity_analyzer.py
 mars/particles/__init__.py
 mars/particles/typed_particles.py
+mars/particles/nuclei_db/nuclear_data.pkl
 mars/population/__init__.py
+mars/population/check_transforms.py
+mars/population/choi_transforms.py
 mars/population/concatination.py
 mars/population/contexts.py
 mars/population/matrix_generators.py
+mars/population/resonance_line_shift.py
 mars/population/rk4.py
 mars/population/thermal_corrections.py
 mars/population/tr_utils.py

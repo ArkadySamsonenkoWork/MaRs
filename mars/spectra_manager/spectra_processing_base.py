@@ -53,34 +53,6 @@ class PostSpectraProcessing(nn.Module):
         else:
             return self._voigt_broader
 
-    def forward(self, gauss: torch.Tensor, lorentz: torch.Tensor,
-                magnetic_field: torch.Tensor, spec: torch.Tensor) -> torch.Tensor:
-        """
-        :param gauss: Tensor of shape [] or [*batch_dims].
-        Values are provided as the full width at half maximum (FWHM) and are expressed in:
-            - tesla (T) for field-dependent spectra,
-            - hertz (Hz) for frequency-dependent spectra.
-
-        :param lorentz: Tensor of shape [] or [*batch_dims]
-        Values are provided as the full width at half maximum (FWHM) and are expressed in:
-            - tesla (T) for field-dependent spectra,
-            - hertz (Hz) for frequency-dependent spectra.
-
-        :param magnetic_field: Tensor of shape [N] or [*batch_dims, N] or [*bathc_dims, T, N]
-        :param spec: Spectrum tensor of shape [N] or [*batch_dims, N] or [*bathc_dims, T, N]
-        :return: Broadened spectrum, same shape as spec with the shape [N] or [*batch_dims, N]
-        or [*batch_dims, T, N] or [T, N] depending on input
-        """
-        target_batch_dims = spec.dim() - 1
-        if gauss.dim() < target_batch_dims:
-            gauss = gauss.reshape(*gauss.shape, *(1,) * (target_batch_dims - gauss.dim()))
-
-        if lorentz.dim() < target_batch_dims:
-            lorentz = lorentz.reshape(*lorentz.shape, *(1,) * (target_batch_dims - lorentz.dim()))
-
-        _broading_method = self._broading_fabric(gauss, lorentz)
-        return _broading_method(gauss, lorentz, magnetic_field, spec)
-
     def _build_lorentz_kernel(self, magnetic_field: torch.Tensor, fwhm_lorentz: torch.Tensor) -> torch.Tensor:
         """
         :param magnetic_field: Shape [*batch_dims, N].
@@ -213,6 +185,34 @@ class PostSpectraProcessing(nn.Module):
         dH = magnetic_field[..., 1] - magnetic_field[..., 0]
         kernel = self._build_voigt_kernel(magnetic_field, gauss, lorentz)
         return self._apply_convolution(spec, kernel) * dH.unsqueeze(-1).pow(2)
+
+    def forward(self, gauss: torch.Tensor, lorentz: torch.Tensor,
+                magnetic_field: torch.Tensor, spec: torch.Tensor) -> torch.Tensor:
+        """
+        :param gauss: Tensor of shape [] or [*batch_dims].
+        Values are provided as the full width at half maximum (FWHM) and are expressed in:
+            - tesla (T) for field-dependent spectra,
+            - hertz (Hz) for frequency-dependent spectra.
+
+        :param lorentz: Tensor of shape [] or [*batch_dims]
+        Values are provided as the full width at half maximum (FWHM) and are expressed in:
+            - tesla (T) for field-dependent spectra,
+            - hertz (Hz) for frequency-dependent spectra.
+
+        :param magnetic_field: Tensor of shape [N] or [*batch_dims, N] or [*bathc_dims, T, N]
+        :param spec: Spectrum tensor of shape [N] or [*batch_dims, N] or [*bathc_dims, T, N]
+        :return: Broadened spectrum, same shape as spec with the shape [N] or [*batch_dims, N]
+        or [*batch_dims, T, N] or [T, N] depending on input
+        """
+        target_batch_dims = spec.dim() - 1
+        if gauss.dim() < target_batch_dims:
+            gauss = gauss.reshape(*gauss.shape, *(1,) * (target_batch_dims - gauss.dim()))
+
+        if lorentz.dim() < target_batch_dims:
+            lorentz = lorentz.reshape(*lorentz.shape, *(1,) * (target_batch_dims - lorentz.dim()))
+
+        _broading_method = self._broading_fabric(gauss, lorentz)
+        return _broading_method(gauss, lorentz, magnetic_field, spec)
 
 
 class BaseProcessing(nn.Module, ABC):

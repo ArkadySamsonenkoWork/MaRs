@@ -77,8 +77,12 @@ class BaseIntegrand(nn.Module, ABC):
             return self._absorption
         elif harmonic == 1:
             return self._derivative
+        elif harmonic == 2:
+            return self._second_derivative
+        elif harmonic == 3:
+            return self._third_derivative
         else:
-            raise ValueError("Harmonic must be 0 or 1")
+            raise ValueError("Harmonic must be 0, 1, 2 or 3")
 
     def _gaussian_method_fabric(self, gaussian_method: str = "exp") -> tp.Callable[[torch.Tensor], torch.Tensor]:
         """
@@ -106,9 +110,16 @@ class BaseIntegrand(nn.Module, ABC):
         pass
 
     @abstractmethod
-    def forward(self, *args, **kwargs) -> torch.Tensor:
+    def _second_derivative(self, *args, **kwargs) -> torch.Tensor:
         pass
 
+    @abstractmethod
+    def _third_derivative(self, *args, **kwargs) -> torch.Tensor:
+        pass
+
+    @abstractmethod
+    def forward(self, *args, **kwargs) -> torch.Tensor:
+        pass
 
 class ZeroOrderIntegrand(BaseIntegrand):
     """
@@ -188,6 +199,34 @@ class ZeroOrderIntegrand(BaseIntegrand):
         result.mul_(self.inv_pi_sqrt)
         return result
 
+    def _second_derivative(self, arg: torch.Tensor, c_val: torch.Tensor) -> torch.Tensor:
+        """
+        Second derivative with respect to the spectral field B_val.
+
+        For arg = (Bi - Bval) * c:
+            d²I/dB² = (2/sqrt(pi)) * c³ * (2*arg² - 1) * exp(-arg²)
+        """
+        exp_val = self.gaussian_method(arg)
+        polynomial = 2.0 * arg.square() - 1.0
+        result = polynomial * exp_val
+        result.mul_(2.0 * self.inv_pi_sqrt)
+        result.mul_(c_val.pow(3))
+        return result
+
+    def _third_derivative(self, arg: torch.Tensor, c_val: torch.Tensor) -> torch.Tensor:
+        """
+        Third derivative with respect to the spectral field B_val.
+
+        For arg = (Bi - Bval) * c:
+            d³I/dB³ = (4/sqrt(pi)) * c⁴ * arg * (2*arg² - 3) * exp(-arg²)
+        """
+        exp_val = self.gaussian_method(arg)
+        polynomial = arg * (2.0 * arg.square() - 3.0)
+        result = polynomial * exp_val
+        result.mul_(4.0 * self.inv_pi_sqrt)
+        result.mul_(c_val.pow(4))
+        return result
+
     def forward(self, B_mean: torch.Tensor, c_extended: torch.Tensor, B_val: torch.Tensor) -> torch.Tensor:
         """
         Compute integrand value with masking for performance optimization.
@@ -256,19 +295,6 @@ class AnalyticalIntegrand(BaseIntegrand):
         self.register_buffer("threshold", torch.tensor(1e-12, device=device, dtype=dtype))
         self.register_buffer("cutoff", torch.tensor(gaussian_cutoff, device=device, dtype=dtype))
 
-    def _sum_method_fabric(self, harmonic: int = 0) -> tp.Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """
-        Select analytical primitive based on harmonic order.
-
-        :param harmonic: Harmonic order (0 for absorption, 1 for derivative)
-        :return: Corresponding analytical primitive function
-        """
-        if harmonic == 0:
-            return self._absorption
-        elif harmonic == 1:
-            return self._derivative
-        else:
-            raise ValueError("Harmonic must be 0 or 1")
 
     def _absorption(self, arg: torch.Tensor, c_val: torch.Tensor) -> torch.Tensor:
         """
@@ -304,6 +330,25 @@ class AnalyticalIntegrand(BaseIntegrand):
         :return: Analytical derivative primitive values
         """
         return torch.erf(arg).neg_().mul_(c_val)
+
+    def _second_derivative(self, arg: torch.Tensor, c_val: torch.Tensor) -> torch.Tensor:
+        """
+        Primitive used by the exact triangle average for d²I/dB².
+
+        Obtained by differentiating the first-derivative primitive with respect
+        to B_val:
+            X2 = (2/sqrt(pi)) * c² * exp(-arg²)
+        """
+        exp_val = torch.exp(-torch.clamp(arg.square(), max=50.0))
+        return exp_val.mul(2.0 * self.inv_pi_sqrt).mul_(c_val.square())
+
+    def _third_derivative(self, arg: torch.Tensor, c_val: torch.Tensor) -> torch.Tensor:
+        """
+        Primitive used by the exact triangle average for d³I/dB³:
+            X3 = (4/sqrt(pi)) * c³ * arg * exp(-arg²)
+        """
+        exp_val = torch.exp(-torch.clamp(arg.square(), max=50.0))
+        return arg.mul(exp_val).mul_(4.0 * self.inv_pi_sqrt).mul_(c_val.pow(3))
 
     def forward(self,
                 B1: torch.Tensor,
@@ -427,19 +472,6 @@ class AxialAnalyticalIntegrand(BaseIntegrand):
         self.register_buffer("threshold", torch.tensor(1e-10, device=device, dtype=dtype))
         self.register_buffer("cutoff", torch.tensor(gaussian_cutoff, device=device, dtype=dtype))
 
-    def _sum_method_fabric(self, harmonic: int = 0) -> tp.Callable[[torch.Tensor, torch.Tensor], torch.Tensor]:
-        """
-        Select analytical primitive based on harmonic order.
-
-        :param harmonic: Harmonic order (0 for absorption, 1 for derivative)
-        :return: Corresponding analytical primitive function
-        """
-        if harmonic == 0:
-            return self._absorption
-        elif harmonic == 1:
-            return self._derivative
-        else:
-            raise ValueError("Harmonic must be 0 or 1")
 
     def _absorption(self, arg: torch.Tensor, c_val: torch.Tensor) -> torch.Tensor:
         """
@@ -481,6 +513,27 @@ class AxialAnalyticalIntegrand(BaseIntegrand):
         :rtype: torch.Tensor
         """
         return torch.exp(-arg.square()).neg_().mul_(2 * self.inv_pi_sqrt).mul_(c_val.square())
+
+    def _second_derivative(self, arg: torch.Tensor, c_val: torch.Tensor) -> torch.Tensor:
+        """
+        Second-order primitive for the axial analytical integrator.
+
+        This is defined as the B_val derivative of the existing first-order
+        primitive, preserving the current normalization convention:
+            X2 = -(4/sqrt(pi)) * c³ * arg * exp(-arg²)
+        """
+        exp_val = torch.exp(-arg.square())
+        return arg.mul(exp_val).mul_(-4.0 * self.inv_pi_sqrt).mul_(c_val.pow(3))
+
+    def _third_derivative(self, arg: torch.Tensor, c_val: torch.Tensor) -> torch.Tensor:
+        """
+        Third-order primitive for the axial analytical integrator, preserving
+        the existing first-order normalization convention:
+            X3 = (4/sqrt(pi)) * c⁴ * (1 - 2*arg²) * exp(-arg²)
+        """
+        exp_val = torch.exp(-arg.square())
+        polynomial = 1.0 - 2.0 * arg.square()
+        return polynomial.mul(exp_val).mul_(4.0 * self.inv_pi_sqrt).mul_(c_val.pow(4))
 
     def forward(self,
                 B_parallel: torch.Tensor,
