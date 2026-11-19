@@ -66,13 +66,9 @@ Key features include:
 
 
 
-Tests
------
-The MaRs repository includes a test suite for checking library functionality and verifying code changes. See the `tests directory on GitHub <https://github.com/ArkadySamsonenkoWork/MaRs/tree/main/tests>`_ for the test files.
-
-
 .. toctree::
    :maxdepth: 1
    :caption: Project Info
 
-    GitHub Repository <https://github.com/ArkadySamsonenkoWork/MaRs.git>
+   Tests <tests>
+   GitHub Repository <https://github.com/ArkadySamsonenkoWork/MaRs.git>
