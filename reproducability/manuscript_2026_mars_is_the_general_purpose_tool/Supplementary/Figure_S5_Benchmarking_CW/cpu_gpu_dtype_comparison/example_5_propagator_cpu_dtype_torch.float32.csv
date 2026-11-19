@@ -1,0 +1,5 @@
+# {"dtype": "torch.float32", "device": "cpu", "sample_description": "spin S = 1 connected with other spin 1/2 in chain with J interaction and anisotropy"}
+num_electrons,mean,std
+1,209.8982702500507,13.766548145031578
+2,6574.894898000025,389.7311803313619
+3,44633.84842175002,1309.7715432878204

@@ -1,0 +1,5 @@
+# {"dtype": "torch.float32", "device": "cuda", "sample_description": "spin S = 1 connected with other spin 1/2 in chain with J interaction and anisotropy"}
+num_electrons,mean,std
+1,11.887942122702952,1.0038741364188397
+2,48.43560527981026,10.35973095765642
+3,347.17193998900865,164.5512619477677

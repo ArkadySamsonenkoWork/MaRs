@@ -9,7 +9,7 @@ EPR Spectrum Construction
    :align: center
 
 
-The construction of an EPR spectrum in MaRs follows a sequence of computational steps:
+Resonance-based EPR spectrum construction in MaRs follows the steps below. For direct calculations, :class:`mars.spectra_manager.spectra_manager_direct.BaseDirectSpectra` evaluates the selected Hamiltonian at supplied magnetic field points and averages the computed signal over orientations, bypassing resonance-line searching, stick-spectrum assembly, and line broadening (see :ref:`direct-spectra`).
 
 1. **Define spin particles**  
    The spin system consists of particles: electrons and nuclei - each specified by its spin quantum number and intrinsic magnetic parameters.
@@ -21,7 +21,7 @@ The construction of an EPR spectrum in MaRs follows a sequence of computational 
 3. **Assemble the spin system and sample**  
    Particles and interactions are combined into a :class:`mars.spin_model.SpinSystem`.
    Disordered (powder) samples are represented by :class:`mars.spin_model.SolidSample`.
-   The next workflow is managed by the abstract class :class:`mars.spectra_manager.spectra_manager.BaseResSpectra`.
+   The resonance-based workflow is managed by the abstract class :class:`mars.spectra_manager.spectra_manager.BaseResSpectra`.
 
 4. **Construct Hamiltonian matrices**  
    MaRs computes four matrices that define the spin Hamiltonian under an external magnetic field **B** = (B_X, B_Y, B_Z):

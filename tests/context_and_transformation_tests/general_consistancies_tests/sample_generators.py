@@ -1,4 +1,3 @@
-"""Reproducible two-, three-, and four-electron MaRs relaxation samples."""
 from __future__ import annotations
 
 from dataclasses import dataclass

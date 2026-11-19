@@ -1,10 +1,3 @@
-"""Generate TWO independent MaRs contexts per sample (NO thermal flag here).
-
-All four physical parameters (initial populations, thermal and driven rates,
-dephasing, plus optionally irreversible decay) are randomized independently
-in mixed bases: multiplet, zfs, product.  See utils.py to choose detailed
-balance later, when the generator is evaluated at a field and temperature.
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass

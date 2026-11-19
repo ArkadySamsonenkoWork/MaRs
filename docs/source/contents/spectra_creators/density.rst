@@ -27,6 +27,11 @@ These processes are encoded in the **Lindblad master equation**, which provides 
 
 In addition to the four standard contributions, MaRs supports user-defined superoperators, allowing custom relaxation, or phenomenological models to be incorporated directly into :math:`\mathcal{R}[\rho]`.
 
+For direct calculations at supplied field points,
+:class:`mars.spectra_manager.spectra_manager_direct.BaseDirectSpectra` supports
+``populator="rwa"`` or ``populator="propagator"`` without resonance-line
+searching. See :ref:`direct-spectra` for this alternative workflow.
+
 Two computational strategies are available for time propagation:
 
 - **Rotating Wave Approximation (RWA)**  

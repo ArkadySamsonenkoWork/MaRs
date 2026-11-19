@@ -33,7 +33,7 @@ where :math:`\hat{G}_{\perp}` is the detected transverse component of the Zeeman
 Intensity Calculator Classes
 -----------------------------
 
-MaRs provides several intensity calculator implementations through :class:`mars.spectra_manager.intensity_base.BaseResIntensityCalculator` and its subclasses:
+For resonance-based spectra, MaRs provides several intensity calculator implementations through :class:`mars.spectra_manager.intensity_base.BaseResIntensityCalculator` and its subclasses:
 
 **StationaryIntensityCalculator**
    For continuous-wave (CW) EPR experiments with thermal equilibrium populations. Uses Boltzmann distributions or context-defined populations.
@@ -51,6 +51,10 @@ MaRs provides several intensity calculator implementations through :class:`mars.
    For EPR experiments with non-standard excitation geometries and polarizations (circular, linear, unpolarized). Accounts for arbitrary orientation of radiation relative to the magnetic field.
    Reference: :class:`mars.spectra_manager.intensity_wave.WaveIntensityCalculator`
 
+
+**BaseDirectIntensityCalculator**
+   Base interface for fixed-field calculations with :class:`mars.spectra_manager.spectra_manager_direct.BaseDirectSpectra`. Operates on the complete eigensystem or density matrix rather than individual transition pairs. Supports RWA or propagator-based population evolution.
+   Reference: :class:`mars.spectra_manager.spectra_manager_direct.BaseDirectIntensityCalculator`
 
 Computational Workflow
 ----------------------

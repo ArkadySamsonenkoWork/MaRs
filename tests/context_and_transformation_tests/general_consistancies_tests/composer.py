@@ -1,7 +1,4 @@
 """Combine the eight context fixtures into (sample, context, description) cases.
-
-The same sample is used throughout the expression, and the dimensions of
-context products/sums are kept aligned with their corresponding samples.
 """
 from __future__ import annotations
 

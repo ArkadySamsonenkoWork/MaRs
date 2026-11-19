@@ -132,6 +132,12 @@ laboratory-frame propagation method. The static Hamiltonian supplied to that
 populator must still satisfy its rotating-frame symmetry requirements.
 See :ref:`hamiltonian-secularization` for the Hamiltonian selection mechanism.
 
+For evaluation at supplied field points without resonance-line searching,
+:class:`mars.spectra_manager.spectra_manager_direct.BaseDirectSpectra` also
+supports ``populator="rwa"``. Its ``hamiltonian_mode`` independently selects
+the static Hamiltonian terms; the RWA requirements remain the same
+(see :ref:`direct-spectra`).
+
 Constraints and Limitations
 ----------------------------
 

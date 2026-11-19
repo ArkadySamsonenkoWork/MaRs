@@ -1,0 +1,6 @@
+# {"dtype": "torch.float64", "device": "cuda", "sample_description": "spin S = 1/2 connected with other spin 1/2 in chain with DE interaction"}
+num_electrons,mean,std
+1,604.4829265498993,130.56746860125173
+2,1559.2875496901252,327.42767154453134
+3,3086.598815630423,487.36438822278365
+4,11832.831491389588,1926.848988333572

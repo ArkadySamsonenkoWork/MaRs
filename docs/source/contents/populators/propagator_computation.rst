@@ -9,6 +9,12 @@ Overview
 The :class:`mars.population.populators.density_population.PropagatorDensityPopulator` class computes time-resolved EPR signals by explicitly calculating the full time-evolution propagator :math:`\hat{U}(t, 0)` of the density matrix.
 This method imposes no approximations on the g-tensor, zero-field splitting, or relaxation superoperator, making it the most general approach for time-dependent density matrix evolution.
 
+For direct evaluation at supplied magnetic field points, use
+:class:`mars.spectra_manager.spectra_manager_direct.BaseDirectSpectra` with
+``populator="propagator"`` and ``hamiltonian_mode="direct"`` to retain the
+full static Hamiltonian. This bypasses resonance-line searching and skips
+broadening parameters (see :ref:`direct-spectra`).
+
 Theory
 ------
 

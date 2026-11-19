@@ -1,8 +1,3 @@
-"""Thin MaRs adapter: prepare a field-dependent context for native EvolutionSuper.
-
-No custom relaxation, Boltzmann correction, Choi tests, or propagator code.
-Those are already implemented in ``mars.population`` and used by the notebook.
-"""
 from __future__ import annotations
 
 import math
