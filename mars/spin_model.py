@@ -1971,11 +1971,15 @@ class SpinSystem(nn.Module):
         For two spin-1/2 electrons:
             Returns basis ordered as: |S=0, M=0⟩, |S=1, M=-1⟩, |S=1, M=0⟩, |S=1, M=1⟩
         """
-        C = self.get_electron_squared_operator() + 1j * self.get_electron_z_operator()
-        values, vectors = torch.linalg.eig(C)
-        sorting_key = values.real * (values.imag.abs().max() + 1) + values.imag
-        indices = torch.argsort(sorting_key)
-        return vectors[:, indices]
+        squared = self.get_electron_squared_operator()
+        projection = self.get_electron_z_operator()
+        # S² and Sz commute. A Hermitian combination keeps repeated (S, M)
+        # eigenspaces orthonormal; eig(S² + i Sz) does not guarantee that.
+        # Separate the S manifolds before ordering their M projections.
+        max_projection = sum(p.spin for p in self.electrons)
+        combined = (2 * max_projection + 1) * squared + projection
+        _, vectors = torch.linalg.eigh(combined)
+        return vectors
 
     def get_product_state_basis(self) -> torch.Tensor:
         """Return the identity matrix representing the computational product
@@ -3188,35 +3192,15 @@ class BaseSample(nn.Module):
                     ),
                 })
 
-            spin = self.modified_spin_system.operator_cache.sum(dim=0)
-            max_comm = 0.0
-
-            for approx, S in zip(
-                    secular_terms,
-                    (spin[2], spin[0], spin[1], spin[2])
-            ):
-                comm = norm(approx @ S - S @ approx)
-                scale = norm(approx) * norm(S)
-                tiny = torch.finfo(approx.real.dtype).tiny
-
-                residual = comm / scale.clamp_min(tiny)
-                max_comm = max(max_comm, float(residual.max()))
-            comm_eps = max(1e-8, 128 * torch.finfo(F.real.dtype).eps)
-
             norm_failed = (
                     not math.isfinite(score)
                     or score > secular_relative_tolerance
             )
-            comm_failed = (
-                    not math.isfinite(max_comm)
-                    or max_comm > comm_eps
-            )
 
-            valid = not (norm_failed)
+            valid = not norm_failed
 
             report.update({
                 "score": score,
-                "commutator_residual": max_comm,
                 "valid": valid,
             })
 

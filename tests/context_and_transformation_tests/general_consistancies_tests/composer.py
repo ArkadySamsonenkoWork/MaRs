@@ -12,8 +12,8 @@ from context_generators import ContextPair, generate_contexts
 from sample_generators import SampleCase, iter_sample_cases
 
 import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "..", "..", "..")))
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 
 @dataclass(frozen=True)

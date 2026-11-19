@@ -1,0 +1,11 @@
+Case,Status,Output,Message
+spectra_1,saved,D:\ITC\РНФ_Курганский_2024\pythonProject\MarS\tests\quality_tests\easy_spin_comparison\easyspin_spectra\spectra_1.csv,
+spectra_2,saved,D:\ITC\РНФ_Курганский_2024\pythonProject\MarS\tests\quality_tests\easy_spin_comparison\easyspin_spectra\spectra_2.csv,
+spectra_3,saved,D:\ITC\РНФ_Курганский_2024\pythonProject\MarS\tests\quality_tests\easy_spin_comparison\easyspin_spectra\spectra_3.csv,
+spectra_4,saved,D:\ITC\РНФ_Курганский_2024\pythonProject\MarS\tests\quality_tests\easy_spin_comparison\easyspin_spectra\spectra_4.csv,
+spectra_5,saved,D:\ITC\РНФ_Курганский_2024\pythonProject\MarS\tests\quality_tests\easy_spin_comparison\easyspin_spectra\spectra_5.csv,
+spectra_6,saved,D:\ITC\РНФ_Курганский_2024\pythonProject\MarS\tests\quality_tests\easy_spin_comparison\easyspin_spectra\spectra_6.csv,
+spectra_7,saved,D:\ITC\РНФ_Курганский_2024\pythonProject\MarS\tests\quality_tests\easy_spin_comparison\easyspin_spectra\spectra_7.csv,
+spectra_8,saved,D:\ITC\РНФ_Курганский_2024\pythonProject\MarS\tests\quality_tests\easy_spin_comparison\easyspin_spectra\spectra_8.csv,
+spectra_9,saved,D:\ITC\РНФ_Курганский_2024\pythonProject\MarS\tests\quality_tests\easy_spin_comparison\easyspin_spectra\spectra_9.csv,
+spectra_9_analytical,saved,D:\ITC\РНФ_Курганский_2024\pythonProject\MarS\tests\quality_tests\easy_spin_comparison\easyspin_spectra\spectra_9_analytical.csv,

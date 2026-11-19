@@ -1,0 +1,70 @@
+clear;
+
+example_num = 4;
+out_file = sprintf('D:\\ITC\\РНФ_Курганский_2024\\pythonProject\\MarS\\tests\\time_tests\\easy_spin_speed_comparison\\easyspin\\out_%d.mat', example_num);
+spectrum_file = sprintf('D:\\ITC\\РНФ_Курганский_2024\\pythonProject\\MarS\\tests\\time_tests\\easy_spin_speed_comparison\\easyspin\\spectrum_%d.csv', example_num);
+output_file = sprintf('spec_easy_spin_%d.csv', example_num);
+
+out = load(out_file);
+T = readtable(spectrum_file);
+
+Opt.Threshold = 1e-4;
+Opt.GridSize = [25 0]; 
+
+field_python = T.Var1 * 1000;
+spec_python = T.Var2;
+
+Sys = out.Sys;
+Sys.lw = [2e4 2e4];
+
+Exp = out.Exp;
+
+Exp.Field = 10 * 1e3;
+Exp.nPoints = 1000;
+Exp.mwRange = [0.0 749.481145];
+pol='circular+';
+k = [0.0, 0.0];
+Exp.mwMode = {k, pol};
+Exp.Harmonic = 0;
+Exp.Temperature = 300;
+
+%Sys.initState = {[0 0 0 0  0  0 1 0 0],'eigen'};
+%Exp.Harmonic = 0;
+
+spec_easy_spin = pepper(Sys, Exp, Opt);
+spec_easy_spin = spec_easy_spin / max(spec_easy_spin);
+spec_python = spec_python / max(spec_python);
+plot(field_python, spec_easy_spin, field_python, spec_python);
+legend(["EasySpin", "Python"])
+
+%fields = linspace(Exp.Range(1), Exp.Range(2), Exp.nPoints) / 1e3;
+fields = linspace(Exp.mwRange(1), Exp.mwRange(2), Exp.nPoints);
+writematrix([fields; spec_easy_spin], output_file);
+
+[mean, std, all] = timeSpectrumCalculation(Sys, Exp, Opt, 2, 5);
+
+%% ========================================================================
+%% FUNCTION 2: Spectrum Computation Time (Excludes Sample Creation)
+%% ========================================================================
+function [meanTime, stdTime, allTimes] = timeSpectrumCalculation(Sys, Exp, Opt, nWarmup, nIterations)
+    %% Warmup iterations (discarded from timing)
+
+    for i = 1:nWarmup
+        spectrum = pepper(Sys, Exp, Opt);
+        clear spectrum;  % Free memory
+    end
+    
+    %% Timed iterations
+    allTimes = zeros(nIterations, 1);
+    
+    for i = 1:nIterations
+        tic;
+        spectrum = pepper(Sys, Exp, Opt);
+        allTimes(i) = toc * 1000;  % Convert to milliseconds
+        clear spectrum;  % Free memory
+    end
+    
+    %% Statistics
+    meanTime = mean(allTimes);
+    stdTime = std(allTimes);
+end

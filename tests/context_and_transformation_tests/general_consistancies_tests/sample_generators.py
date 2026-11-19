@@ -8,8 +8,8 @@ import numpy as np
 import torch
 
 import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "..", "..", "..")))
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 
 @dataclass(frozen=True)

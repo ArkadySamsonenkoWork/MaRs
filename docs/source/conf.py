@@ -46,7 +46,7 @@ autodoc_mock_imports = [
     "torchdiffeq",
     "safetensors",
     "pywt",
-    ""opt_einsum",
+    "opt_einsum",
     
     # Optional dependencies
     "optuna",
