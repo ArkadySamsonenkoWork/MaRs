@@ -53,8 +53,7 @@ def example_1(mesh_size: int = 40, r_tol: float = 1e-5, intensity_threshold: flo
     the same rhombic anisotropic interaction, whose principal axes are rotated
     relative to the molecular frame. No nuclei are included.
 
-    :param mesh_size: Initial frequency of the noninterpolated Delaunay
-        orientation grid.
+    :param mesh_size: .
     :param r_tol: Relative tolerance of the resonance-field solver.
     :param intensity_threshold: Threshold used to retain transition intensities.
     :param save_path: Destination for the EasySpin export. If None, no file
@@ -85,8 +84,7 @@ def example_2(mesh_size: int = 40, r_tol: float = 1e-5, intensity_threshold: flo
     are rotated relative to the molecular frame. Every distinct electron pair
     is coupled by isotropic exchange. No nuclei are included. 
 
-    :param mesh_size: Initial frequency of the noninterpolated Delaunay
-        orientation grid.
+    :param mesh_size: .
     :param r_tol: Relative tolerance of the resonance-field solver.
     :param intensity_threshold: Threshold used to retain transition intensities.
     :param save_path: Destination for the EasySpin export. If None, no file
@@ -119,8 +117,7 @@ def example_3(mesh_size: int = 40, r_tol: float = 1e-5, intensity_threshold: flo
     the same rhombic anisotropic interaction. The interaction principal axes
     are rotated relative to the molecular frame. No nuclei are included. 
 
-    :param mesh_size: Initial frequency of the noninterpolated Delaunay
-        orientation grid.
+    :param mesh_size: .
     :param r_tol: Relative tolerance of the resonance-field solver.
     :param intensity_threshold: Threshold used to retain transition intensities.
     :param save_path: Destination for the EasySpin export. If None, no file
@@ -154,8 +151,7 @@ def example_4(mesh_size: int = 40, r_tol: float = 1e-5, intensity_threshold: flo
     anisotropic interaction, with a distinct parameter set for each class.
     No nuclei are included. A
 
-    :param mesh_size: Initial frequency of the noninterpolated Delaunay
-        orientation grid.
+    :param mesh_size: .
     :param r_tol: Relative tolerance of the resonance-field solver.
     :param intensity_threshold: Threshold used to retain transition intensities.
     :param save_path: Destination for the EasySpin export. If None, no file
